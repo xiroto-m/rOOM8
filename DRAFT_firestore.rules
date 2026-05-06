@@ -1,0 +1,55 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // 0. Global Safety Net
+    match /{document=**} {
+      allow read, write: if false;
+    }
+
+    // --- HELPER FUNCTIONS ---
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    function isAdmin() {
+      return isSignedIn() && (
+        request.auth.token.email == "Hiroto.Mizutani@gmail.com" &&
+        request.auth.token.email_verified == true
+      );
+    }
+
+    function isValidId(id) {
+      return id is string && id.size() <= 128 && id.matches('^[a-zA-Z0-9_\\-]+$');
+    }
+
+    function incoming() {
+      return request.resource.data;
+    }
+
+    function existing() {
+      return resource.data;
+    }
+
+    // --- ENTITY VALIDATIONS ---
+    function isValidEventConfig(data) {
+      return data.keys().hasAll(['nextDate', 'nextTime', 'locationName', 'address', 'access', 'fee', 'googleMapEmbedUrl', 'updatedAt'])
+        && data.nextDate is string && data.nextDate.size() <= 100
+        && data.nextTime is string && data.nextTime.size() <= 100
+        && data.locationName is string && data.locationName.size() <= 200
+        && data.address is string && data.address.size() <= 300
+        && data.access is string && data.access.size() <= 300
+        && data.fee is string && data.fee.size() <= 100
+        && data.googleMapEmbedUrl is string && data.googleMapEmbedUrl.size() <= 1000
+        && data.updatedAt is timestamp;
+    }
+
+    // --- COLLECTION RULES ---
+    match /settings/{docId} {
+      allow read: if true; // Public settings
+      allow write: if isAdmin() 
+                   && isValidId(docId) 
+                   && docId == 'event_info'
+                   && isValidEventConfig(incoming());
+    }
+  }
+}

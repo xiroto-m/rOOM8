@@ -1,0 +1,41 @@
+{
+  "entities": {
+    "EventConfig": {
+      "title": "Event Configuration",
+      "description": "Configuration data for an event",
+      "type": "object",
+      "properties": {
+        "date": { "type": "string" },
+        "time": { "type": "string" },
+        "locationName": { "type": "string" },
+        "address": { "type": "string" },
+        "access": { "type": "string" },
+        "fee": { "type": "string" },
+        "googleMapEmbedUrl": { "type": "string" },
+        "status": { "type": "string", "enum": ["draft", "published"] },
+        "order": { "type": "number" },
+        "updatedAt": { "type": "string", "format": "date-time" }
+      },
+      "required": [
+        "date",
+        "time",
+        "locationName",
+        "address",
+        "access",
+        "fee",
+        "googleMapEmbedUrl",
+        "updatedAt"
+      ]
+    }
+  },
+  "firestore": {
+    "/settings/event_info": {
+      "schema": "EventConfig",
+      "description": "Legacy single document containing current event settings (fallback)"
+    },
+    "/events/{eventId}": {
+      "schema": "EventConfig",
+      "description": "Collection of upcoming events"
+    }
+  }
+}
