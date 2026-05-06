@@ -1,4 +1,4 @@
-import { ReactNode, useState, useEffect } from "react";
+import React, { ReactNode, useState, useEffect } from "react";
 import { HashRouter, Routes, Route, Link } from "react-router-dom";
 import { motion } from "motion/react";
 import { 
@@ -18,6 +18,7 @@ import { QRCodeSVG } from "qrcode.react";
 import { EVENT_INFO, SECTIONS } from "./constants";
 import AdminDashboard from "./components/AdminDashboard";
 import { db, EventItem } from "./lib/firebase";
+import { formatEventDate } from "./lib/dateUtils";
 import { doc, onSnapshot, collection, query, orderBy, getDocFromServer } from "firebase/firestore";
 
 // Test connection strictly mandated by instructions
@@ -49,9 +50,12 @@ const Card = ({ children, className = "" }: { children: ReactNode, className?: s
 
 // Error Boundary to prevent total site disappearance
 class ErrorBoundary extends React.Component<{ children: ReactNode }, { hasError: boolean, error: Error | null }> {
+  public state = { hasError: false, error: null as Error | null };
+  public props: { children: ReactNode };
+
   constructor(props: { children: ReactNode }) {
     super(props);
-    this.state = { hasError: false, error: null };
+    this.props = props;
   }
 
   static getDerivedStateFromError(error: Error) {
@@ -82,7 +86,7 @@ class ErrorBoundary extends React.Component<{ children: ReactNode }, { hasError:
         </div>
       );
     }
-    return this.props.children;
+    return (this.props as any).children;
   }
 }
 
@@ -193,20 +197,24 @@ function MainSite() {
             <div>
               <span className="text-xs md:text-sm font-black uppercase tracking-[0.3em] opacity-70">Next Event / 開催予定</span>
               <div className="mt-6 md:mt-10">
-                {heroEvent.date && String(heroEvent.date).includes('.') && String(heroEvent.date).split('.').length > 2 && (
-                  <span className="text-xl md:text-2xl font-black block mb-1 opacity-70 tracking-tighter">
-                    {String(heroEvent.date).split('.')[0]}
-                  </span>
-                )}
-                <h2 className="text-7xl md:text-8xl lg:text-9xl font-black leading-[0.75] tracking-[-0.08em]">
-                  {heroEvent.date && String(heroEvent.date).includes('(') 
-                    ? (String(heroEvent.date).split(' (')[0].includes('.') ? String(heroEvent.date).split(' (')[0].split('.').slice(-2).join('.') : String(heroEvent.date).split(' (')[0])
-                    : (heroEvent.date && String(heroEvent.date).includes('.') ? String(heroEvent.date).split('.').slice(-2).join('.') : (String(heroEvent.date || '')))
-                  }
-                </h2>
-                <span className="text-2xl md:text-3xl lg:text-4xl font-black block mt-6 md:mt-8 tracking-tighter decoration-artistic-accent underline underline-offset-8">
-                  {heroEvent.date && String(heroEvent.date).includes('(') ? String(heroEvent.date).split(' (')[1].replace(')', '') : ''} {heroEvent.time}
-                </span>
+                {(() => {
+                  const { year, monthDay, dayOfWeek } = formatEventDate(heroEvent.date);
+                  return (
+                    <>
+                      {year && (
+                        <span className="text-xl md:text-2xl font-black block mb-1 opacity-70 tracking-tighter">
+                          {year}
+                        </span>
+                      )}
+                      <h2 className="text-7xl md:text-8xl lg:text-9xl font-black leading-[0.75] tracking-[-0.08em]">
+                        {monthDay}
+                      </h2>
+                      <span className="text-2xl md:text-3xl lg:text-4xl font-black block mt-6 md:mt-8 tracking-tighter decoration-artistic-accent underline underline-offset-8">
+                        {dayOfWeek && dayOfWeek !== '' ? `${dayOfWeek} ` : ''}{heroEvent.time}
+                      </span>
+                    </>
+                  );
+                })()}
               </div>
             </div>
             <div className="mt-12 md:mt-20 space-y-4 md:space-y-6">

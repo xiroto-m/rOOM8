@@ -27,6 +27,7 @@ import {
   serverTimestamp 
 } from 'firebase/firestore';
 import { EVENT_INFO } from '../constants';
+import { formatEventDate } from '../lib/dateUtils';
 import { Link } from 'react-router-dom';
 import { LogIn, LogOut, Save, AlertCircle, CheckCircle, ArrowLeft, ArrowUp, ArrowDown, Plus, Trash2, Edit2, Calendar, Settings, Copy } from 'lucide-react';
 
@@ -365,17 +366,21 @@ export default function AdminDashboard() {
                     <div className="flex flex-wrap items-center gap-2 mb-1">
                       {index === 0 && <span className="bg-artistic-pink text-white px-2 py-0.5 rounded-lg text-[10px] font-black uppercase shadow-sm">Main Display</span>}
                       <div className="flex flex-col">
-                        {event.date && String(event.date).includes('.') && String(event.date).split('.').length > 2 && (
-                          <span className="text-[10px] font-black opacity-40 leading-none mb-0.5">
-                            {String(event.date).split('.')[0]}
-                          </span>
-                        )}
-                        <span className="text-xl md:text-2xl font-black tracking-tight leading-none">
-                          {event.date && String(event.date).includes('(') 
-                            ? (String(event.date).split(' (')[0].includes('.') ? String(event.date).split(' (')[0].split('.').slice(-2).join('.') : String(event.date).split(' (')[0])
-                            : (event.date && String(event.date).includes('.') ? String(event.date).split('.').slice(-2).join('.') : (String(event.date || '')))
-                          }
-                        </span>
+                        {(() => {
+                           const { year, monthDay, dayOfWeek } = formatEventDate(event.date);
+                           return (
+                             <>
+                               {year && (
+                                 <span className="text-[10px] font-black opacity-40 leading-none mb-0.5">
+                                   {year}
+                                 </span>
+                               )}
+                               <span className="text-xl md:text-2xl font-black tracking-tight leading-none">
+                                 {monthDay} {dayOfWeek ? `(${dayOfWeek})` : ''}
+                               </span>
+                             </>
+                           );
+                        })()}
                       </div>
                       <span className="bg-artistic-accent/40 px-2 py-0.5 rounded-lg text-xs font-black uppercase">{event.time}</span>
                     </div>
