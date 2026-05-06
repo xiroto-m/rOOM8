@@ -50,6 +50,16 @@ const EventEditModal = ({ event, onSave, onClose, saving }: { event: EventItem, 
         </div>
         
         <form onSubmit={handleSubmit} className="p-8 space-y-6 overflow-y-auto">
+          <div className="space-y-2">
+            <label className="text-xs font-black uppercase opacity-60">タイトル (任意)</label>
+            <input 
+              type="text" 
+              value={formData.title || ''} 
+              onChange={e => setFormData({...formData, title: e.target.value})}
+              className="w-full border-2 border-artistic-text p-3 rounded-xl font-bold outline-none"
+              placeholder="イベントのタイトル"
+            />
+          </div>
           <div className="grid md:grid-cols-2 gap-6">
             <div className="space-y-2">
               <label className="text-xs font-black uppercase opacity-60">開催日 (例: 2026.05.25 (月))</label>
@@ -352,6 +362,7 @@ export default function AdminDashboard() {
       date: event.date + ' (コピー)',
       time: event.time,
       locationName: event.locationName,
+      title: event.title || '',
       address: event.address,
       access: event.access,
       fee: event.fee,
@@ -369,6 +380,7 @@ export default function AdminDashboard() {
       date: '',
       time: '13:00〜',
       locationName: EVENT_INFO.locationName,
+      title: '',
       address: EVENT_INFO.address,
       access: EVENT_INFO.access,
       fee: EVENT_INFO.fee,
@@ -539,6 +551,9 @@ export default function AdminDashboard() {
                         <span className="bg-green-100 text-green-700 px-2 py-0.5 rounded-lg text-xs font-black uppercase border border-green-300">公開中</span>
                       )}
                     </div>
+                    {event.title && (
+                      <p className="font-black text-lg md:text-xl mb-1">{event.title}</p>
+                    )}
                     <p className="font-bold text-sm opacity-60 flex items-center gap-1">
                       <Calendar size={12} /> {event.locationName}
                     </p>

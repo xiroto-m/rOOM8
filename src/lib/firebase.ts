@@ -19,6 +19,7 @@ export interface EventItem {
   googleMapEmbedUrl: string;
   facebookEventUrl?: string; // Add Facebook Event URL
   description?: string;      // Add Description
+  title?: string;            // Add Title
   order: number;
   isPublished?: boolean;     // Add Draft/Publish status
   updatedAt?: any;

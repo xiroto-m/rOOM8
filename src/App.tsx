@@ -201,6 +201,11 @@ function MainSite() {
                   const { year, monthDay, dayOfWeek } = formatEventDate(heroEvent.date);
                   return (
                     <>
+                      {heroEvent.title && (
+                        <span className="bg-white text-artistic-primary text-sm md:text-base px-3 py-1 rounded-xl font-black mb-4 inline-block shadow-sm">
+                          {heroEvent.title}
+                        </span>
+                      )}
                       {year && (
                         <span className="text-xl md:text-2xl font-black block mb-1 opacity-70 tracking-tighter">
                           {year}
@@ -306,6 +311,9 @@ function MainSite() {
                    </div>
                    <div className="text-xs font-black uppercase opacity-40">{ev.time}</div>
                 </div>
+                {ev.title && (
+                  <p className="font-black text-lg mb-2">{ev.title}</p>
+                )}
                 <p className="font-bold mb-2">{ev.locationName}</p>
                 <p className="text-xs opacity-60 font-medium leading-relaxed mb-4">{ev.access}</p>
                 {ev.description && (
