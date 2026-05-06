@@ -351,15 +351,15 @@ export default function AdminDashboard() {
                     <div className="flex flex-wrap items-center gap-2 mb-1">
                       {index === 0 && <span className="bg-artistic-pink text-white px-2 py-0.5 rounded-lg text-[10px] font-black uppercase shadow-sm">Main Display</span>}
                       <div className="flex flex-col">
-                        {event.date.includes('.') && event.date.split('.').length > 2 && (
+                        {event.date && event.date.includes('.') && event.date.split('.').length > 2 && (
                           <span className="text-[10px] font-black opacity-40 leading-none mb-0.5">
                             {event.date.split('.')[0]}
                           </span>
                         )}
                         <span className="text-xl md:text-2xl font-black tracking-tight leading-none">
-                          {event.date.includes('(') 
+                          {event.date && event.date.includes('(') 
                             ? (event.date.split(' (')[0].includes('.') ? event.date.split(' (')[0].split('.').slice(-2).join('.') : event.date.split(' (')[0])
-                            : (event.date.includes('.') ? event.date.split('.').slice(-2).join('.') : event.date)
+                            : (event.date && event.date.includes('.') ? event.date.split('.').slice(-2).join('.') : (event.date || ''))
                           }
                         </span>
                       </div>

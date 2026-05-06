@@ -140,19 +140,19 @@ function MainSite() {
             <div>
               <span className="text-xs md:text-sm font-black uppercase tracking-[0.3em] opacity-70">Next Event / 開催予定</span>
               <div className="mt-6 md:mt-10">
-                {heroEvent.date.includes('.') && heroEvent.date.split('.').length > 2 && (
+                {heroEvent.date && heroEvent.date.includes('.') && heroEvent.date.split('.').length > 2 && (
                   <span className="text-xl md:text-2xl font-black block mb-1 opacity-70 tracking-tighter">
                     {heroEvent.date.split('.')[0]}
                   </span>
                 )}
                 <h2 className="text-7xl md:text-8xl lg:text-9xl font-black leading-[0.75] tracking-[-0.08em]">
-                  {heroEvent.date.includes('(') 
+                  {heroEvent.date && heroEvent.date.includes('(') 
                     ? (heroEvent.date.split(' (')[0].includes('.') ? heroEvent.date.split(' (')[0].split('.').slice(-2).join('.') : heroEvent.date.split(' (')[0])
-                    : (heroEvent.date.includes('.') ? heroEvent.date.split('.').slice(-2).join('.') : heroEvent.date)
+                    : (heroEvent.date && heroEvent.date.includes('.') ? heroEvent.date.split('.').slice(-2).join('.') : (heroEvent.date || ''))
                   }
                 </h2>
                 <span className="text-2xl md:text-3xl lg:text-4xl font-black block mt-6 md:mt-8 tracking-tighter decoration-artistic-accent underline underline-offset-8">
-                  {heroEvent.date.includes('(') ? heroEvent.date.split(' (')[1].replace(')', '') : ''} {heroEvent.time}
+                  {heroEvent.date && heroEvent.date.includes('(') ? heroEvent.date.split(' (')[1].replace(')', '') : ''} {heroEvent.time}
                 </span>
               </div>
             </div>
