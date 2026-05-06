@@ -32,7 +32,7 @@ service cloud.firestore {
 
     // --- ENTITY VALIDATIONS ---
     function isValidEventConfig(data) {
-      return data.keys().hasAll(['nextDate', 'nextTime', 'locationName', 'address', 'access', 'fee', 'googleMapEmbedUrl', 'updatedAt'])
+      return data.keys().hasAll(['nextDate', 'nextTime', 'locationName', 'address', 'access', 'fee', 'googleMapEmbedUrl', 'order', 'updatedAt'])
         && data.nextDate is string && data.nextDate.size() <= 100
         && data.nextTime is string && data.nextTime.size() <= 100
         && data.locationName is string && data.locationName.size() <= 200
@@ -40,6 +40,7 @@ service cloud.firestore {
         && data.access is string && data.access.size() <= 300
         && data.fee is string && data.fee.size() <= 100
         && data.googleMapEmbedUrl is string && data.googleMapEmbedUrl.size() <= 1000
+        && data.order is number
         && data.updatedAt is timestamp;
     }
 

@@ -56,11 +56,10 @@ function MainSite() {
   useEffect(() => {
     // Listen to events collection
     const eventsRef = collection(db, 'events');
-    const q = query(eventsRef, orderBy('updatedAt', 'desc'));
-    const unsubEvents = onSnapshot(q, (snapshot) => {
+    const unsubEvents = onSnapshot(eventsRef, (snapshot) => {
       const items = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as EventItem));
-      // In a real app we'd sort by date properly, but for now we'll just show what's there
-      setEvents(items);
+      const sortedEvents = items.sort((a, b) => (a.order || 0) - (b.order || 0));
+      setEvents(sortedEvents);
     });
 
     // Listen to global settings
@@ -130,8 +129,25 @@ function MainSite() {
           <div className="mt-8 md:mt-12 space-y-3 md:space-y-4">
             <p className="text-xl md:text-2xl font-black leading-tight">{heroEvent.locationName}</p>
             <p className="text-[12px] md:text-sm font-medium opacity-90">{heroEvent.access}</p>
-            <div className="bg-white/20 p-4 rounded-xl md:rounded-2xl border border-white/30 backdrop-blur-sm">
-              <p className="text-sm md:text-base font-bold italic">💰 {heroEvent.fee} <br />※19歳以下・お子様無料 🌟</p>
+            
+            {heroEvent.description && (
+              <div className="bg-white/10 p-4 rounded-xl border border-white/20 whitespace-pre-wrap text-sm leading-relaxed">
+                {heroEvent.description}
+              </div>
+            )}
+            
+            <div className="bg-white/20 p-4 rounded-xl md:rounded-2xl border border-white/30 backdrop-blur-sm flex flex-wrap items-center justify-between gap-4">
+              <p className="text-sm md:text-base font-bold italic">💰 {heroEvent.fee}</p>
+              {heroEvent.facebookEventUrl && (
+                <a 
+                  href={heroEvent.facebookEventUrl}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="bg-[#1877F2] text-white px-4 py-2 rounded-xl text-xs font-bold hover:opacity-90 transition-opacity"
+                >
+                  Facebook Event
+                </a>
+              )}
             </div>
           </div>
         </motion.div>
@@ -195,7 +211,25 @@ function MainSite() {
                    <div className="text-xs font-black uppercase opacity-40">{ev.time}</div>
                 </div>
                 <p className="font-bold mb-2">{ev.locationName}</p>
-                <p className="text-xs opacity-60 font-medium leading-relaxed">{ev.access}</p>
+                <p className="text-xs opacity-60 font-medium leading-relaxed mb-4">{ev.access}</p>
+                {ev.description && (
+                  <p className="text-xs mb-4 p-3 bg-stone-100 rounded-xl leading-relaxed whitespace-pre-wrap">
+                    {ev.description}
+                  </p>
+                )}
+                <div className="flex flex-wrap items-center justify-between gap-2 mt-4 pt-4 border-t-2 border-dashed border-gray-200">
+                  <p className="text-xs font-bold text-gray-500">💰 {ev.fee}</p>
+                  {ev.facebookEventUrl && (
+                    <a 
+                      href={ev.facebookEventUrl}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="bg-[#1877F2] text-white px-3 py-1.5 rounded-lg text-[10px] font-bold hover:opacity-90 transition-opacity"
+                    >
+                      FBイベント
+                    </a>
+                  )}
+                </div>
               </motion.div>
             ))}
           </div>
@@ -256,7 +290,7 @@ function MainSite() {
             width="100%" 
             height="100%" 
             title="Google Maps"
-            style={{ border: 0, filter: 'grayscale(1) contrast(1.2)' }} 
+            style={{ border: 0 }} 
             allowFullScreen={false} 
             loading="lazy" 
             referrerPolicy="no-referrer-when-downgrade"

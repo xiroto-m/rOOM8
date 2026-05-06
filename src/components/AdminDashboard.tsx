@@ -28,7 +28,7 @@ import {
 } from 'firebase/firestore';
 import { EVENT_INFO } from '../constants';
 import { Link } from 'react-router-dom';
-import { LogIn, LogOut, Save, AlertCircle, CheckCircle, ArrowLeft, Plus, Trash2, Edit2, Calendar, Settings } from 'lucide-react';
+import { LogIn, LogOut, Save, AlertCircle, CheckCircle, ArrowLeft, ArrowUp, ArrowDown, Plus, Trash2, Edit2, Calendar, Settings, Copy } from 'lucide-react';
 
 const ADMIN_EMAILS = ["hiroto.mizutani@gmail.com", "taku448@gmail.com"];
 
@@ -42,6 +42,7 @@ export default function AdminDashboard() {
     contactEmail: EVENT_INFO.contactEmail
   });
   const [editingEvent, setEditingEvent] = useState<EventItem | null>(null);
+  const [deletingEventId, setDeletingEventId] = useState<string | null>(null);
   const [status, setStatus] = useState<{ type: 'success' | 'error' | null, message: string }>({ type: null, message: '' });
   const [saving, setSaving] = useState(false);
 
@@ -71,10 +72,11 @@ export default function AdminDashboard() {
     try {
       // Fetch events
       const eventsRef = collection(db, 'events');
-      const q = query(eventsRef, orderBy('updatedAt', 'desc'));
-      const querySnapshot = await getDocs(q);
+      const querySnapshot = await getDocs(eventsRef);
       const eventsList = querySnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as EventItem));
-      setEvents(eventsList);
+      // Sort by order asc, fallback to 0 if undefined
+      const sortedEvents = eventsList.sort((a, b) => (a.order || 0) - (b.order || 0));
+      setEvents(sortedEvents);
 
       // Fetch global settings
       const settingsRef = doc(db, 'settings', 'global');
@@ -109,8 +111,10 @@ export default function AdminDashboard() {
     setStatus({ type: null, message: '' });
 
     try {
+      const currentOrder = editingEvent.order || (events.length > 0 ? Math.max(...events.map(e => e.order || 0)) + 1 : 1);
       const data = {
         ...editingEvent,
+        order: currentOrder,
         updatedAt: serverTimestamp()
       };
       delete (data as any).id;
@@ -133,16 +137,108 @@ export default function AdminDashboard() {
   };
 
   const handleDeleteEvent = async (id: string) => {
-    if (!window.confirm('このイベントを削除してもよろしいですか？')) return;
+    setSaving(true);
+    setStatus({ type: null, message: '' });
     try {
       await deleteDoc(doc(db, 'events', id));
+      await fetchData();
+      setStatus({ type: 'success', message: 'イベントを削除しました。' });
+      setTimeout(() => setStatus({ type: null, message: '' }), 3000);
+    } catch (err) {
+      console.error(err);
+      setStatus({ type: 'error', message: '削除に失敗しました。権限を確認してください。' });
+      try {
+        handleFirestoreError(err, OperationType.DELETE, `events/${id}`);
+      } catch (e) {}
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const moveEventOrder = async (index: number, direction: 'up' | 'down') => {
+    if (direction === 'up' && index === 0) return;
+    if (direction === 'down' && index === events.length - 1) return;
+
+    const newEvents = [...events];
+    const targetIndex = direction === 'up' ? index - 1 : index + 1;
+    
+    // Swap in array
+    [newEvents[index], newEvents[targetIndex]] = [newEvents[targetIndex], newEvents[index]];
+
+    setSaving(true);
+    try {
+      // Re-assign explicit orders top-to-bottom for safety
+      await Promise.all(newEvents.map((evt, i) => {
+        if (evt.id) {
+          return setDoc(doc(db, 'events', evt.id), { ...evt, order: i + 1, updatedAt: serverTimestamp() });
+        }
+        return Promise.resolve();
+      }));
       fetchData();
     } catch (err) {
-      handleFirestoreError(err, OperationType.DELETE, `events/${id}`);
+      handleFirestoreError(err, OperationType.WRITE, 'events');
+      setStatus({ type: 'error', message: '並び替えに失敗しました。' });
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const duplicateEvent = (event: EventItem) => {
+    const nextOrder = events.length > 0 ? Math.max(...events.map(e => e.order || 0)) + 1 : 1;
+    setEditingEvent({
+      date: event.date + ' (コピー)',
+      time: event.time,
+      locationName: event.locationName,
+      address: event.address,
+      access: event.access,
+      fee: event.fee,
+      googleMapEmbedUrl: event.googleMapEmbedUrl,
+      facebookEventUrl: event.facebookEventUrl || '',
+      description: event.description || '',
+      order: nextOrder
+    });
+  };
+
+  const initializeDummyEvents = async () => {
+    setSaving(true);
+    setStatus({ type: null, message: '' });
+    
+    // Future dates
+    const futureEvents = [
+      { date: "06.15 (日)", time: "14:00〜", locationName: "東京ミッドタウン", address: "東京都港区赤坂9-7-1", access: "六本木駅直結", fee: "1,500円", googleMapEmbedUrl: EVENT_INFO.googleMapEmbedUrl },
+      { date: "07.20 (土)", time: "10:00〜", locationName: "代々木公園", address: "東京都渋谷区代々木神園町2-1", access: "原宿駅徒歩3分", fee: "無料", googleMapEmbedUrl: EVENT_INFO.googleMapEmbedUrl },
+      { date: "08.05 (日)", time: "18:00〜", locationName: "豊洲PIT", address: "東京都江東区豊洲6-1-23", access: "新豊洲駅徒歩3分", fee: "3,000円", googleMapEmbedUrl: EVENT_INFO.googleMapEmbedUrl },
+    ];
+    // Past dates
+    const pastEvents = [
+      { date: "04.15 (土)", time: "13:00〜", locationName: "渋谷ヒカリエ", address: "東京都渋谷区渋谷2-21-1", access: "渋谷駅直結", fee: "1,000円", googleMapEmbedUrl: EVENT_INFO.googleMapEmbedUrl },
+      { date: "03.10 (日)", time: "11:00〜", locationName: "新宿御苑", address: "東京都新宿区内藤町11", access: "新宿御苑前駅徒歩5分", fee: "500円", googleMapEmbedUrl: EVENT_INFO.googleMapEmbedUrl },
+      { date: "02.01 (土)", time: "15:00〜", locationName: "池袋サンシャインシティ", address: "東京都豊島区東池袋3-1", access: "東池袋駅徒歩3分", fee: "1,000円", googleMapEmbedUrl: EVENT_INFO.googleMapEmbedUrl },
+    ];
+
+    try {
+      const allDummies = [...futureEvents, ...pastEvents];
+      
+      let order = 1;
+      for (const e of allDummies) {
+        await addDoc(collection(db, 'events'), {
+          ...e,
+          order: order++,
+          updatedAt: serverTimestamp()
+        });
+      }
+      setStatus({ type: 'success', message: '初期データをセットアップしました。' });
+      fetchData();
+    } catch (err) {
+      handleFirestoreError(err, OperationType.WRITE, 'events');
+      setStatus({ type: 'error', message: 'セットアップに失敗しました。' });
+    } finally {
+      setSaving(false);
     }
   };
 
   const startNewEvent = () => {
+    const nextOrder = events.length > 0 ? Math.max(...events.map(e => e.order || 0)) + 1 : 1;
     setEditingEvent({
       date: '',
       time: '13:00〜',
@@ -150,7 +246,8 @@ export default function AdminDashboard() {
       address: EVENT_INFO.address,
       access: EVENT_INFO.access,
       fee: EVENT_INFO.fee,
-      googleMapEmbedUrl: EVENT_INFO.googleMapEmbedUrl
+      googleMapEmbedUrl: EVENT_INFO.googleMapEmbedUrl,
+      order: nextOrder
     });
   };
 
@@ -250,40 +347,71 @@ export default function AdminDashboard() {
         <div className="mb-12">
           <div className="flex justify-between items-center mb-6">
             <h2 className="text-2xl font-black flex items-center gap-2">
-              <Calendar size={24} className="text-artistic-pink" /> Scheduled Events
+              <Calendar size={24} className="text-artistic-pink" /> イベント管理
             </h2>
-            <button 
-              onClick={startNewEvent}
-              className="bg-artistic-primary text-white h-12 w-12 rounded-full flex items-center justify-center border-2 border-artistic-text shadow-[4px_4px_0px_0px_rgba(42,42,42,1)] hover:scale-105 transition-transform"
-            >
-              <Plus size={24} />
-            </button>
+            <div className="flex gap-2">
+              <button 
+                onClick={startNewEvent}
+                className="bg-artistic-primary text-white h-12 w-12 rounded-full flex items-center justify-center border-2 border-artistic-text shadow-[4px_4px_0px_0px_rgba(42,42,42,1)] hover:scale-105 transition-transform"
+              >
+                <Plus size={24} />
+              </button>
+            </div>
           </div>
 
           <div className="space-y-4">
             {events.length === 0 && (
-              <div className="bg-white border-2 border-dashed border-artistic-text p-12 text-center rounded-[2rem] opacity-60 font-black">
-                予定されているイベントはありません
+              <div className="bg-white border-2 border-dashed border-artistic-text p-12 text-center rounded-[2rem] flex flex-col items-center justify-center gap-6">
+                <p className="opacity-60 font-black text-lg">予定されているイベントはありません</p>
+                <button 
+                  onClick={initializeDummyEvents}
+                  disabled={saving}
+                  className="bg-artistic-primary text-white px-6 py-3 rounded-xl border-2 border-artistic-text shadow-[4px_4px_0px_0px_rgba(42,42,42,1)] hover:scale-105 transition-transform font-black disabled:opacity-50"
+                >
+                  初期デモデータ（6件）をセットアップ
+                </button>
               </div>
             )}
-            {events.map(event => (
-              <div key={event.id} className="bg-white border-4 border-artistic-text p-6 rounded-[1.5rem] shadow-[6px_6px_0px_0px_rgba(42,42,42,1)] flex flex-col md:flex-row justify-between md:items-center gap-4">
-                <div>
-                  <div className="flex items-center gap-2 mb-1">
-                    <span className="text-2xl font-black">{event.date}</span>
-                    <span className="bg-artistic-accent px-2 py-0.5 rounded-lg text-xs font-black uppercase">{event.time}</span>
+            {events.map((event, index) => (
+              <div key={event.id} className={`bg-white border-4 border-artistic-text p-6 rounded-[1.5rem] shadow-[6px_6px_0px_0px_rgba(42,42,42,1)] flex flex-col md:flex-row justify-between md:items-center gap-4 ${index === 0 ? 'ring-4 ring-artistic-primary bg-artistic-accent/10' : ''}`}>
+                <div className="flex items-center gap-4">
+                  <div className="flex flex-col gap-1 items-center bg-gray-100 p-2 rounded-xl border-2 border-artistic-text">
+                    <button onClick={() => moveEventOrder(index, 'up')} disabled={index === 0} className="hover:text-artistic-primary disabled:opacity-30 disabled:hover:text-black">
+                      <ArrowUp size={20} />
+                    </button>
+                    <span className="font-black text-sm">{index + 1}</span>
+                    <button onClick={() => moveEventOrder(index, 'down')} disabled={index === events.length - 1} className="hover:text-artistic-primary disabled:opacity-30 disabled:hover:text-black">
+                      <ArrowDown size={20} />
+                    </button>
                   </div>
-                  <p className="font-bold opacity-70">{event.locationName}</p>
+                  <div>
+                    <div className="flex items-center gap-2 mb-1">
+                      {index === 0 && <span className="bg-artistic-pink text-white px-2 py-0.5 rounded-lg text-xs font-black uppercase shadow-sm">TOP表示</span>}
+                      <span className="text-2xl font-black">{event.date}</span>
+                      <span className="bg-artistic-accent px-2 py-0.5 rounded-lg text-xs font-black uppercase">{event.time}</span>
+                    </div>
+                    <p className="font-bold opacity-70">{event.locationName}</p>
+                  </div>
                 </div>
-                <div className="flex gap-2">
+                <div className="flex gap-2 flex-wrap justify-end">
+                  <button 
+                    onClick={() => duplicateEvent(event)}
+                    title="イベントをコピーして新規作成"
+                    className="px-4 py-3 border-2 border-artistic-text rounded-xl hover:bg-artistic-green hover:text-white transition-colors flex items-center gap-2"
+                  >
+                    <Copy size={18} />
+                    <span className="font-bold text-sm">複製</span>
+                  </button>
                   <button 
                     onClick={() => setEditingEvent(event)}
+                    title="イベントを編集"
                     className="p-3 border-2 border-artistic-text rounded-xl hover:bg-artistic-blue transition-colors"
                   >
                     <Edit2 size={20} />
                   </button>
                   <button 
-                    onClick={() => event.id && handleDeleteEvent(event.id)}
+                    onClick={() => event.id && setDeletingEventId(event.id)}
+                    title="イベントを削除"
                     className="p-3 border-2 border-artistic-text rounded-xl hover:bg-artistic-pink hover:text-white transition-colors"
                   >
                     <Trash2 size={20} />
@@ -380,6 +508,28 @@ export default function AdminDashboard() {
                   />
                 </div>
 
+                <div className="space-y-2">
+                  <label className="text-xs font-black uppercase opacity-60">Facebookイベントページ URL (任意)</label>
+                  <input 
+                    type="url" 
+                    value={editingEvent.facebookEventUrl || ''} 
+                    onChange={e => setEditingEvent({...editingEvent, facebookEventUrl: e.target.value})}
+                    className="w-full border-2 border-artistic-text p-3 rounded-xl font-bold outline-none"
+                    placeholder="https://www.facebook.com/events/..."
+                  />
+                </div>
+
+                <div className="space-y-2">
+                  <label className="text-xs font-black uppercase opacity-60">イベント概要 (任意)</label>
+                  <textarea 
+                    rows={4}
+                    value={editingEvent.description || ''} 
+                    onChange={e => setEditingEvent({...editingEvent, description: e.target.value})}
+                    className="w-full border-2 border-artistic-text p-3 rounded-xl font-bold outline-none"
+                    placeholder="イベントの概要を入力してください"
+                  />
+                </div>
+
                 <div className="pt-4 flex gap-4">
                   <button 
                     type="submit" 
@@ -401,6 +551,41 @@ export default function AdminDashboard() {
             </div>
           </div>
         )}
+        {/* Deleting Modal */}
+        {deletingEventId && (
+          <div className="fixed inset-0 bg-neutral-900/50 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+            <div className="bg-white border-4 border-artistic-text rounded-[2rem] shadow-[12px_12px_0px_0px_rgba(42,42,42,1)] w-full max-w-md overflow-hidden">
+              <div className="p-8 border-b-4 border-artistic-text bg-artistic-pink/20">
+                <h3 className="text-2xl font-black text-artistic-text">イベントを削除</h3>
+              </div>
+              <div className="p-8 space-y-6">
+                <p className="font-bold text-lg">このイベントを削除してもよろしいですか？</p>
+                <p className="text-sm opacity-70">※この操作は取り消せません。</p>
+                <div className="pt-4 flex gap-4">
+                  <button 
+                    onClick={() => {
+                      handleDeleteEvent(deletingEventId);
+                      setDeletingEventId(null);
+                    }}
+                    disabled={saving}
+                    className="flex-1 bg-artistic-pink text-white font-black py-4 rounded-xl flex items-center justify-center gap-3 hover:opacity-90 disabled:opacity-50"
+                  >
+                    <Trash2 size={20} />
+                    {saving ? '削除中...' : '削除する'}
+                  </button>
+                  <button 
+                    onClick={() => setDeletingEventId(null)}
+                    disabled={saving}
+                    className="px-8 border-2 border-artistic-text font-black rounded-xl hover:bg-neutral-100"
+                  >
+                    キャンセル
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
+
       </div>
     </div>
   );

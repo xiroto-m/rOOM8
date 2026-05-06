@@ -17,6 +17,9 @@ export interface EventItem {
   access: string;
   fee: string;
   googleMapEmbedUrl: string;
+  facebookEventUrl?: string; // Add Facebook Event URL
+  description?: string;      // Add Description
+  order: number;
   updatedAt?: any;
 }
 
