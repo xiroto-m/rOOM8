@@ -199,44 +199,6 @@ export default function AdminDashboard() {
     });
   };
 
-  const initializeDummyEvents = async () => {
-    setSaving(true);
-    setStatus({ type: null, message: '' });
-    
-    // Future dates
-    const futureEvents = [
-      { date: "06.15 (日)", time: "14:00〜", locationName: "東京ミッドタウン", address: "東京都港区赤坂9-7-1", access: "六本木駅直結", fee: "1,500円", googleMapEmbedUrl: EVENT_INFO.googleMapEmbedUrl },
-      { date: "07.20 (土)", time: "10:00〜", locationName: "代々木公園", address: "東京都渋谷区代々木神園町2-1", access: "原宿駅徒歩3分", fee: "無料", googleMapEmbedUrl: EVENT_INFO.googleMapEmbedUrl },
-      { date: "08.05 (日)", time: "18:00〜", locationName: "豊洲PIT", address: "東京都江東区豊洲6-1-23", access: "新豊洲駅徒歩3分", fee: "3,000円", googleMapEmbedUrl: EVENT_INFO.googleMapEmbedUrl },
-    ];
-    // Past dates
-    const pastEvents = [
-      { date: "04.15 (土)", time: "13:00〜", locationName: "渋谷ヒカリエ", address: "東京都渋谷区渋谷2-21-1", access: "渋谷駅直結", fee: "1,000円", googleMapEmbedUrl: EVENT_INFO.googleMapEmbedUrl },
-      { date: "03.10 (日)", time: "11:00〜", locationName: "新宿御苑", address: "東京都新宿区内藤町11", access: "新宿御苑前駅徒歩5分", fee: "500円", googleMapEmbedUrl: EVENT_INFO.googleMapEmbedUrl },
-      { date: "02.01 (土)", time: "15:00〜", locationName: "池袋サンシャインシティ", address: "東京都豊島区東池袋3-1", access: "東池袋駅徒歩3分", fee: "1,000円", googleMapEmbedUrl: EVENT_INFO.googleMapEmbedUrl },
-    ];
-
-    try {
-      const allDummies = [...futureEvents, ...pastEvents];
-      
-      let order = 1;
-      for (const e of allDummies) {
-        await addDoc(collection(db, 'events'), {
-          ...e,
-          order: order++,
-          updatedAt: serverTimestamp()
-        });
-      }
-      setStatus({ type: 'success', message: '初期データをセットアップしました。' });
-      fetchData();
-    } catch (err) {
-      handleFirestoreError(err, OperationType.WRITE, 'events');
-      setStatus({ type: 'error', message: 'セットアップに失敗しました。' });
-    } finally {
-      setSaving(false);
-    }
-  };
-
   const startNewEvent = () => {
     const nextOrder = events.length > 0 ? Math.max(...events.map(e => e.order || 0)) + 1 : 1;
     setEditingEvent({
@@ -363,58 +325,70 @@ export default function AdminDashboard() {
             {events.length === 0 && (
               <div className="bg-white border-2 border-dashed border-artistic-text p-12 text-center rounded-[2rem] flex flex-col items-center justify-center gap-6">
                 <p className="opacity-60 font-black text-lg">予定されているイベントはありません</p>
-                <button 
-                  onClick={initializeDummyEvents}
-                  disabled={saving}
-                  className="bg-artistic-primary text-white px-6 py-3 rounded-xl border-2 border-artistic-text shadow-[4px_4px_0px_0px_rgba(42,42,42,1)] hover:scale-105 transition-transform font-black disabled:opacity-50"
-                >
-                  初期デモデータ（6件）をセットアップ
-                </button>
               </div>
             )}
             {events.map((event, index) => (
-              <div key={event.id} className={`bg-white border-4 border-artistic-text p-6 rounded-[1.5rem] shadow-[6px_6px_0px_0px_rgba(42,42,42,1)] flex flex-col md:flex-row justify-between md:items-center gap-4 ${index === 0 ? 'ring-4 ring-artistic-primary bg-artistic-accent/10' : ''}`}>
-                <div className="flex items-center gap-4">
-                  <div className="flex flex-col gap-1 items-center bg-gray-100 p-2 rounded-xl border-2 border-artistic-text">
-                    <button onClick={() => moveEventOrder(index, 'up')} disabled={index === 0} className="hover:text-artistic-primary disabled:opacity-30 disabled:hover:text-black">
+              <div key={event.id} className={`bg-white border-4 border-artistic-text p-6 rounded-[1.5rem] shadow-[6px_6px_0px_0px_rgba(42,42,42,1)] flex flex-col md:flex-row justify-between md:items-center gap-4 group hover:shadow-[10px_10px_0px_0px_rgba(42,42,42,1)] transition-all ${index === 0 ? 'ring-4 ring-artistic-primary bg-artistic-accent/5' : ''}`}>
+                <div className="flex items-center gap-4 flex-1">
+                  <div className="flex flex-col gap-1 items-center bg-gray-50 p-2 rounded-xl border-2 border-artistic-text">
+                    <button 
+                      onClick={() => moveEventOrder(index, 'up')} 
+                      disabled={index === 0 || saving} 
+                      className="hover:text-artistic-primary disabled:opacity-20 transition-colors"
+                    >
                       <ArrowUp size={20} />
                     </button>
                     <span className="font-black text-sm">{index + 1}</span>
-                    <button onClick={() => moveEventOrder(index, 'down')} disabled={index === events.length - 1} className="hover:text-artistic-primary disabled:opacity-30 disabled:hover:text-black">
+                    <button 
+                      onClick={() => moveEventOrder(index, 'down')} 
+                      disabled={index === events.length - 1 || saving} 
+                      className="hover:text-artistic-primary disabled:opacity-20 transition-colors"
+                    >
                       <ArrowDown size={20} />
                     </button>
                   </div>
-                  <div>
-                    <div className="flex items-center gap-2 mb-1">
-                      {index === 0 && <span className="bg-artistic-pink text-white px-2 py-0.5 rounded-lg text-xs font-black uppercase shadow-sm">TOP表示</span>}
-                      <span className="text-2xl font-black">{event.date}</span>
-                      <span className="bg-artistic-accent px-2 py-0.5 rounded-lg text-xs font-black uppercase">{event.time}</span>
+                  <div className="flex-1">
+                    <div className="flex flex-wrap items-center gap-2 mb-1">
+                      {index === 0 && <span className="bg-artistic-pink text-white px-2 py-0.5 rounded-lg text-[10px] font-black uppercase shadow-sm">Main Display</span>}
+                      <div className="flex flex-col">
+                        {event.date.includes('.') && event.date.split('.').length > 2 && (
+                          <span className="text-[10px] font-black opacity-40 leading-none mb-0.5">
+                            {event.date.split('.')[0]}
+                          </span>
+                        )}
+                        <span className="text-xl md:text-2xl font-black tracking-tight leading-none">
+                          {event.date.includes('(') 
+                            ? (event.date.split(' (')[0].includes('.') ? event.date.split(' (')[0].split('.').slice(-2).join('.') : event.date.split(' (')[0])
+                            : (event.date.includes('.') ? event.date.split('.').slice(-2).join('.') : event.date)
+                          }
+                        </span>
+                      </div>
+                      <span className="bg-artistic-accent/40 px-2 py-0.5 rounded-lg text-xs font-black uppercase">{event.time}</span>
                     </div>
-                    <p className="font-bold opacity-70">{event.locationName}</p>
+                    <p className="font-bold text-sm opacity-60 flex items-center gap-1">
+                      <Calendar size={12} /> {event.locationName}
+                    </p>
                   </div>
                 </div>
-                <div className="flex gap-2 flex-wrap justify-end">
+                <div className="flex gap-2 flex-wrap md:flex-nowrap">
                   <button 
                     onClick={() => duplicateEvent(event)}
-                    title="イベントをコピーして新規作成"
-                    className="px-4 py-3 border-2 border-artistic-text rounded-xl hover:bg-artistic-green hover:text-white transition-colors flex items-center gap-2"
+                    title="複製して新規作成"
+                    className="flex-1 md:flex-none px-4 py-3 border-2 border-artistic-text rounded-xl hover:bg-artistic-green hover:text-white transition-colors flex items-center justify-center gap-2 font-black text-sm"
                   >
-                    <Copy size={18} />
-                    <span className="font-bold text-sm">複製</span>
+                    <Copy size={16} /> 複製
                   </button>
                   <button 
                     onClick={() => setEditingEvent(event)}
-                    title="イベントを編集"
-                    className="p-3 border-2 border-artistic-text rounded-xl hover:bg-artistic-blue transition-colors"
+                    className="flex-1 md:flex-none p-3 border-2 border-artistic-text rounded-xl hover:bg-artistic-blue transition-colors flex items-center justify-center gap-2 font-black text-sm"
                   >
-                    <Edit2 size={20} />
+                    <Edit2 size={16} /> 編集
                   </button>
                   <button 
                     onClick={() => event.id && setDeletingEventId(event.id)}
-                    title="イベントを削除"
-                    className="p-3 border-2 border-artistic-text rounded-xl hover:bg-artistic-pink hover:text-white transition-colors"
+                    className="p-3 border-2 border-artistic-text rounded-xl hover:bg-artistic-pink hover:text-white transition-colors flex items-center justify-center"
                   >
-                    <Trash2 size={20} />
+                    <Trash2 size={16} />
                   </button>
                 </div>
               </div>
@@ -434,10 +408,11 @@ export default function AdminDashboard() {
               <form onSubmit={handleSaveEvent} className="p-8 space-y-6 overflow-y-auto">
                 <div className="grid md:grid-cols-2 gap-6">
                   <div className="space-y-2">
-                    <label className="text-xs font-black uppercase opacity-60">開催日 (例: 05.05)</label>
+                    <label className="text-xs font-black uppercase opacity-60">開催日 (例: 2026.05.25 (月))</label>
                     <input 
                       type="text" 
                       required
+                      placeholder="YYYY.MM.DD (曜)"
                       value={editingEvent.date} 
                       onChange={e => setEditingEvent({...editingEvent, date: e.target.value})}
                       className="w-full border-2 border-artistic-text p-3 rounded-xl font-bold outline-none"
