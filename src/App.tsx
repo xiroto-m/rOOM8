@@ -47,6 +47,45 @@ const Card = ({ children, className = "" }: { children: ReactNode, className?: s
   </motion.div>
 );
 
+// Error Boundary to prevent total site disappearance
+class ErrorBoundary extends React.Component<{ children: ReactNode }, { hasError: boolean, error: Error | null }> {
+  constructor(props: { children: ReactNode }) {
+    super(props);
+    this.state = { hasError: false, error: null };
+  }
+
+  static getDerivedStateFromError(error: Error) {
+    return { hasError: true, error };
+  }
+
+  componentDidCatch(error: Error, errorInfo: React.ErrorInfo) {
+    console.error("ErrorBoundary caught an error", error, errorInfo);
+  }
+
+  render() {
+    if (this.state.hasError) {
+      return (
+        <div className="min-h-screen bg-artistic-bg flex items-center justify-center p-12 text-center">
+          <div className="bg-white border-4 border-artistic-text p-10 rounded-[2rem] shadow-[12px_12px_0px_0px_rgba(42,42,42,1)] max-w-xl">
+            <h1 className="text-3xl font-black text-artistic-pink mb-4">Something went wrong</h1>
+            <p className="font-bold mb-6">アプリケーションの表示中にエラーが発生しました。</p>
+            <pre className="p-4 bg-stone-100 rounded-xl text-left text-xs overflow-auto max-h-40 mb-6 font-mono border-2 border-artistic-text">
+              {this.state.error?.toString()}
+            </pre>
+            <button 
+              onClick={() => window.location.reload()}
+              className="bg-artistic-primary text-white px-8 py-3 rounded-xl font-black hover:scale-105 transition-transform"
+            >
+              再読み込み
+            </button>
+          </div>
+        </div>
+      );
+    }
+    return this.props.children;
+  }
+}
+
 function MainSite() {
   const [events, setEvents] = useState<EventItem[]>([]);
   const [loading, setLoading] = useState(true);
@@ -62,8 +101,22 @@ function MainSite() {
     const eventsRef = collection(db, 'events');
     const unsubEvents = onSnapshot(eventsRef, 
       (snapshot) => {
-        const items = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as EventItem));
-        const sortedEvents = items.sort((a, b) => (a.order || 0) - (b.order || 0));
+        const items = snapshot.docs.map(doc => {
+          const data = doc.data();
+          return { 
+            id: doc.id,
+            date: '',
+            time: '',
+            locationName: '',
+            address: '',
+            access: '',
+            fee: '',
+            googleMapEmbedUrl: '',
+            order: 0,
+            ...data 
+          } as EventItem;
+        });
+        const sortedEvents = items.sort((a, b) => (Number(a.order) || 0) - (Number(b.order) || 0));
         setEvents(sortedEvents);
         setLoading(false);
       },
@@ -140,19 +193,19 @@ function MainSite() {
             <div>
               <span className="text-xs md:text-sm font-black uppercase tracking-[0.3em] opacity-70">Next Event / 開催予定</span>
               <div className="mt-6 md:mt-10">
-                {heroEvent.date && heroEvent.date.includes('.') && heroEvent.date.split('.').length > 2 && (
+                {heroEvent.date && String(heroEvent.date).includes('.') && String(heroEvent.date).split('.').length > 2 && (
                   <span className="text-xl md:text-2xl font-black block mb-1 opacity-70 tracking-tighter">
-                    {heroEvent.date.split('.')[0]}
+                    {String(heroEvent.date).split('.')[0]}
                   </span>
                 )}
                 <h2 className="text-7xl md:text-8xl lg:text-9xl font-black leading-[0.75] tracking-[-0.08em]">
-                  {heroEvent.date && heroEvent.date.includes('(') 
-                    ? (heroEvent.date.split(' (')[0].includes('.') ? heroEvent.date.split(' (')[0].split('.').slice(-2).join('.') : heroEvent.date.split(' (')[0])
-                    : (heroEvent.date && heroEvent.date.includes('.') ? heroEvent.date.split('.').slice(-2).join('.') : (heroEvent.date || ''))
+                  {heroEvent.date && String(heroEvent.date).includes('(') 
+                    ? (String(heroEvent.date).split(' (')[0].includes('.') ? String(heroEvent.date).split(' (')[0].split('.').slice(-2).join('.') : String(heroEvent.date).split(' (')[0])
+                    : (heroEvent.date && String(heroEvent.date).includes('.') ? String(heroEvent.date).split('.').slice(-2).join('.') : (String(heroEvent.date || '')))
                   }
                 </h2>
                 <span className="text-2xl md:text-3xl lg:text-4xl font-black block mt-6 md:mt-8 tracking-tighter decoration-artistic-accent underline underline-offset-8">
-                  {heroEvent.date && heroEvent.date.includes('(') ? heroEvent.date.split(' (')[1].replace(')', '') : ''} {heroEvent.time}
+                  {heroEvent.date && String(heroEvent.date).includes('(') ? String(heroEvent.date).split(' (')[1].replace(')', '') : ''} {heroEvent.time}
                 </span>
               </div>
             </div>
@@ -607,11 +660,13 @@ export default function App() {
   }, []);
 
   return (
-    <HashRouter>
-      <Routes>
-        <Route path="/" element={<MainSite />} />
-        <Route path="/admin" element={<AdminDashboard />} />
-      </Routes>
-    </HashRouter>
+    <ErrorBoundary>
+      <HashRouter>
+        <Routes>
+          <Route path="/" element={<MainSite />} />
+          <Route path="/admin" element={<AdminDashboard />} />
+        </Routes>
+      </HashRouter>
+    </ErrorBoundary>
   );
 }
