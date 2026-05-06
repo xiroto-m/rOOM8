@@ -20,6 +20,7 @@ export interface EventItem {
   facebookEventUrl?: string; // Add Facebook Event URL
   description?: string;      // Add Description
   order: number;
+  isPublished?: boolean;     // Add Draft/Publish status
   updatedAt?: any;
 }
 

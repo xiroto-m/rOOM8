@@ -119,7 +119,7 @@ function MainSite() {
             order: 0,
             ...data 
           } as EventItem;
-        });
+        }).filter(ev => ev.isPublished !== false);
         const sortedEvents = items.sort((a, b) => (Number(a.order) || 0) - (Number(b.order) || 0));
         setEvents(sortedEvents);
         setLoading(false);

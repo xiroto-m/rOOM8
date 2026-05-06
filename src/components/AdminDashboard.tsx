@@ -33,6 +33,157 @@ import { LogIn, LogOut, Save, AlertCircle, CheckCircle, ArrowLeft, ArrowUp, Arro
 
 const ADMIN_EMAILS = ["hiroto.mizutani@gmail.com", "taku448@gmail.com"];
 
+const EventEditModal = ({ event, onSave, onClose, saving }: { event: EventItem, onSave: (event: EventItem) => void, onClose: () => void, saving: boolean }) => {
+  const [formData, setFormData] = useState<EventItem>(event);
+
+  const handleSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    onSave(formData);
+  };
+
+  return (
+    <div className="fixed inset-0 bg-artistic-text/80 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+      <div className="bg-white border-4 border-artistic-text w-full max-w-2xl rounded-[2.5rem] shadow-[12px_12px_0px_0px_rgba(42,42,42,1)] overflow-hidden flex flex-col max-h-[90vh]">
+        <div className="p-8 border-b-4 border-artistic-text flex justify-between items-center bg-artistic-blue/20">
+          <h3 className="text-2xl font-black">{formData.id ? 'イベントを編集' : '新規イベント作成'}</h3>
+          <button onClick={onClose} className="font-black text-2xl">×</button>
+        </div>
+        
+        <form onSubmit={handleSubmit} className="p-8 space-y-6 overflow-y-auto">
+          <div className="grid md:grid-cols-2 gap-6">
+            <div className="space-y-2">
+              <label className="text-xs font-black uppercase opacity-60">開催日 (例: 2026.05.25 (月))</label>
+              <input 
+                type="text" 
+                required
+                placeholder="YYYY.MM.DD (曜)"
+                value={formData.date} 
+                onChange={e => setFormData({...formData, date: e.target.value})}
+                className="w-full border-2 border-artistic-text p-3 rounded-xl font-bold outline-none"
+              />
+            </div>
+            <div className="space-y-2">
+              <label className="text-xs font-black uppercase opacity-60">開催時間 (例: 13:00〜)</label>
+              <input 
+                type="text" 
+                required
+                value={formData.time} 
+                onChange={e => setFormData({...formData, time: e.target.value})}
+                className="w-full border-2 border-artistic-text p-3 rounded-xl font-bold outline-none"
+              />
+            </div>
+            <div className="space-y-2">
+              <label className="text-xs font-black uppercase opacity-60">場所名</label>
+              <input 
+                type="text" 
+                required
+                value={formData.locationName} 
+                onChange={e => setFormData({...formData, locationName: e.target.value})}
+                className="w-full border-2 border-artistic-text p-3 rounded-xl font-bold outline-none"
+              />
+            </div>
+            <div className="space-y-2">
+              <label className="text-xs font-black uppercase opacity-60">参加費</label>
+              <input 
+                type="text" 
+                required
+                value={formData.fee} 
+                onChange={e => setFormData({...formData, fee: e.target.value})}
+                className="w-full border-2 border-artistic-text p-3 rounded-xl font-bold outline-none"
+              />
+            </div>
+          </div>
+
+          <div className="space-y-2">
+            <label className="text-xs font-black uppercase opacity-60">住所</label>
+            <input 
+              type="text" 
+              required
+              value={formData.address} 
+              onChange={e => setFormData({...formData, address: e.target.value})}
+              className="w-full border-2 border-artistic-text p-3 rounded-xl font-bold outline-none"
+            />
+          </div>
+
+          <div className="space-y-2">
+            <label className="text-xs font-black uppercase opacity-60">アクセス情報</label>
+            <input 
+              type="text" 
+              required
+              value={formData.access} 
+              onChange={e => setFormData({...formData, access: e.target.value})}
+              className="w-full border-2 border-artistic-text p-3 rounded-xl font-bold outline-none"
+            />
+          </div>
+
+          <div className="space-y-2">
+            <label className="text-xs font-black uppercase opacity-60">Google Maps Embed URL</label>
+            <textarea 
+              rows={3}
+              required
+              value={formData.googleMapEmbedUrl} 
+              onChange={e => setFormData({...formData, googleMapEmbedUrl: e.target.value})}
+              className="w-full border-2 border-artistic-text p-3 rounded-xl font-bold outline-none text-xs font-mono"
+            />
+          </div>
+
+          <div className="space-y-2">
+            <label className="text-xs font-black uppercase opacity-60">Facebookイベントページ URL (任意)</label>
+            <input 
+              type="url" 
+              value={formData.facebookEventUrl || ''} 
+              onChange={e => setFormData({...formData, facebookEventUrl: e.target.value})}
+              className="w-full border-2 border-artistic-text p-3 rounded-xl font-bold outline-none"
+              placeholder="https://www.facebook.com/events/..."
+            />
+          </div>
+
+          <div className="space-y-2">
+            <label className="text-xs font-black uppercase opacity-60">イベント概要 (任意)</label>
+            <textarea 
+              rows={4}
+              value={formData.description || ''} 
+              onChange={e => setFormData({...formData, description: e.target.value})}
+              className="w-full border-2 border-artistic-text p-3 rounded-xl font-bold outline-none"
+              placeholder="イベントの概要を入力してください"
+            />
+          </div>
+
+          <div className="space-y-2">
+            <label className="text-xs font-black uppercase opacity-60">公開状態</label>
+            <select 
+              value={formData.isPublished !== false ? 'true' : 'false'} 
+              onChange={e => setFormData({...formData, isPublished: e.target.value === 'true'})}
+              className="w-full border-2 border-artistic-text p-3 rounded-xl font-bold outline-none bg-white"
+            >
+              <option value="true">公開</option>
+              <option value="false">非公開（下書き）</option>
+            </select>
+          </div>
+
+          <div className="pt-4 flex gap-4">
+            <button 
+              type="submit" 
+              disabled={saving}
+              className="flex-1 bg-artistic-text text-white font-black py-4 rounded-xl flex items-center justify-center gap-3 hover:bg-neutral-800 disabled:opacity-50"
+            >
+              <Save size={20} />
+              {saving ? '保存中...' : '保存する'}
+            </button>
+            <button 
+              type="button" 
+              onClick={onClose}
+              className="px-8 border-2 border-artistic-text font-black rounded-xl hover:bg-neutral-100"
+            >
+              キャンセル
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
+  );
+};
+
 export default function AdminDashboard() {
   const [user, setUser] = useState<User | null>(null);
   const [loading, setLoading] = useState(true);
@@ -118,24 +269,21 @@ export default function AdminDashboard() {
     }
   };
 
-  const handleSaveEvent = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!editingEvent) return;
-
+  const handleSaveEvent = async (eventData: EventItem) => {
     setSaving(true);
     setStatus({ type: null, message: '' });
 
     try {
-      const currentOrder = editingEvent.order || (events.length > 0 ? Math.max(...events.map(e => e.order || 0)) + 1 : 1);
+      const currentOrder = eventData.order || (events.length > 0 ? Math.max(...events.map(e => e.order || 0)) + 1 : 1);
       const data = {
-        ...editingEvent,
+        ...eventData,
         order: currentOrder,
         updatedAt: serverTimestamp()
       };
       delete (data as any).id;
 
-      if (editingEvent.id) {
-        await setDoc(doc(db, 'events', editingEvent.id), data);
+      if (eventData.id) {
+        await setDoc(doc(db, 'events', eventData.id), data);
       } else {
         await addDoc(collection(db, 'events'), data);
       }
@@ -210,6 +358,7 @@ export default function AdminDashboard() {
       googleMapEmbedUrl: event.googleMapEmbedUrl,
       facebookEventUrl: event.facebookEventUrl || '',
       description: event.description || '',
+      isPublished: false, // Default duplicated event to draft
       order: nextOrder
     });
   };
@@ -224,6 +373,7 @@ export default function AdminDashboard() {
       access: EVENT_INFO.access,
       fee: EVENT_INFO.fee,
       googleMapEmbedUrl: EVENT_INFO.googleMapEmbedUrl,
+      isPublished: true, // Default to published for new events to keep current behavior
       order: nextOrder
     });
   };
@@ -383,6 +533,11 @@ export default function AdminDashboard() {
                         })()}
                       </div>
                       <span className="bg-artistic-accent/40 px-2 py-0.5 rounded-lg text-xs font-black uppercase">{event.time}</span>
+                      {event.isPublished === false ? (
+                        <span className="bg-stone-300 text-stone-700 px-2 py-0.5 rounded-lg text-xs font-black uppercase">非公開</span>
+                      ) : (
+                        <span className="bg-green-100 text-green-700 px-2 py-0.5 rounded-lg text-xs font-black uppercase border border-green-300">公開中</span>
+                      )}
                     </div>
                     <p className="font-bold text-sm opacity-60 flex items-center gap-1">
                       <Calendar size={12} /> {event.locationName}
@@ -417,133 +572,12 @@ export default function AdminDashboard() {
 
         {/* Edit/Add Event Form */}
         {editingEvent && (
-          <div className="fixed inset-0 bg-artistic-text/80 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-            <div className="bg-white border-4 border-artistic-text w-full max-w-2xl rounded-[2.5rem] shadow-[12px_12px_0px_0px_rgba(42,42,42,1)] overflow-hidden flex flex-col max-h-[90vh]">
-              <div className="p-8 border-b-4 border-artistic-text flex justify-between items-center bg-artistic-blue/20">
-                <h3 className="text-2xl font-black">{editingEvent.id ? 'イベントを編集' : '新規イベント作成'}</h3>
-                <button onClick={() => setEditingEvent(null)} className="font-black text-2xl">×</button>
-              </div>
-              
-              <form onSubmit={handleSaveEvent} className="p-8 space-y-6 overflow-y-auto">
-                <div className="grid md:grid-cols-2 gap-6">
-                  <div className="space-y-2">
-                    <label className="text-xs font-black uppercase opacity-60">開催日 (例: 2026.05.25 (月))</label>
-                    <input 
-                      type="text" 
-                      required
-                      placeholder="YYYY.MM.DD (曜)"
-                      value={editingEvent.date} 
-                      onChange={e => setEditingEvent({...editingEvent, date: e.target.value})}
-                      className="w-full border-2 border-artistic-text p-3 rounded-xl font-bold outline-none"
-                    />
-                  </div>
-                  <div className="space-y-2">
-                    <label className="text-xs font-black uppercase opacity-60">開催時間 (例: 13:00〜)</label>
-                    <input 
-                      type="text" 
-                      required
-                      value={editingEvent.time} 
-                      onChange={e => setEditingEvent({...editingEvent, time: e.target.value})}
-                      className="w-full border-2 border-artistic-text p-3 rounded-xl font-bold outline-none"
-                    />
-                  </div>
-                  <div className="space-y-2">
-                    <label className="text-xs font-black uppercase opacity-60">場所名</label>
-                    <input 
-                      type="text" 
-                      required
-                      value={editingEvent.locationName} 
-                      onChange={e => setEditingEvent({...editingEvent, locationName: e.target.value})}
-                      className="w-full border-2 border-artistic-text p-3 rounded-xl font-bold outline-none"
-                    />
-                  </div>
-                  <div className="space-y-2">
-                    <label className="text-xs font-black uppercase opacity-60">参加費</label>
-                    <input 
-                      type="text" 
-                      required
-                      value={editingEvent.fee} 
-                      onChange={e => setEditingEvent({...editingEvent, fee: e.target.value})}
-                      className="w-full border-2 border-artistic-text p-3 rounded-xl font-bold outline-none"
-                    />
-                  </div>
-                </div>
-
-                <div className="space-y-2">
-                  <label className="text-xs font-black uppercase opacity-60">住所</label>
-                  <input 
-                    type="text" 
-                    required
-                    value={editingEvent.address} 
-                    onChange={e => setEditingEvent({...editingEvent, address: e.target.value})}
-                    className="w-full border-2 border-artistic-text p-3 rounded-xl font-bold outline-none"
-                  />
-                </div>
-
-                <div className="space-y-2">
-                  <label className="text-xs font-black uppercase opacity-60">アクセス情報</label>
-                  <input 
-                    type="text" 
-                    required
-                    value={editingEvent.access} 
-                    onChange={e => setEditingEvent({...editingEvent, access: e.target.value})}
-                    className="w-full border-2 border-artistic-text p-3 rounded-xl font-bold outline-none"
-                  />
-                </div>
-
-                <div className="space-y-2">
-                  <label className="text-xs font-black uppercase opacity-60">Google Maps Embed URL</label>
-                  <textarea 
-                    rows={3}
-                    required
-                    value={editingEvent.googleMapEmbedUrl} 
-                    onChange={e => setEditingEvent({...editingEvent, googleMapEmbedUrl: e.target.value})}
-                    className="w-full border-2 border-artistic-text p-3 rounded-xl font-bold outline-none text-xs font-mono"
-                  />
-                </div>
-
-                <div className="space-y-2">
-                  <label className="text-xs font-black uppercase opacity-60">Facebookイベントページ URL (任意)</label>
-                  <input 
-                    type="url" 
-                    value={editingEvent.facebookEventUrl || ''} 
-                    onChange={e => setEditingEvent({...editingEvent, facebookEventUrl: e.target.value})}
-                    className="w-full border-2 border-artistic-text p-3 rounded-xl font-bold outline-none"
-                    placeholder="https://www.facebook.com/events/..."
-                  />
-                </div>
-
-                <div className="space-y-2">
-                  <label className="text-xs font-black uppercase opacity-60">イベント概要 (任意)</label>
-                  <textarea 
-                    rows={4}
-                    value={editingEvent.description || ''} 
-                    onChange={e => setEditingEvent({...editingEvent, description: e.target.value})}
-                    className="w-full border-2 border-artistic-text p-3 rounded-xl font-bold outline-none"
-                    placeholder="イベントの概要を入力してください"
-                  />
-                </div>
-
-                <div className="pt-4 flex gap-4">
-                  <button 
-                    type="submit" 
-                    disabled={saving}
-                    className="flex-1 bg-artistic-text text-white font-black py-4 rounded-xl flex items-center justify-center gap-3 hover:bg-neutral-800 disabled:opacity-50"
-                  >
-                    <Save size={20} />
-                    {saving ? '保存中...' : '保存する'}
-                  </button>
-                  <button 
-                    type="button" 
-                    onClick={() => setEditingEvent(null)}
-                    className="px-8 border-2 border-artistic-text font-black rounded-xl hover:bg-neutral-100"
-                  >
-                    キャンセル
-                  </button>
-                </div>
-              </form>
-            </div>
-          </div>
+          <EventEditModal 
+            event={editingEvent} 
+            onSave={handleSaveEvent} 
+            onClose={() => setEditingEvent(null)} 
+            saving={saving} 
+          />
         )}
         {/* Deleting Modal */}
         {deletingEventId && (
