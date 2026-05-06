@@ -470,8 +470,8 @@ function MainSite() {
                 </div>
               </div>
               
-              <div className="lg:col-span-5 hidden lg:block">
-                 <div className="relative">
+              <div className="lg:col-span-5 mt-8 lg:mt-0 flex justify-center">
+                 <div className="relative w-full max-w-[280px] sm:max-w-[320px] lg:max-w-none">
                    <div className="absolute inset-0 bg-gradient-to-tr from-artistic-primary to-artistic-accent opacity-20 blur-[60px]" />
                    <div className="bg-stone-900 border-8 border-stone-800 rounded-[3.5rem] p-3 shadow-2xl relative">
                      <div className="aspect-[9/19.5] bg-stone-950 rounded-[2.8rem] overflow-hidden relative border-2 border-stone-800">
