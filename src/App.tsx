@@ -18,7 +18,7 @@ import { QRCodeSVG } from "qrcode.react";
 import { EVENT_INFO, SECTIONS, FALLBACK_EVENTS } from "./constants";
 import AdminDashboard from "./components/AdminDashboard";
 import { db, EventItem, auth } from "./lib/firebase";
-import { formatEventDate } from "./lib/dateUtils";
+import { formatEventDate, isPastEvent } from "./lib/dateUtils";
 import { 
   doc, 
   onSnapshot, 
@@ -28,7 +28,8 @@ import {
   getDocFromServer,
   writeBatch,
   increment,
-  serverTimestamp
+  serverTimestamp,
+  setDoc
 } from "firebase/firestore";
 
 enum OperationType {
@@ -154,6 +155,23 @@ function MainSite() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [userIP, setUserIP] = useState<string | null>(null);
+  const [deviceId, setDeviceId] = useState<string | null>(null);
+
+  const trackAction = async (actionType: string, metadata: any = {}) => {
+    try {
+      const today = new Date().toISOString().split('T')[0];
+      const actionId = `${today}_${deviceId || 'anon'}_${Date.now()}`;
+      await setDoc(doc(db, 'analytics_actions', actionId), {
+        actionType,
+        deviceId: deviceId || 'anon',
+        date: today,
+        timestamp: serverTimestamp(),
+        ...metadata
+      });
+    } catch (err) {
+      console.error("Tracking Error:", err);
+    }
+  };
   const [likedEvents, setLikedEvents] = useState<Set<string>>(new Set());
   const [isScrolled, setIsScrolled] = useState(false);
   
@@ -206,39 +224,47 @@ function MainSite() {
   }, []);
 
   useEffect(() => {
-    // Fetch IP address
+    // Generate or retrieve persistent device ID
+    let deviceId = localStorage.getItem('rOOM8_device_id');
+    if (!deviceId) {
+      deviceId = crypto?.randomUUID ? crypto.randomUUID() : Math.random().toString(36).substring(2, 15);
+      localStorage.setItem('rOOM8_device_id', deviceId);
+    }
+    setDeviceId(deviceId);
+
+    // Fetch IP for metadata
     fetch('https://api.ipify.org?format=json')
       .then(res => res.json())
       .then(data => {
         const ip = data.ip;
         setUserIP(ip);
         
-        // Tracking visit
+        // Tracking visit by device ID + Date
         const today = new Date().toISOString().split('T')[0];
+        const isMobile = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
+        const deviceType = isMobile ? 'mobile' : 'desktop';
+        const visitId = `${today}_${deviceId}`;
+        const visitRef = doc(db, 'analytics_visits', visitId);
+        
+        // Even if we use localStorage session check, 
+        // the visitId (Date_DeviceID) in Firestore guarantees uniqueness server-side
         const visitKey = `visit_${today}`;
         const hasVisitedToday = localStorage.getItem(visitKey);
         
         if (!hasVisitedToday) {
-          const visitId = `${today}_${ip}`;
-          const visitRef = doc(db, 'analytics_visits', visitId);
-          
-          // Use batch to record visit
-          // Note: Aggregating stats on read is actually easier for this scale, 
-          // but let's try to increment for a bit more "advanced" feel.
           const batch = writeBatch(db);
           batch.set(visitRef, {
+            deviceId: deviceId,
             ip: ip,
             date: today,
+            deviceType: deviceType,
+            userAgent: navigator.userAgent,
             timestamp: serverTimestamp()
           });
-          // We can't easily increment the same doc without knowing if it exists 
-          // or using a transaction. Since this is an applet, we'll keep it simple:
-          // Just record the visit. We'll aggregate stats on the Admin page.
           
           batch.commit().then(() => {
             localStorage.setItem(visitKey, 'true');
           }).catch(err => {
-            // Ignore errors for tracking (e.g. if doc already exists)
             console.warn("Analytics: Visit already recorded or error", err);
           });
         }
@@ -391,22 +417,11 @@ function MainSite() {
   };
 
   const effectiveEvents = events.length > 0 ? events : (loading ? [] : FALLBACK_EVENTS);
-
-  const heroEvent = effectiveEvents[0] || (loading ? null : {
-    id: 'next-event',
-    title: SECTIONS.hero.title,
-    date: EVENT_INFO.nextDate,
-    time: EVENT_INFO.nextTime,
-    locationName: EVENT_INFO.locationName,
-    address: EVENT_INFO.address,
-    access: EVENT_INFO.access,
-    fee: EVENT_INFO.fee,
-    googleMapEmbedUrl: EVENT_INFO.googleMapEmbedUrl,
-    likesCount: 0,
-    isActive: true
-  });
-
-  const upcomingEvents = effectiveEvents.slice(1);
+  const activeEvents = effectiveEvents.filter(ev => !isPastEvent(ev.date));
+  const upcomingEvents = activeEvents.slice(1);
+  const archivedEvents = effectiveEvents.filter(ev => isPastEvent(ev.date)).sort((a, b) => b.date.localeCompare(a.date));
+  
+  const heroEvent = activeEvents[0] || null;
 
   return (
     <div className="min-h-screen bg-artistic-bg text-artistic-text font-sans relative overflow-x-hidden">
@@ -552,6 +567,7 @@ function MainSite() {
                         href={heroEvent.facebookEventUrl}
                         target="_blank"
                         rel="noopener noreferrer"
+                        onClick={() => trackAction('click_facebook', { eventId: heroEvent.id, title: heroEvent.title })}
                         className="bg-[#1877F2] text-white px-6 py-3 rounded-2xl text-xs md:text-sm font-black border-2 border-white/40 hover:scale-105 transition-transform flex items-center gap-2 shadow-[4px_4px_0px_0px_rgba(0,0,0,0.2)]"
                       >
                         Facebookイベント
@@ -562,6 +578,7 @@ function MainSite() {
                         href={heroEvent.youtubeUrl}
                         target="_blank"
                         rel="noopener noreferrer"
+                        onClick={() => trackAction('click_youtube', { eventId: heroEvent.id, title: heroEvent.title })}
                         className="bg-[#FF0000] text-white px-6 py-3 rounded-2xl text-xs md:text-sm font-black border-2 border-white/40 hover:scale-105 transition-transform flex items-center gap-2 shadow-[4px_4px_0px_0px_rgba(0,0,0,0.2)]"
                       >
                         動画を見る
@@ -652,6 +669,33 @@ function MainSite() {
                       動画を見る
                     </a>
                   )}
+                </div>
+              </motion.div>
+            ))}
+          </div>
+        </Section>
+      )}
+      
+      {/* Archived / Past Events */}
+      {!loading && archivedEvents.length > 0 && (
+        <Section className="py-12 bg-stone-100/50">
+          <h2 className="text-2xl font-black mb-10 flex items-center gap-3 opacity-60">
+            <Calendar className="text-gray-400" size={20} /> 過去イベント (アーカイブ)
+          </h2>
+          <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-5 gap-4">
+            {archivedEvents.map((ev, i) => (
+              <motion.div
+                key={ev.id || i}
+                initial={{ opacity: 0 }}
+                whileInView={{ opacity: 1 }}
+                viewport={{ once: true }}
+                className="bg-white/60 border border-artistic-text/20 p-4 rounded-2xl grayscale hover:grayscale-0 transition-all cursor-default"
+              >
+                <div className="text-[10px] font-black opacity-40 mb-1">{ev.date}</div>
+                <p className="font-black text-xs truncate mb-1">{ev.title || ev.locationName}</p>
+                <div className="flex items-center gap-1 text-[10px] text-artistic-pink font-bold">
+                  <Heart size={10} fill="currentColor" />
+                  <span>{ev.likesCount || 0}</span>
                 </div>
               </motion.div>
             ))}

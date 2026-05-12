@@ -28,10 +28,10 @@ import {
   serverTimestamp 
 } from 'firebase/firestore';
 import { EVENT_INFO } from '../constants';
-import { formatEventDate } from '../lib/dateUtils';
+import { formatEventDate, isPastEvent } from '../lib/dateUtils';
 import { Link } from 'react-router-dom';
-import { LogIn, LogOut, Save, AlertCircle, CheckCircle, ArrowLeft, ArrowUp, ArrowDown, Plus, Trash2, Edit2, Calendar, Settings, Copy, Heart, BarChart3, Download, Upload } from 'lucide-react';
-import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
+import { LogIn, LogOut, Save, AlertCircle, CheckCircle, ArrowLeft, ArrowUp, ArrowDown, Plus, Trash2, Edit2, Calendar, Settings, Copy, Heart, BarChart3, Download, Upload, Monitor, Clock, Users } from 'lucide-react';
+import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, PieChart, Pie, Cell, Legend, BarChart, Bar } from 'recharts';
 import Papa from 'papaparse';
 
 const ADMIN_EMAILS = ["hiroto.mizutani@gmail.com", "taku448@gmail.com"];
@@ -213,6 +213,10 @@ export default function AdminDashboard() {
   const [loading, setLoading] = useState(true);
   const [events, setEvents] = useState<EventItem[]>([]);
   const [analyticsData, setAnalyticsData] = useState<{date: string, count: number}[]>([]);
+  const [deviceData, setDeviceData] = useState<{name: string, value: number}[]>([]);
+  const [hourlyData, setHourlyData] = useState<{hour: string, count: number}[]>([]);
+  const [actionStats, setActionStats] = useState<{name: string, value: number}[]>([]);
+  const [visitorStats, setVisitorStats] = useState({ new: 0, returning: 0 });
   const [activeTab, setActiveTab] = useState<'events' | 'settings' | 'analytics'>('events');
   const [globalSettings, setGlobalSettings] = useState({
     instagram: EVENT_INFO.instagram,
@@ -234,15 +238,61 @@ export default function AdminDashboard() {
   const fetchAnalytics = async () => {
     try {
       const analyticsRef = collection(db, 'analytics_visits');
-      // Limit to a reasonable number to avoid heavy load in simple applet
-      const q = query(analyticsRef, orderBy('date', 'desc'), limit(1000));
+      const q = query(analyticsRef, orderBy('timestamp', 'desc'), limit(1000));
       const snapshot = await getDocs(q);
       
       const counts: {[key: string]: number} = {};
+      const deviceCounts: {[key: string]: number} = { mobile: 0, desktop: 0 };
+      const hours: {[key: string]: number} = {};
+      const deviceVisitCounts: {[key: string]: number} = {};
+
+      for (let i = 0; i < 24; i++) {
+        hours[i.toString().padStart(2, '0')] = 0;
+      }
+
       snapshot.docs.forEach(doc => {
         const data = doc.data();
         counts[data.date] = (counts[data.date] || 0) + 1;
+        if (data.deviceType) {
+          deviceCounts[data.deviceType] = (deviceCounts[data.deviceType] || 0) + 1;
+        }
+
+        // Hour analysis
+        if (data.timestamp) {
+          const date = data.timestamp.toDate();
+          const hour = date.getHours().toString().padStart(2, '0');
+          hours[hour] = (hours[hour] || 0) + 1;
+        }
+
+        // Repeat visitor analysis
+        if (data.deviceId) {
+          deviceVisitCounts[data.deviceId] = (deviceVisitCounts[data.deviceId] || 0) + 1;
+        }
       });
+
+      // Fetch actions
+      const actionsSnapshot = await getDocs(collection(db, 'analytics_actions'));
+      const actionCounts: {[key: string]: number} = {};
+      actionsSnapshot.forEach(doc => {
+        const data = doc.data();
+        const label = data.actionType === 'click_facebook' ? 'Facebook' : 
+                      data.actionType === 'click_youtube' ? 'YouTube' : data.actionType;
+        actionCounts[label] = (actionCounts[label] || 0) + 1;
+      });
+      setActionStats(Object.keys(actionCounts).map(name => ({ name, value: actionCounts[name] })));
+
+      // Hour chart data
+      const hourlyChartData = Object.keys(hours).map(h => ({
+        hour: `${h}:00`,
+        count: hours[h]
+      }));
+      setHourlyData(hourlyChartData);
+
+      // Repeat stats
+      const deviceIds = Object.keys(deviceVisitCounts);
+      const returning = deviceIds.filter(id => deviceVisitCounts[id] > 1).length;
+      const newVisitors = deviceIds.length - returning;
+      setVisitorStats({ new: newVisitors, returning });
 
       const chartData = Object.keys(counts).map(date => ({
         date,
@@ -250,6 +300,12 @@ export default function AdminDashboard() {
       })).sort((a, b) => a.date.localeCompare(b.date)).slice(-14);
 
       setAnalyticsData(chartData);
+
+      const pieData = Object.keys(deviceCounts).map(type => ({
+        name: type === 'mobile' ? 'モバイル' : 'デスクトップ',
+        value: deviceCounts[type]
+      })).filter(d => d.value > 0);
+      setDeviceData(pieData);
     } catch (err) {
       console.error("Failed to fetch analytics:", err);
     }
@@ -633,6 +689,26 @@ export default function AdminDashboard() {
         {/* Analytics Section */}
         {activeTab === 'analytics' && (
           <div className="space-y-8 animate-in fade-in slide-in-from-bottom-4">
+            {/* Overview Cards */}
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+              <div className="bg-white border-4 border-artistic-text p-4 rounded-2xl shadow-[4px_4px_0px_0px_rgba(42,42,42,1)]">
+                <p className="text-[10px] font-black uppercase opacity-60 mb-1">総アクセス</p>
+                <p className="text-2xl font-black">{analyticsData.reduce((acc, curr) => acc + curr.count, 0)}</p>
+              </div>
+              <div className="bg-white border-4 border-artistic-text p-4 rounded-2xl shadow-[4px_4px_0px_0px_rgba(42,42,42,1)]">
+                <p className="text-[10px] font-black uppercase opacity-60 mb-1">リピーター</p>
+                <p className="text-2xl font-black text-artistic-accent">{visitorStats.returning}</p>
+              </div>
+              <div className="bg-white border-4 border-artistic-text p-4 rounded-2xl shadow-[4px_4px_0px_0px_rgba(42,42,42,1)]">
+                <p className="text-[10px] font-black uppercase opacity-60 mb-1">新規</p>
+                <p className="text-2xl font-black text-artistic-pink">{visitorStats.new}</p>
+              </div>
+              <div className="bg-white border-4 border-artistic-text p-4 rounded-2xl shadow-[4px_4px_0px_0px_rgba(42,42,42,1)]">
+                <p className="text-[10px] font-black uppercase opacity-60 mb-1">イベント総数</p>
+                <p className="text-2xl font-black">{events.length}</p>
+              </div>
+            </div>
+
             <div className="grid md:grid-cols-2 gap-6">
               <div className="bg-white border-4 border-artistic-text p-8 rounded-[2rem] shadow-[8px_8px_0px_0px_rgba(42,42,42,1)]">
                 <h3 className="text-xl font-black mb-6 flex items-center gap-2">
@@ -676,23 +752,126 @@ export default function AdminDashboard() {
 
               <div className="bg-white border-4 border-artistic-text p-8 rounded-[2rem] shadow-[8px_8px_0px_0px_rgba(42,42,42,1)]">
                 <h3 className="text-xl font-black mb-6 flex items-center gap-2">
-                  <Heart size={24} className="text-artistic-pink" fill="currentColor" /> イベント別「いいね」数
+                  <Clock size={24} /> 時間帯別アクティビティ
                 </h3>
-                <div className="space-y-4 max-h-[300px] overflow-y-auto pr-2">
-                  {events.sort((a, b) => (b.likesCount || 0) - (a.likesCount || 0)).map(ev => (
-                    <div key={ev.id} className="flex items-center justify-between p-4 border-2 border-artistic-text rounded-xl odd:bg-artistic-blue/5">
-                      <div className="min-w-0 mr-4">
-                        <p className="font-black truncate text-sm">{ev.title || ev.date}</p>
-                        <p className="text-[10px] opacity-60 font-bold uppercase">{ev.date} @ {ev.locationName}</p>
-                      </div>
-                      <div className="flex items-center gap-1 font-black text-artistic-pink">
-                        <Heart size={14} fill="currentColor" />
-                        <span>{ev.likesCount || 0}</span>
-                      </div>
+                <div className="h-[300px]">
+                  {hourlyData.length > 0 ? (
+                    <ResponsiveContainer width="100%" height="100%">
+                      <BarChart data={hourlyData}>
+                        <CartesianGrid strokeDasharray="3 3" stroke="#eee" vertical={false} />
+                        <XAxis 
+                          dataKey="hour" 
+                          tick={{fontSize: 10, fontWeight: 'bold'}}
+                        />
+                        <YAxis tick={{fontSize: 10, fontWeight: 'bold'}} allowDecimals={false} />
+                        <Tooltip 
+                          contentStyle={{ borderRadius: '12px', border: '2px solid #2a2a2a', fontWeight: 'bold' }}
+                          cursor={{fill: 'rgba(59, 204, 255, 0.1)'}}
+                        />
+                        <Bar 
+                          dataKey="count" 
+                          fill="#3BCCFF" 
+                          radius={[4, 4, 0, 0]}
+                        />
+                      </BarChart>
+                    </ResponsiveContainer>
+                  ) : (
+                    <div className="h-full flex items-center justify-center text-gray-400 font-bold italic">
+                      データがありません
                     </div>
-                  ))}
-                  {events.length === 0 && <p className="text-center text-gray-400 italic">データがありません</p>}
+                  )}
                 </div>
+              </div>
+
+              <div className="bg-white border-4 border-artistic-text p-8 rounded-[2rem] shadow-[8px_8px_0px_0px_rgba(42,42,42,1)]">
+                <h3 className="text-xl font-black mb-6 flex items-center gap-2">
+                  <Monitor size={24} /> デバイス内訳
+                </h3>
+                <div className="h-[300px]">
+                  {deviceData.length > 0 ? (
+                    <ResponsiveContainer width="100%" height="100%">
+                      <PieChart>
+                        <Pie
+                          data={deviceData}
+                          cx="50%"
+                          cy="50%"
+                          innerRadius={60}
+                          outerRadius={80}
+                          paddingAngle={5}
+                          dataKey="value"
+                        >
+                          {deviceData.map((_entry, index) => (
+                            <Cell key={`cell-${index}`} fill={index === 0 ? '#3BCCFF' : '#FF7EB3'} />
+                          ))}
+                        </Pie>
+                        <Tooltip 
+                          contentStyle={{ borderRadius: '12px', border: '2px solid #2a2a2a', fontWeight: 'bold' }}
+                        />
+                        <Legend iconType="circle" wrapperStyle={{ fontWeight: 'bold' }} />
+                      </PieChart>
+                    </ResponsiveContainer>
+                  ) : (
+                    <div className="h-full flex items-center justify-center text-gray-400 font-bold italic">
+                      データがありません
+                    </div>
+                  )}
+                </div>
+              </div>
+
+              <div className="bg-white border-4 border-artistic-text p-8 rounded-[2rem] shadow-[8px_8px_0px_0px_rgba(42,42,42,1)]">
+                <h3 className="text-xl font-black mb-6 flex items-center gap-2">
+                  <Copy size={24} /> 外部リンクのクリック数
+                </h3>
+                <div className="h-[300px]">
+                  {actionStats.length > 0 ? (
+                    <ResponsiveContainer width="100%" height="100%">
+                      <PieChart>
+                        <Pie
+                          data={actionStats}
+                          cx="50%"
+                          cy="50%"
+                          innerRadius={60}
+                          outerRadius={80}
+                          paddingAngle={5}
+                          dataKey="value"
+                        >
+                          {actionStats.map((_entry, index) => (
+                            <Cell key={`cell-${index}`} fill={['#1877F2', '#FF0000', '#FFCC00'][index % 3]} />
+                          ))}
+                        </Pie>
+                        <Tooltip 
+                          contentStyle={{ borderRadius: '12px', border: '2px solid #2a2a2a', fontWeight: 'bold' }}
+                        />
+                        <Legend iconType="circle" wrapperStyle={{ fontWeight: 'bold' }} />
+                      </PieChart>
+                    </ResponsiveContainer>
+                  ) : (
+                    <div className="h-full flex items-center justify-center text-gray-400 font-bold italic">
+                      データがありません
+                    </div>
+                  )}
+                </div>
+              </div>
+            </div>
+
+            <div className="bg-white border-4 border-artistic-text p-8 rounded-[2rem] shadow-[8px_8px_0px_0px_rgba(42,42,42,1)]">
+              <h3 className="text-xl font-black mb-6 flex items-center gap-2">
+                <Heart size={24} className="text-artistic-pink" fill="currentColor" /> イベント別「いいね」数
+              </h3>
+              <div className="space-y-4 max-h-[300px] overflow-y-auto pr-2">
+                {events.sort((a, b) => (b.likesCount || 0) - (a.likesCount || 0)).map(ev => (
+                  <div key={ev.id} className="flex items-center justify-between p-4 border-2 border-artistic-text rounded-xl odd:bg-artistic-blue/5">
+                    <div className="min-w-0 mr-4">
+                      <p className="font-black truncate text-sm">{ev.title || ev.date}</p>
+                      <p className="text-[10px] opacity-60 font-bold uppercase">{ev.date} @ {ev.locationName}</p>
+                    </div>
+                    <div className="flex items-center gap-1 font-black text-artistic-pink">
+                      <Heart size={14} fill="currentColor" />
+                      <span>{ev.likesCount || 0}</span>
+                    </div>
+                  </div>
+                ))}
+                {events.length === 0 && <p className="text-center text-gray-400 italic">データがありません</p>}
               </div>
             </div>
           </div>
@@ -725,95 +904,113 @@ export default function AdminDashboard() {
             </div>
           </div>
 
-          <div className="space-y-4">
-            {events.length === 0 && (
-              <div className="bg-white border-2 border-dashed border-artistic-text p-12 text-center rounded-[2rem] flex flex-col items-center justify-center gap-6">
-                <p className="opacity-60 font-black text-lg">予定されているイベントはありません</p>
-              </div>
-            )}
-            {events.map((event, index) => (
-              <div key={event.id} className={`bg-white border-4 border-artistic-text p-6 rounded-[1.5rem] shadow-[6px_6px_0px_0px_rgba(42,42,42,1)] flex flex-col md:flex-row justify-between md:items-center gap-4 group hover:shadow-[10px_10px_0px_0px_rgba(42,42,42,1)] transition-all ${index === 0 ? 'ring-4 ring-artistic-primary bg-artistic-accent/5' : ''}`}>
-                <div className="flex items-center gap-4 flex-1">
-                  <div className="flex flex-col gap-1 items-center bg-gray-50 p-2 rounded-xl border-2 border-artistic-text">
-                    <button 
-                      onClick={() => moveEventOrder(index, 'up')} 
-                      disabled={index === 0 || saving} 
-                      className="hover:text-artistic-primary disabled:opacity-20 transition-colors"
-                    >
-                      <ArrowUp size={20} />
-                    </button>
-                    <span className="font-black text-sm">{index + 1}</span>
-                    <button 
-                      onClick={() => moveEventOrder(index, 'down')} 
-                      disabled={index === events.length - 1 || saving} 
-                      className="hover:text-artistic-primary disabled:opacity-20 transition-colors"
-                    >
-                      <ArrowDown size={20} />
-                    </button>
-                  </div>
-                  <div className="flex-1">
-                    <div className="flex flex-wrap items-center gap-2 mb-1">
-                      {index === 0 && <span className="bg-artistic-pink text-white px-2 py-0.5 rounded-lg text-[10px] font-black uppercase shadow-sm">Main Display</span>}
-                      <div className="flex flex-col">
-                        {(() => {
-                           const { year, monthDay, dayOfWeek } = formatEventDate(event.date);
-                           return (
-                             <>
-                               {year && (
-                                 <span className="text-[10px] font-black opacity-40 leading-none mb-0.5">
-                                   {year}
-                                 </span>
-                               )}
-                               <span className="text-xl md:text-2xl font-black tracking-tight leading-none">
-                                 {monthDay} {dayOfWeek ? `(${dayOfWeek})` : ''}
-                               </span>
-                             </>
-                           );
-                        })()}
+          <div className="space-y-8">
+            <div className="space-y-4">
+              <h3 className="text-lg font-black bg-artistic-accent inline-block px-3 py-1 rounded-lg">開催予定のイベント</h3>
+              {events.filter(e => !isPastEvent(e.date)).length === 0 && (
+                <div className="bg-white border-2 border-dashed border-artistic-text p-12 text-center rounded-[2rem] flex flex-col items-center justify-center gap-6">
+                  <p className="opacity-60 font-black text-lg">予定されているイベントはありません</p>
+                </div>
+              )}
+              {events.map((event, index) => {
+                if (isPastEvent(event.date)) return null;
+                return (
+                  <div key={event.id} className={`bg-white border-4 border-artistic-text p-6 rounded-[1.5rem] shadow-[6px_6px_0px_0px_rgba(42,42,42,1)] flex flex-col md:flex-row justify-between md:items-center gap-4 group hover:shadow-[10px_10px_0px_0px_rgba(42,42,42,1)] transition-all ${index === 0 ? 'ring-4 ring-artistic-primary bg-artistic-accent/5' : ''}`}>
+                    <div className="flex items-center gap-4 flex-1">
+                      <div className="flex flex-col gap-1 items-center bg-gray-50 p-2 rounded-xl border-2 border-artistic-text">
+                        <button 
+                          onClick={() => moveEventOrder(index, 'up')} 
+                          disabled={index === 0 || saving} 
+                          className="hover:text-artistic-primary disabled:opacity-20 transition-colors"
+                        >
+                          <ArrowUp size={20} />
+                        </button>
+                        <span className="font-black text-sm">{index + 1}</span>
+                        <button 
+                          onClick={() => moveEventOrder(index, 'down')} 
+                          disabled={index === events.length - 1 || saving} 
+                          className="hover:text-artistic-primary disabled:opacity-20 transition-colors"
+                        >
+                          <ArrowDown size={20} />
+                        </button>
                       </div>
-                      <span className="bg-artistic-accent/40 px-2 py-0.5 rounded-lg text-xs font-black uppercase">{event.time}</span>
-                      {event.isPublished === false ? (
-                        <span className="bg-stone-300 text-stone-700 px-2 py-0.5 rounded-lg text-xs font-black uppercase">非公開</span>
-                      ) : (
-                        <span className="bg-green-100 text-green-700 px-2 py-0.5 rounded-lg text-xs font-black uppercase border border-green-300">公開中</span>
-                      )}
-                      {event.likesCount !== undefined && event.likesCount > 0 && (
-                        <span className="bg-artistic-pink/10 text-artistic-pink px-2 py-0.5 rounded-lg text-xs font-black flex items-center gap-1 border border-artistic-pink/30">
-                          <Heart size={10} fill="currentColor" /> {event.likesCount}
-                        </span>
-                      )}
+                      <div className="flex-1">
+                        <div className="flex flex-wrap items-center gap-2 mb-1">
+                          {index === 0 && <span className="bg-artistic-pink text-white px-2 py-0.5 rounded-lg text-[10px] font-black uppercase shadow-sm">Main Display</span>}
+                          <div className="flex flex-col">
+                            {(() => {
+                               const { year, monthDay, dayOfWeek } = formatEventDate(event.date);
+                               return (
+                                 <>
+                                   {year && (
+                                     <span className="text-[10px] font-black opacity-40 leading-none mb-0.5">
+                                       {year}
+                                     </span>
+                                   )}
+                                   <span className="text-xl md:text-2xl font-black tracking-tight leading-none">
+                                     {monthDay} {dayOfWeek ? `(${dayOfWeek})` : ''}
+                                   </span>
+                                 </>
+                               );
+                            })()}
+                          </div>
+                          <span className="bg-artistic-accent/40 px-2 py-0.5 rounded-lg text-xs font-black uppercase">{event.time}</span>
+                          {event.isPublished === false ? (
+                            <span className="bg-stone-300 text-stone-700 px-2 py-0.5 rounded-lg text-xs font-black uppercase">非公開</span>
+                          ) : (
+                            <span className="bg-green-100 text-green-700 px-2 py-0.5 rounded-lg text-xs font-black uppercase border border-green-300">公開中</span>
+                          )}
+                        </div>
+                        {event.title && <p className="font-black text-lg md:text-xl mb-1">{event.title}</p>}
+                        <p className="font-bold text-sm opacity-60 flex items-center gap-1">
+                          <Calendar size={12} /> {event.locationName}
+                        </p>
+                      </div>
                     </div>
-                    {event.title && (
-                      <p className="font-black text-lg md:text-xl mb-1">{event.title}</p>
-                    )}
-                    <p className="font-bold text-sm opacity-60 flex items-center gap-1">
-                      <Calendar size={12} /> {event.locationName}
-                    </p>
+                    <div className="flex gap-2 flex-wrap md:flex-nowrap">
+                      <button onClick={() => duplicateEvent(event)} className="flex-1 md:flex-none px-4 py-3 border-2 border-artistic-text rounded-xl hover:bg-artistic-green hover:text-white transition-colors flex items-center justify-center gap-2 font-black text-sm">
+                        <Copy size={16} /> 複製
+                      </button>
+                      <button onClick={() => setEditingEvent(event)} className="flex-1 md:flex-none p-3 border-2 border-artistic-text rounded-xl hover:bg-artistic-blue transition-colors flex items-center justify-center gap-2 font-black text-sm">
+                        <Edit2 size={16} /> 編集
+                      </button>
+                      <button onClick={() => event.id && setDeletingEventId(event.id)} className="p-3 border-2 border-artistic-text rounded-xl hover:bg-artistic-pink hover:text-white transition-colors flex items-center justify-center">
+                        <Trash2 size={16} />
+                      </button>
+                    </div>
                   </div>
-                </div>
-                <div className="flex gap-2 flex-wrap md:flex-nowrap">
-                  <button 
-                    onClick={() => duplicateEvent(event)}
-                    title="複製して新規作成"
-                    className="flex-1 md:flex-none px-4 py-3 border-2 border-artistic-text rounded-xl hover:bg-artistic-green hover:text-white transition-colors flex items-center justify-center gap-2 font-black text-sm"
-                  >
-                    <Copy size={16} /> 複製
-                  </button>
-                  <button 
-                    onClick={() => setEditingEvent(event)}
-                    className="flex-1 md:flex-none p-3 border-2 border-artistic-text rounded-xl hover:bg-artistic-blue transition-colors flex items-center justify-center gap-2 font-black text-sm"
-                  >
-                    <Edit2 size={16} /> 編集
-                  </button>
-                  <button 
-                    onClick={() => event.id && setDeletingEventId(event.id)}
-                    className="p-3 border-2 border-artistic-text rounded-xl hover:bg-artistic-pink hover:text-white transition-colors flex items-center justify-center"
-                  >
-                    <Trash2 size={16} />
-                  </button>
-                </div>
-              </div>
-            ))}
+                );
+              })}
+            </div>
+
+            <div className="space-y-4 pt-12">
+              <h3 className="text-lg font-black bg-stone-200 inline-block px-3 py-1 rounded-lg opacity-60">アーカイブ済みイベント (終了)</h3>
+              {events.filter(e => isPastEvent(e.date)).length === 0 && (
+                <p className="text-center py-6 text-gray-400 font-bold italic">アーカイブはありません</p>
+              )}
+              {events.map((event, index) => {
+                if (!isPastEvent(event.date)) return null;
+                return (
+                  <div key={event.id} className="bg-stone-50 border-2 border-artistic-text/30 p-4 rounded-xl flex flex-col md:flex-row justify-between md:items-center gap-4 opacity-70 grayscale hover:opacity-100 hover:grayscale-0 transition-all">
+                    <div className="flex-1">
+                      <div className="text-xs font-black opacity-40 mb-1">{event.date}</div>
+                      <p className="font-black text-lg">{event.title || event.locationName}</p>
+                    </div>
+                    <div className="flex gap-2">
+                       <button onClick={() => duplicateEvent(event)} className="p-2 border border-artistic-text rounded-lg hover:bg-artistic-green hover:text-white transition-colors">
+                        <Copy size={14} />
+                      </button>
+                      <button onClick={() => setEditingEvent(event)} className="p-2 border border-artistic-text rounded-lg hover:bg-artistic-blue transition-colors">
+                        <Edit2 size={14} />
+                      </button>
+                      <button onClick={() => event.id && setDeletingEventId(event.id)} className="p-2 border border-artistic-text rounded-lg hover:bg-artistic-pink hover:text-white transition-colors">
+                        <Trash2 size={14} />
+                      </button>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
           </div>
         </div>
         )}

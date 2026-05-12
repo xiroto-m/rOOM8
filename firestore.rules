@@ -58,11 +58,21 @@ service cloud.firestore {
     }
 
     function isValidVisit(data, visitId) {
-      let expectedId = data.date + '_' + data.ip;
-      return data.keys().hasAll(['ip', 'date', 'timestamp'])
+      let expectedId = data.date + '_' + data.deviceId;
+      return data.keys().hasAll(['deviceId', 'ip', 'date', 'deviceType', 'userAgent', 'timestamp'])
+        && data.deviceId is string && data.deviceId.size() <= 128
         && data.ip is string && data.ip.size() <= 64
         && data.date is string && data.date.size() <= 10
+        && data.deviceType in ['mobile', 'desktop']
         && visitId == expectedId
+        && data.timestamp == request.time;
+    }
+
+    function isValidAction(data) {
+      return data.keys().hasAll(['actionType', 'deviceId', 'date', 'timestamp'])
+        && data.actionType is string && data.actionType.size() <= 100
+        && data.deviceId is string && data.deviceId.size() <= 128
+        && data.date is string && data.date.size() <= 10
         && data.timestamp == request.time;
     }
 
@@ -98,6 +108,12 @@ service cloud.firestore {
     match /analytics_visits/{visitId} {
       allow read: if isAdmin();
       allow create: if isValidVisit(incoming(), visitId);
+      allow update, delete: if isAdmin();
+    }
+
+    match /analytics_actions/{actionId} {
+      allow read: if isAdmin();
+      allow create: if isValidAction(incoming());
       allow update, delete: if isAdmin();
     }
 
