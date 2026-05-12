@@ -12,7 +12,8 @@ import {
   Settings as SettingsIcon,
   Calendar,
   Copy,
-  ExternalLink
+  ExternalLink,
+  Youtube
 } from "lucide-react";
 import { QRCodeSVG } from "qrcode.react";
 import { EVENT_INFO, SECTIONS, FALLBACK_EVENTS } from "./constants";
@@ -965,7 +966,7 @@ function MainSite() {
 
           <div className="grid md:grid-cols-2 gap-8 mb-12">
             <div className="bg-[#FFF1E6] border-2 border-artistic-text p-10 rounded-[2.5rem] shadow-[8px_8px_0px_0px_rgba(42,42,42,1)]">
-              <h3 className="text-xl font-black mb-6 underline decoration-artistic-primary">📍 Access & Location</h3>
+              <h3 className="text-xl font-black mb-6 underline decoration-artistic-primary">📍 Access</h3>
               <div className="space-y-4">
                  <div>
                    <p className="text-xs font-black uppercase opacity-50 mb-1">Address</p>
@@ -987,9 +988,9 @@ function MainSite() {
                       setTimeout(() => toast.classList.add('opacity-0'), 2000);
                     }
                   }}
-                  className="inline-flex items-center gap-2 text-artistic-primary font-black hover:underline cursor-pointer"
+                  className="flex items-center gap-2 text-[10px] font-black uppercase tracking-[0.2em] text-artistic-primary hover:text-artistic-text transition-all cursor-pointer group/copy"
                 >
-                  住所をコピー <Copy size={14} />
+                  <Copy size={14} className="group-hover/copy:scale-110 transition-transform" /> Copy Address
                 </button>
                 <div id="copy-toast-address" className="absolute top-0 right-0 bg-artistic-text text-white px-4 py-2 rounded-xl text-xs font-black opacity-0 transition-opacity pointer-events-none">
                   Copied!
@@ -1017,9 +1018,9 @@ function MainSite() {
                       setTimeout(() => btn.classList.add('opacity-0'), 2000);
                     }
                   }}
-                  className="flex items-center gap-2 text-xs font-black uppercase opacity-40 hover:opacity-100 transition-opacity mt-4 cursor-pointer"
+                  className="flex items-center gap-2 text-[10px] font-black uppercase tracking-[0.2em] text-artistic-primary hover:text-artistic-text transition-all mt-4 cursor-pointer group/copy"
                 >
-                  <Copy size={14} /> Copy Email
+                  <Copy size={14} className="group-hover/copy:scale-110 transition-transform" /> Copy Email
                 </button>
               </div>
               <div id="copy-toast" className="absolute top-4 right-4 bg-artistic-text text-white px-4 py-2 rounded-xl text-xs font-black opacity-0 transition-opacity pointer-events-none">
@@ -1029,6 +1030,77 @@ function MainSite() {
           </div>
         </Section>
       )}
+
+      {/* YouTube Promotion Section */}
+      <Section className="py-12">
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          whileInView={{ opacity: 1, y: 0 }}
+          viewport={{ once: true }}
+          className="bg-artistic-accent border-4 border-artistic-text p-8 md:p-12 rounded-[2.5rem] md:rounded-[3.5rem] shadow-[12px_12px_0px_0px_rgba(42,42,42,1)] md:shadow-[20px_20px_0px_0px_rgba(42,42,42,1)] relative overflow-hidden"
+        >
+          {/* Decorative background circle */}
+          <div className="absolute top-0 right-0 w-64 h-64 bg-white/10 rounded-full -mr-20 -mt-20 blur-2xl" />
+          
+          <div className="relative z-10 flex flex-col md:flex-row items-center gap-8 md:gap-16">
+            <div className="w-24 h-24 md:w-32 md:h-32 bg-[#FF0000] rounded-[2rem] flex items-center justify-center shrink-0 shadow-[4px_4px_0px_0px_rgba(42,42,42,1)] border-2 border-artistic-text rotate-[-6deg]">
+              <Youtube size={60} className="text-white" strokeWidth={2.5} />
+            </div>
+            
+            <div className="flex-1 text-center md:text-left">
+              <h2 className="text-3xl md:text-5xl font-black mb-4 tracking-tighter leading-none">
+                皆様にちょっとお願い 📢
+              </h2>
+              <p className="text-lg md:text-xl font-bold leading-relaxed mb-8 text-artistic-text/90">
+                YouTubeのチャンネル登録をお願いします！<br className="hidden md:block" />
+                登録者が<span className="bg-white px-2 py-0.5 rounded-lg text-artistic-primary underline decoration-artistic-text">50人に到達</span>すると、スマホでのライブ配信ができるようになります。<br />
+                rOOM8をもっと便利に、もっと楽しく。応援よろしくお願いします！✨
+              </p>
+              
+              <div className="mb-8 overflow-hidden">
+                <div className="flex justify-between items-end mb-2">
+                  <div className="text-sm font-black uppercase tracking-widest opacity-40">
+                    Progress to 50
+                  </div>
+                  <div className="text-xl font-black text-artistic-primary">
+                    残り {Math.max(0, 50 - 34)} 人
+                  </div>
+                </div>
+                <div className="h-4 w-full bg-white/30 border-2 border-artistic-text rounded-full overflow-hidden shadow-inner">
+                  <motion.div 
+                    initial={{ width: 0 }}
+                    whileInView={{ width: `${(34 / 50) * 100}%` }}
+                    viewport={{ once: true }}
+                    transition={{ duration: 1.5, ease: "easeOut" }}
+                    className="h-full bg-white border-r-2 border-artistic-text relative"
+                  >
+                    <div className="absolute inset-0 bg-gradient-to-r from-transparent to-white/20 animate-pulse" />
+                  </motion.div>
+                </div>
+                <div className="mt-2 text-[10px] font-black uppercase tracking-widest opacity-30 text-right">
+                  Goal: 50 Subscribers (Current: 34)
+                </div>
+              </div>
+
+              <div className="flex flex-col sm:flex-row items-center gap-4">
+                <a 
+                  href="https://youtube.com/@tackyosya955?si=QuhqmU78v3Xqtqly"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  onClick={() => trackAction('click_youtube_promotion')}
+                  className="w-full sm:w-auto bg-[#FF0000] text-white px-8 py-4 rounded-[1.5rem] font-black text-lg flex items-center justify-center gap-3 hover:scale-105 transition-all shadow-[6px_6px_0px_0px_rgba(42,42,42,1)] border-2 border-artistic-text"
+                >
+                  YouTubeでチャンネル登録する
+                  <ExternalLink size={20} />
+                </a>
+                <div className="text-sm font-black opacity-40 uppercase tracking-widest hidden sm:block">
+                  Goal: 50 Subscribers
+                </div>
+              </div>
+            </div>
+          </div>
+        </motion.div>
+      </Section>
 
       {loading && (
         <Section className="my-12">
