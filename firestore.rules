@@ -77,11 +77,12 @@ service cloud.firestore {
       // Allow admins to do everything
       allow create: if isAdmin() && isValidId(eventId) && isValidEvent(incoming());
       
-      // Allow public to increment likesCount, but ONLY that field
+      // Allow public to increment or decrement likesCount, but ONLY that field
       allow update: if (isAdmin() && isValidEvent(incoming()))
                       || (isValidId(eventId) && 
                           incoming().diff(existing()).affectedKeys().hasOnly(['likesCount']) &&
-                          incoming().likesCount == (existing().get('likesCount', 0) + 1));
+                          (incoming().likesCount == (existing().get('likesCount', 0) + 1) ||
+                           (incoming().likesCount == (existing().get('likesCount', 0) - 1) && incoming().likesCount >= 0)));
       
       allow delete: if isAdmin() && isValidId(eventId);
 
@@ -89,8 +90,8 @@ service cloud.firestore {
         allow read: if true;
         // Public can create a like if it's the correct format
         allow create: if isValidId(likeId) && isValidLike(incoming(), likeId);
-        // Nobody can update or delete a like
-        allow update, delete: if false;
+        // Allow delete for toggle functionality
+        allow delete: if isValidId(likeId);
       }
     }
 

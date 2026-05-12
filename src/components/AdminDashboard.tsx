@@ -30,8 +30,9 @@ import {
 import { EVENT_INFO } from '../constants';
 import { formatEventDate } from '../lib/dateUtils';
 import { Link } from 'react-router-dom';
-import { LogIn, LogOut, Save, AlertCircle, CheckCircle, ArrowLeft, ArrowUp, ArrowDown, Plus, Trash2, Edit2, Calendar, Settings, Copy, Heart, BarChart3 } from 'lucide-react';
+import { LogIn, LogOut, Save, AlertCircle, CheckCircle, ArrowLeft, ArrowUp, ArrowDown, Plus, Trash2, Edit2, Calendar, Settings, Copy, Heart, BarChart3, Download, Upload } from 'lucide-react';
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
+import Papa from 'papaparse';
 
 const ADMIN_EMAILS = ["hiroto.mizutani@gmail.com", "taku448@gmail.com"];
 
@@ -147,6 +148,17 @@ const EventEditModal = ({ event, onSave, onClose, saving }: { event: EventItem, 
               onChange={e => setFormData({...formData, youtubeUrl: e.target.value})}
               className="w-full border-2 border-artistic-text p-3 rounded-xl font-bold outline-none"
               placeholder="https://youtube.com/..."
+            />
+          </div>
+
+          <div className="space-y-2">
+            <label className="text-xs font-black uppercase opacity-60">Facebookイベント URL (任意)</label>
+            <input 
+              type="url" 
+              value={formData.facebookEventUrl || ''} 
+              onChange={e => setFormData({...formData, facebookEventUrl: e.target.value})}
+              className="w-full border-2 border-artistic-text p-3 rounded-xl font-bold outline-none"
+              placeholder="https://facebook.com/events/..."
             />
           </div>
 
@@ -318,6 +330,77 @@ export default function AdminDashboard() {
     } finally {
       setSaving(false);
     }
+  };
+
+  const handleExportCSV = () => {
+    const dataToExport = events.map(ev => ({
+      title: ev.title || '',
+      date: ev.date,
+      time: ev.time,
+      locationName: ev.locationName,
+      address: ev.address,
+      access: ev.access,
+      fee: ev.fee,
+      description: ev.description || '',
+      youtubeUrl: ev.youtubeUrl || ev.facebookEventUrl || '',
+      googleMapEmbedUrl: ev.googleMapEmbedUrl,
+      order: ev.order || 0,
+      isPublished: ev.isPublished !== false ? 'TRUE' : 'FALSE'
+    }));
+
+    const csv = Papa.unparse(dataToExport);
+    const blob = new Blob(["\uFEFF" + csv], { type: 'text/csv;charset=utf-8;' });
+    const link = document.createElement("a");
+    const url = URL.createObjectURL(blob);
+    link.setAttribute("href", url);
+    link.setAttribute("download", `events_export_${new Date().toISOString().split('T')[0]}.csv`);
+    link.style.visibility = 'hidden';
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+  };
+
+  const handleImportCSV = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    setSaving(true);
+    Papa.parse(file, {
+      header: true,
+      skipEmptyLines: true,
+      complete: async (results) => {
+        try {
+          const batch = [];
+          for (const row of results.data as any[]) {
+            const eventData: Partial<EventItem> = {
+              title: row.title || '',
+              date: row.date || '',
+              time: row.time || '',
+              locationName: row.locationName || '',
+              address: row.address || '',
+              access: row.access || '',
+              fee: row.fee || '',
+              description: row.description || '',
+              youtubeUrl: row.youtubeUrl || '',
+              googleMapEmbedUrl: row.googleMapEmbedUrl || '',
+              order: parseInt(row.order) || 0,
+              isPublished: row.isPublished === 'TRUE',
+              updatedAt: serverTimestamp()
+            };
+            batch.push(addDoc(collection(db, 'events'), eventData));
+          }
+          await Promise.all(batch);
+          setStatus({ type: 'success', message: `${batch.length}件のイベントをインポートしました。` });
+          fetchData();
+        } catch (err) {
+          console.error(err);
+          setStatus({ type: 'error', message: 'インポートに失敗しました。ファイル形式を確認してください。' });
+        } finally {
+          setSaving(false);
+          e.target.value = '';
+        }
+      }
+    });
   };
 
   const handleSaveEvent = async (eventData: EventItem) => {
@@ -565,7 +648,7 @@ export default function AdminDashboard() {
                           tick={{fontSize: 10, fontWeight: 'bold'}}
                           tickFormatter={(val) => val.split('-').slice(1).join('/')}
                         />
-                        <YAxis tick={{fontSize: 10, fontWeight: 'bold'}} />
+                        <YAxis tick={{fontSize: 10, fontWeight: 'bold'}} allowDecimals={false} />
                         <Tooltip 
                           contentStyle={{ 
                             borderRadius: '12px', 
@@ -629,6 +712,16 @@ export default function AdminDashboard() {
               >
                 <Plus size={24} />
               </button>
+              <button 
+                onClick={handleExportCSV}
+                className="bg-white text-artistic-text h-12 px-4 rounded-xl flex items-center justify-center gap-2 border-2 border-artistic-text shadow-[4px_4px_0px_0px_rgba(42,42,42,1)] hover:translate-y-0.5 hover:shadow-none transition-all font-black text-xs"
+              >
+                <Download size={18} /> CSV出力
+              </button>
+              <label className="bg-white text-artistic-text h-12 px-4 rounded-xl flex items-center justify-center gap-2 border-2 border-artistic-text shadow-[4px_4px_0px_0px_rgba(42,42,42,1)] hover:translate-y-0.5 hover:shadow-none transition-all font-black text-xs cursor-pointer">
+                <Upload size={18} /> CSV読込
+                <input type="file" accept=".csv" onChange={handleImportCSV} className="hidden" />
+              </label>
             </div>
           </div>
 

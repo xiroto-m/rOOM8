@@ -15,7 +15,7 @@ import {
   ExternalLink
 } from "lucide-react";
 import { QRCodeSVG } from "qrcode.react";
-import { EVENT_INFO, SECTIONS } from "./constants";
+import { EVENT_INFO, SECTIONS, FALLBACK_EVENTS } from "./constants";
 import AdminDashboard from "./components/AdminDashboard";
 import { db, EventItem, auth } from "./lib/firebase";
 import { formatEventDate } from "./lib/dateUtils";
@@ -28,8 +28,7 @@ import {
   getDocFromServer,
   writeBatch,
   increment,
-  serverTimestamp,
-  getDoc
+  serverTimestamp
 } from "firebase/firestore";
 
 enum OperationType {
@@ -91,16 +90,18 @@ async function testConnection() {
   }
 }
 
-const Section = ({ children, className = "", id = "" }: { children: ReactNode, className?: string, id?: string }) => (
-  <section id={id} className={`py-16 px-6 md:px-12 max-w-7xl mx-auto ${className}`}>
-    {children}
+const Section = ({ children, className = "", id = "", innerClassName = "" }: { children: ReactNode, className?: string, id?: string, innerClassName?: string }) => (
+  <section id={id} className={className}>
+    <div className={`px-6 md:px-12 max-w-7xl mx-auto ${innerClassName}`}>
+      {children}
+    </div>
   </section>
 );
 
 const Card = ({ children, className = "" }: { children: ReactNode, className?: string }) => (
   <motion.div 
-    whileHover={{ y: -5 }}
-    className={`bg-white p-8 rounded-[2rem] shadow-[8px_8px_0px_0px_rgba(42,42,42,1)] border-2 border-artistic-text ${className}`}
+    whileHover={{ y: -8, x: -4, shadow: "12px 12px 0px 0px rgba(42,42,42,1)" }}
+    className={`bg-white p-8 rounded-[2.5rem] shadow-[8px_8px_0px_0px_rgba(42,42,42,1)] border-2 border-artistic-text transition-shadow duration-200 ${className}`}
   >
     {children}
   </motion.div>
@@ -154,11 +155,55 @@ function MainSite() {
   const [error, setError] = useState<string | null>(null);
   const [userIP, setUserIP] = useState<string | null>(null);
   const [likedEvents, setLikedEvents] = useState<Set<string>>(new Set());
+  const [isScrolled, setIsScrolled] = useState(false);
+  
+  const scrollToSection = (e: React.MouseEvent, id: string) => {
+    e.preventDefault();
+    const element = document.getElementById(id);
+    if (element) {
+      const headerOffset = isScrolled ? 60 : 100;
+      const elementPosition = element.getBoundingClientRect().top;
+      const offsetPosition = elementPosition + window.pageYOffset - headerOffset;
+
+      window.scrollTo({
+        top: offsetPosition,
+        behavior: "smooth"
+      });
+    }
+  };
+
+  useEffect(() => {
+    // Handle initial hash in URL (e.g. on direct load or back from Admin)
+    const hash = window.location.hash;
+    if (hash && hash !== '#/' && hash !== '#') {
+      // Small delay to ensure items are rendered
+      const timeout = setTimeout(() => {
+        const id = hash.replace(/^#\/?/, '').split('?')[0]; // Handle #about or #/about
+        const element = document.getElementById(id);
+        if (element) {
+          const headerOffset = 100;
+          const elementPosition = element.getBoundingClientRect().top;
+          const offsetPosition = elementPosition + window.pageYOffset - headerOffset;
+          window.scrollTo({ top: offsetPosition, behavior: "smooth" });
+        }
+      }, 500);
+      return () => clearTimeout(timeout);
+    }
+  }, []);
+
   const [globalSettings, setGlobalSettings] = useState({
     instagram: EVENT_INFO.instagram,
     youtube: EVENT_INFO.youtube,
     contactEmail: EVENT_INFO.contactEmail
   });
+
+  useEffect(() => {
+    const handleScroll = () => {
+      setIsScrolled(window.scrollY > 50);
+    };
+    window.addEventListener('scroll', handleScroll);
+    return () => window.removeEventListener('scroll', handleScroll);
+  }, []);
 
   useEffect(() => {
     // Fetch IP address
@@ -264,8 +309,9 @@ function MainSite() {
   }, []);
 
   const handleLike = async (eventId: string) => {
-    if (!userIP || !eventId || likedEvents.has(eventId)) return;
+    if (!userIP || !eventId) return;
 
+    const isLiked = likedEvents.has(eventId);
     const pathForLike = `events/${eventId}/likes/${userIP}`;
     const pathForEvent = `events/${eventId}`;
 
@@ -273,45 +319,41 @@ function MainSite() {
       const likeDocRef = doc(db, 'events', eventId, 'likes', userIP);
       const eventDocRef = doc(db, 'events', eventId);
 
-      // Check if already liked in Firestore to be sure
-      let likeSnap;
-      try {
-        likeSnap = await getDoc(likeDocRef);
-      } catch (err) {
-        handleFirestoreError(err, OperationType.GET, pathForLike);
-        return;
-      }
-
-      if (likeSnap.exists()) {
-        const newLiked = new Set(likedEvents);
-        newLiked.add(eventId);
-        setLikedEvents(newLiked);
-        localStorage.setItem('rOOM8_liked_events', JSON.stringify(Array.from(newLiked)));
-        return;
-      }
-
       const batch = writeBatch(db);
-      batch.set(likeDocRef, {
-        ip: userIP,
-        eventId: eventId,
-        createdAt: serverTimestamp()
-      });
-      batch.update(eventDocRef, {
-        likesCount: increment(1)
-      });
+      
+      if (isLiked) {
+        batch.delete(likeDocRef);
+        batch.update(eventDocRef, {
+          likesCount: increment(-1)
+        });
+      } else {
+        batch.set(likeDocRef, {
+          ip: userIP,
+          eventId: eventId,
+          createdAt: serverTimestamp()
+        });
+        batch.update(eventDocRef, {
+          likesCount: increment(1)
+        });
+      }
 
       try {
         await batch.commit();
       } catch (err) {
         handleFirestoreError(err, OperationType.WRITE, `batch:${pathForLike}+${pathForEvent}`);
+        return;
       }
 
       const newLiked = new Set(likedEvents);
-      newLiked.add(eventId);
+      if (isLiked) {
+        newLiked.delete(eventId);
+      } else {
+        newLiked.add(eventId);
+      }
       setLikedEvents(newLiked);
       localStorage.setItem('rOOM8_liked_events', JSON.stringify(Array.from(newLiked)));
     } catch (err) {
-      console.error("Failed to like event:", err);
+      console.error("Failed to toggle like:", err);
     }
   };
 
@@ -323,174 +365,244 @@ function MainSite() {
           e.preventDefault();
           handleLike(eventId);
         }}
-        disabled={isLiked || !userIP}
-        className={`flex items-center gap-2 px-3 py-2 rounded-2xl border-2 border-artistic-text transition-all font-black group
+        disabled={!userIP}
+        className={`flex items-center gap-2 px-3 py-2 rounded-2xl border-2 transition-all font-black group relative overflow-hidden
           ${isLiked 
-            ? 'bg-artistic-pink text-white border-artistic-pink' 
-            : 'bg-white text-artistic-text hover:bg-artistic-pink/10'
+            ? 'bg-artistic-pink text-white border-artistic-text' 
+            : 'bg-white text-artistic-text border-artistic-text hover:bg-artistic-accent/20'
           } ${compact ? 'text-[10px] px-2.5 py-1.5' : 'text-xs'}
         `}
       >
-        <Heart 
-          size={compact ? 12 : 16} 
-          fill={isLiked ? "currentColor" : "none"} 
-          className={isLiked ? "" : "group-hover:scale-110 transition-transform"}
-        />
-        <span>{isLiked ? "いいね済み" : "いいね"}</span>
-        <span className={`bg-black/10 px-1.5 py-0.5 rounded-lg text-[10px] min-w-[1.2rem] text-center ${isLiked ? 'text-white' : 'text-artistic-text'}`}>
+        <motion.div
+          animate={isLiked ? { scale: [1, 1.3, 1] } : {}}
+          transition={{ duration: 0.3 }}
+        >
+          <Heart 
+            size={compact ? 12 : 16} 
+            fill={isLiked ? "currentColor" : "none"} 
+            className={isLiked ? "" : "group-hover:scale-110 transition-transform"}
+          />
+        </motion.div>
+        <span className={`px-1.5 py-0.5 rounded-lg text-[10px] min-w-[1.2rem] text-center font-mono ${isLiked ? 'bg-white/20 text-white' : 'bg-black/5 text-artistic-text'}`}>
           {count || 0}
         </span>
       </button>
     );
   };
 
-  const heroEvent = events[0] || (loading ? null : {
+  const effectiveEvents = events.length > 0 ? events : (loading ? [] : FALLBACK_EVENTS);
+
+  const heroEvent = effectiveEvents[0] || (loading ? null : {
+    id: 'next-event',
+    title: SECTIONS.hero.title,
     date: EVENT_INFO.nextDate,
     time: EVENT_INFO.nextTime,
     locationName: EVENT_INFO.locationName,
     address: EVENT_INFO.address,
     access: EVENT_INFO.access,
     fee: EVENT_INFO.fee,
-    googleMapEmbedUrl: EVENT_INFO.googleMapEmbedUrl
+    googleMapEmbedUrl: EVENT_INFO.googleMapEmbedUrl,
+    likesCount: 0,
+    isActive: true
   });
 
-  const upcomingEvents = events.slice(1);
+  const upcomingEvents = effectiveEvents.slice(1);
 
   return (
-    <div className="min-h-screen bg-artistic-bg text-artistic-text font-sans selection:bg-artistic-accent/40">
+    <div className="min-h-screen bg-artistic-bg text-artistic-text font-sans relative overflow-x-hidden">
+      {/* Decorative Background Elements */}
+      <div className="fixed inset-0 pointer-events-none opacity-[0.03] z-0 overflow-hidden">
+        <motion.div 
+          animate={{ rotate: 360, x: [0, 100, 0], y: [0, -50, 0] }} 
+          transition={{ duration: 60, repeat: Infinity, ease: "linear" }}
+          className="absolute -top-20 -left-20"
+        >
+          <Palette size={400} />
+        </motion.div>
+        <motion.div 
+          animate={{ rotate: -360, x: [0, -100, 0], y: [0, 50, 0] }} 
+          transition={{ duration: 80, repeat: Infinity, ease: "linear" }}
+          className="absolute -bottom-20 -right-20"
+        >
+          <Music size={400} />
+        </motion.div>
+      </div>
+
       {/* Top Header Navigation */}
-      <nav className="p-6 md:p-8 flex flex-col md:flex-row justify-between items-start md:items-end border-b-2 border-artistic-text max-w-7xl mx-auto w-full">
-        <div className="flex flex-col">
-          <span className="text-[10px] tracking-[0.3em] font-black uppercase opacity-40 mb-3 ml-1">Yoyogi Community Gallery</span>
-          <h1 className="text-6xl md:text-7xl font-black tracking-[-0.06em] leading-none">
-            rOOM<span className="text-artistic-primary underline decoration-artistic-accent decoration-8 underline-offset-[12px]">8</span>
-          </h1>
-        </div>
-        <div className="flex flex-col md:items-end gap-3 mt-8 md:mt-0">
-          <div className="text-left md:text-right">
-            <p className="text-xl md:text-2xl font-black leading-tight tracking-tight">
-              みんなの「好き」を持ち寄って<br />
-              <span className="bg-artistic-accent px-2 py-0.5 inline-block mt-1">飾る！語る！繋がる！</span>
-            </p>
+      <header className={`sticky top-0 z-50 transition-all duration-300 border-artistic-text ${
+        isScrolled 
+          ? 'bg-white/80 backdrop-blur-md py-3 border-b shadow-sm' 
+          : 'bg-transparent py-6 md:py-8 border-b-2'
+      }`}>
+        <nav className="px-6 md:px-12 max-w-7xl mx-auto flex flex-col md:flex-row justify-between items-start md:items-center w-full">
+          <div className="flex flex-col">
+            {!isScrolled && (
+              <span className="text-[8px] md:text-[10px] tracking-[0.3em] font-black uppercase opacity-40 mb-2 md:mb-3 ml-1 block">Yoyogi Community Gallery</span>
+            )}
+            <h1 className={`font-black tracking-[-0.06em] leading-none transition-all ${
+              isScrolled ? 'text-2xl md:text-3xl' : 'text-5xl md:text-7xl'
+            }`}>
+              rOOM<span className="text-artistic-primary underline decoration-artistic-accent decoration-4 md:decoration-8 underline-offset-[4px] md:underline-offset-[12px]">8</span>
+            </h1>
           </div>
-          <Link to="/admin" className="text-[10px] font-black uppercase opacity-30 hover:opacity-100 transition-opacity flex items-center gap-1.5 px-2 py-1 border border-artistic-text/10 rounded-md">
-            <SettingsIcon size={10} /> Admin Control
-          </Link>
-        </div>
-      </nav>
+          <div className="flex flex-col md:items-end gap-1 mt-4 md:mt-0">
+            {!isScrolled && (
+              <div className="text-left md:text-right hidden sm:block">
+                <p className="text-base md:text-lg font-black leading-tight tracking-tight">
+                  「好き」を持ち寄って<span className="bg-artistic-accent px-1">飾る！語る！繋がる！</span>
+                </p>
+              </div>
+            )}
+            <div className="flex items-center gap-4">
+              <a 
+                href="#about" 
+                onClick={(e) => scrollToSection(e, 'about')}
+                className="text-[10px] font-black uppercase tracking-widest hover:text-artistic-primary transition-colors cursor-pointer"
+              >
+                About
+              </a>
+              <a 
+                href="#location" 
+                onClick={(e) => scrollToSection(e, 'location')}
+                className="text-[10px] font-black uppercase tracking-widest hover:text-artistic-primary transition-colors cursor-pointer"
+              >
+                Location
+              </a>
+              <Link to="/admin" className="text-[10px] font-black uppercase opacity-30 hover:opacity-100 transition-opacity flex items-center gap-1.5 px-2 py-1 border border-artistic-text/10 rounded-md">
+                <SettingsIcon size={10} /> Admin
+              </Link>
+            </div>
+          </div>
+        </nav>
+      </header>
 
       {/* Hero Section */}
-      <Section className="grid lg:grid-cols-12 gap-6 pt-8 md:pt-16 pb-16 md:pb-24">
+      <Section id="home" className="relative" innerClassName="grid lg:grid-cols-12 gap-6 pt-8 md:pt-16 pb-16 md:pb-24">
         {loading ? (
-          <div className="lg:col-span-4 bg-gray-200 animate-pulse h-[400px] md:h-[600px] rounded-[2rem] md:rounded-[2.5rem] border-2 border-artistic-text shadow-[8px_8px_0px_0px_rgba(42,42,42,1)]" />
+          <div className="lg:col-span-12 bg-gray-200 animate-pulse h-[400px] md:h-[600px] rounded-[2rem] md:rounded-[2.5rem] border-2 border-artistic-text shadow-[8px_8px_0px_0px_rgba(42,42,42,1)]" />
         ) : heroEvent ? (
           <motion.div 
-            initial={{ opacity: 0, x: -20 }}
-            animate={{ opacity: 1, x: 0 }}
-            className="lg:col-span-5 bg-artistic-primary text-white p-8 md:p-14 rounded-[2.5rem] md:rounded-[3.5rem] flex flex-col justify-between shadow-[8px_8px_0px_0px_rgba(42,42,42,1)] md:shadow-[16px_16px_0px_0px_rgba(42,42,42,1)] border-2 border-artistic-text"
+            initial={{ opacity: 0, scale: 0.95 }}
+            animate={{ opacity: 1, scale: 1 }}
+            className="lg:col-span-12 bg-artistic-primary text-white p-8 md:p-14 rounded-[2.5rem] md:rounded-[3.5rem] flex flex-col lg:flex-row gap-12 shadow-[12px_12px_0px_0px_rgba(42,42,42,1)] md:shadow-[20px_20px_0px_0px_rgba(42,42,42,1)] border-2 border-artistic-text relative z-10"
           >
-            <div>
-              <span className="text-xs md:text-sm font-black uppercase tracking-[0.3em] opacity-70">Next Event / 開催予定</span>
-              <div className="mt-6 md:mt-10">
-                {(() => {
-                  const { year, monthDay, dayOfWeek } = formatEventDate(heroEvent.date);
-                  return (
-                    <>
-                      {heroEvent.title && (
-                        <span className="bg-white text-artistic-primary text-sm md:text-base px-3 py-1 rounded-xl font-black mb-4 inline-block shadow-sm">
-                          {heroEvent.title}
-                        </span>
-                      )}
-                      {year && (
-                        <span className="text-xl md:text-2xl font-black block mb-1 opacity-70 tracking-tighter">
-                          {year}
-                        </span>
-                      )}
-                      <h2 className="text-7xl md:text-8xl lg:text-9xl font-black leading-[0.75] tracking-[-0.08em]">
-                        {monthDay}
-                      </h2>
-                      <span className="text-2xl md:text-3xl lg:text-4xl font-black block mt-6 md:mt-8 tracking-tighter decoration-artistic-accent underline underline-offset-8">
-                        {dayOfWeek && dayOfWeek !== '' ? `${dayOfWeek} ` : ''}{heroEvent.time}
-                      </span>
-                    </>
-                  );
-                })()}
+            <div className="lg:w-1/2 flex flex-col justify-between">
+              <div>
+              <div className="flex items-center gap-3 mb-6">
+                <span className="text-[10px] md:text-xs font-black uppercase tracking-[0.4em] opacity-80 bg-white/20 px-3 py-1 rounded-full">Next Event</span>
+                <div className="flex-1 h-px bg-white/30" />
+              </div>
+              <div className="mt-4">
+                  {(() => {
+                    const { year, monthDay, dayOfWeek } = formatEventDate(heroEvent.date);
+                    const displayTitle = heroEvent.title || SECTIONS.hero.title;
+                    return (
+                      <>
+                        <h2 className="text-xl md:text-3xl font-black mb-6 leading-tight tracking-tight">
+                          {displayTitle}
+                        </h2>
+                        
+                        <div className="flex items-baseline gap-4 mb-4">
+                          <h2 className="text-8xl md:text-9xl font-black leading-none tracking-[-0.08em]">
+                            {monthDay || heroEvent.date}
+                          </h2>
+                          <div className="flex flex-col">
+                             {year && <span className="text-xl font-black opacity-60 tracking-tighter">{year}</span>}
+                             <span className="text-3xl md:text-4xl font-black tracking-tighter text-artistic-accent">
+                               {dayOfWeek && dayOfWeek !== '' ? dayOfWeek : ''}
+                             </span>
+                          </div>
+                        </div>
+                        
+                        <div className="inline-flex items-center gap-3 bg-white/10 backdrop-blur-sm border border-white/30 p-4 rounded-2xl mt-4">
+                          <Calendar size={20} className="text-artistic-accent" />
+                          <span className="text-xl md:text-2xl font-black tracking-tighter">
+                            {heroEvent.time}
+                          </span>
+                        </div>
+                      </>
+                    );
+                  })()}
+                </div>
+              </div>
+              <div className="mt-12 md:mt-20 space-y-6">
+                <div>
+                  <p className="text-[10px] font-black uppercase tracking-widest opacity-60 mb-2">Location</p>
+                  <p className="text-2xl md:text-3xl font-black leading-[1.1] tracking-tight mb-2 underline decoration-artistic-accent decoration-2 underline-offset-4">{heroEvent.locationName}</p>
+                  <p className="text-sm font-bold opacity-90 leading-tight mb-2">{heroEvent.address}</p>
+                  <p className="text-xs md:text-sm font-bold opacity-70 leading-relaxed max-w-[90%]">{heroEvent.access}</p>
+                </div>
+                
+                {heroEvent.description && (
+                  <div className="bg-black/10 p-5 md:p-6 rounded-2xl border border-white/10 whitespace-pre-wrap text-sm md:text-base font-medium leading-relaxed italic relative">
+                    <div className="absolute top-0 right-0 p-3 opacity-20">❝</div>
+                    {heroEvent.description}
+                  </div>
+                )}
+                
+                <div className="bg-white/20 p-5 md:p-6 rounded-2xl md:rounded-[2rem] border border-white/30 backdrop-blur-md flex flex-wrap items-center justify-between gap-6">
+                  <div className="flex flex-col">
+                    <span className="text-[10px] font-black uppercase opacity-60 mb-0.5">参加費</span>
+                    <p className="text-lg md:text-xl font-black italic tracking-tight">💰 {heroEvent.fee}</p>
+                  </div>
+                  <div className="flex gap-3">
+                    {heroEvent.id && <LikeButton eventId={heroEvent.id} count={heroEvent.likesCount} />}
+                    {heroEvent.facebookEventUrl && (
+                      <a 
+                        href={heroEvent.facebookEventUrl}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="bg-[#1877F2] text-white px-6 py-3 rounded-2xl text-xs md:text-sm font-black border-2 border-white/40 hover:scale-105 transition-transform flex items-center gap-2 shadow-[4px_4px_0px_0px_rgba(0,0,0,0.2)]"
+                      >
+                        Facebookイベント
+                      </a>
+                    )}
+                    {heroEvent.youtubeUrl && (
+                      <a 
+                        href={heroEvent.youtubeUrl}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="bg-[#FF0000] text-white px-6 py-3 rounded-2xl text-xs md:text-sm font-black border-2 border-white/40 hover:scale-105 transition-transform flex items-center gap-2 shadow-[4px_4px_0px_0px_rgba(0,0,0,0.2)]"
+                      >
+                        動画を見る
+                      </a>
+                    )}
+                  </div>
+                </div>
               </div>
             </div>
-            <div className="mt-12 md:mt-20 space-y-4 md:space-y-6">
-              <p className="text-2xl md:text-4xl font-black leading-[1.1] tracking-tight">{heroEvent.locationName}</p>
-              <p className="text-sm md:text-base font-bold opacity-80 leading-relaxed max-w-[90%]">{heroEvent.access}</p>
-              
-              {heroEvent.description && (
-                <div className="bg-white/10 p-5 md:p-6 rounded-2xl border border-white/20 whitespace-pre-wrap text-sm md:text-base font-medium leading-relaxed italic">
-                  {heroEvent.description}
+            
+            <div className="lg:w-1/2 flex flex-col gap-6">
+              <div className="bg-[#FFFCEB] border-2 border-artistic-text p-8 md:p-14 rounded-[2.5rem] md:rounded-[3.5rem] relative overflow-hidden flex-1 shadow-[8px_8px_0px_0px_rgba(42,42,42,1)] md:shadow-[12px_12px_0px_0px_rgba(42,42,42,1)] flex flex-col justify-center text-artistic-text">
+                <div className="absolute -top-4 -right-4 w-24 h-24 bg-artistic-accent border-2 border-artistic-text rounded-full flex items-center justify-center rotate-12 shadow-sm z-10 hidden sm:flex">
+                  <span className="text-[10px] font-black tracking-tighter text-center leading-none">JOIN<br/>OUR<br/>VIBE</span>
                 </div>
-              )}
-              
-              <div className="bg-white/20 p-5 md:p-6 rounded-2xl md:rounded-[2rem] border border-white/30 backdrop-blur-md flex flex-wrap items-center justify-between gap-6 mt-8">
-                <div className="flex flex-col">
-                  <span className="text-[10px] font-black uppercase opacity-60 mb-0.5">参加費</span>
-                  <p className="text-lg md:text-xl font-black italic tracking-tight">💰 {heroEvent.fee}</p>
+                <h3 className="text-2xl md:text-3xl font-black mb-6 md:mb-8 flex items-center gap-3 tracking-tighter">🏠 Concept</h3>
+                <div className="text-lg md:text-xl leading-relaxed md:leading-[1.4] mb-8 md:mb-10 font-bold italic text-artistic-text/90">
+                  既存の枠（フォローやタイムライン）から抜け出し、<br className="hidden md:block" />
+                  <span className="font-black not-italic underline decoration-artistic-primary decoration-8 underline-offset-4 bg-white/50 px-1">50:50の関係</span>で交流する場所。<br />
+                  「事前連絡なし・飛び入り参加・知り合いの同伴OK」😋<br />
+                  初めての人でもワクワクできる空間です。
                 </div>
-                <div className="flex gap-3">
-                  {heroEvent.id && <LikeButton eventId={heroEvent.id} count={heroEvent.likesCount} />}
-                  {heroEvent.youtubeUrl && (
-                    <a 
-                      href={heroEvent.youtubeUrl}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="bg-[#FF0000] text-white px-6 py-3 rounded-2xl text-xs md:text-sm font-black border-2 border-white/40 hover:scale-105 transition-transform flex items-center gap-2"
-                    >
-                      動画を見る
-                    </a>
-                  )}
+                <div className="grid sm:grid-cols-2 gap-6 md:gap-8 pt-8 border-t-2 border-dashed border-artistic-text/10">
+                  <div className="flex flex-col gap-2">
+                    <h4 className="font-black text-artistic-primary flex items-center gap-2 text-sm">🍱 飲食の持ち寄り</h4>
+                    <p className="text-[11px] md:text-xs font-bold text-artistic-text/70 leading-relaxed">{SECTIONS.potluck.food}</p>
+                  </div>
+                  <div className="flex flex-col gap-2">
+                    <h4 className="font-black text-artistic-pink flex items-center gap-2 text-sm">🎨 作品の持ち寄り</h4>
+                    <p className="text-[11px] md:text-xs font-bold text-artistic-text/70 leading-relaxed">{SECTIONS.potluck.works}</p>
+                  </div>
                 </div>
               </div>
             </div>
           </motion.div>
         ) : (
-          <div className="lg:col-span-5 bg-stone-200 p-12 rounded-[2.5rem] flex items-center justify-center text-center">
+          <div className="lg:col-span-12 bg-stone-200 p-12 rounded-[2.5rem] flex items-center justify-center text-center shadow-[8px_8px_0px_0px_rgba(42,42,42,1)] border-2 border-artistic-text">
             <p className="font-black text-stone-400">イベントデータが<br/>見つかりませんでした</p>
           </div>
         )}
-
-        <div className="lg:col-span-7 flex flex-col gap-6">
-          <div className="bg-white border-2 border-artistic-text p-8 md:p-14 rounded-[2.5rem] md:rounded-[3.5rem] relative overflow-hidden flex-1 shadow-[8px_8px_0px_0px_rgba(42,42,42,1)] md:shadow-[12px_12px_0px_0px_rgba(42,42,42,1)]">
-            <h3 className="text-2xl md:text-4xl font-black mb-8 md:mb-12 flex items-center gap-3 tracking-tighter">🏠 Concept</h3>
-            <div className="text-lg md:text-2xl leading-relaxed md:leading-[1.4] mb-10 md:mb-16 font-bold text-artistic-text/90">
-              既存の枠（フォローやタイムライン）から抜け出し、<br className="hidden md:block" />
-              <span className="font-black italic underline decoration-artistic-primary decoration-8 underline-offset-4">50:50の関係</span>で交流する場所。<br />
-              「事前連絡なし・飛び入り参加・知り合いの同伴OK」😋<br />
-              初めての人でもワクワクできる空間です。
-            </div>
-            <div className="flex flex-wrap gap-3 md:gap-4">
-              <span className="bg-artistic-pink text-white text-xs md:text-sm font-black px-5 py-2.5 md:px-6 md:py-3 rounded-2xl border-2 border-artistic-text hover:bg-white hover:text-artistic-pink transition-colors">作品販売手数料 0円</span>
-              <span className="bg-artistic-green text-artistic-text text-xs md:text-sm font-black px-5 py-2.5 md:px-6 md:py-3 rounded-2xl border-2 border-artistic-text hover:bg-white transition-colors">楽器演奏歓迎 🎹</span>
-            </div>
-          </div>
-          
-          <div className="bg-artistic-blue p-8 md:p-14 rounded-[2.5rem] md:rounded-[3.5rem] border-2 border-artistic-text shadow-[8px_8px_0px_0px_rgba(42,42,42,1)] md:shadow-[12px_12px_0px_0px_rgba(42,42,42,1)]">
-            <h3 className="text-2xl md:text-4xl font-black mb-8 md:mb-12 flex items-center gap-3 tracking-tighter">🍱 持ち寄りのルール</h3>
-            <ul className="text-lg md:text-2xl space-y-8 font-black">
-              <li className="flex items-start gap-5">
-                <span className="text-artistic-primary text-4xl md:text-5xl font-black leading-none italic">- 01</span>
-                <div>
-                  <span className="text-blue-700 decoration-artistic-accent underline decoration-4 underline-offset-4">美味しいもアート！</span>
-                  <p className="text-xs md:text-sm opacity-60 font-medium mt-3 leading-relaxed">自分の分量を持ち寄って、完食・完飲を目指そう🙏<br/>お惣菜も、得意料理も、全部OK。</p>
-                </div>
-              </li>
-              <li className="flex items-start gap-5">
-                <span className="text-artistic-primary text-4xl md:text-5xl font-black leading-none italic">- 02</span>
-                <div>
-                  <span className="text-blue-700 decoration-artistic-accent underline decoration-4 underline-offset-4">ジャンル完全不問！</span>
-                  <p className="text-xs md:text-sm opacity-60 font-medium mt-3 leading-relaxed">テクノロジー、エッセイ、漫画、歌、DIY...<br/>「これ、見てみて！」という好奇心が主役です。</p>
-                </div>
-              </li>
-            </ul>
-          </div>
-        </div>
       </Section>
-
       {/* Upcoming Schedules */}
       {!loading && upcomingEvents.length > 0 && (
         <Section className="py-12">
@@ -558,7 +670,7 @@ function MainSite() {
         </Section>
       )}
       {/* Consolidated About & Action Section */}
-      <Section id="about" className="bg-white border-y-2 border-artistic-text py-24 md:py-32 overflow-hidden">
+      <Section id="about" className="bg-white border-y-2 border-artistic-text overflow-hidden" innerClassName="py-24 md:py-32">
         <div className="grid lg:grid-cols-12 gap-16 md:gap-24 items-start">
           <motion.div
             initial={{ opacity: 0, x: -20 }}
@@ -621,7 +733,7 @@ function MainSite() {
 
       {/* Details Section */}
       {!loading && heroEvent && (
-        <Section id="details" className="bg-stone-100 rounded-[3rem] my-12 border-2 border-artistic-text p-8 md:p-12">
+        <Section id="location" className="bg-stone-100 rounded-[3rem] my-12 border-2 border-artistic-text" innerClassName="p-8 md:p-12">
           <h2 className="text-4xl font-black mb-16 text-center underline decoration-artistic-accent">開催概要 🌟</h2>
           
           <div className="rounded-[2.5rem] overflow-hidden border-2 border-artistic-text shadow-[12px_12px_0px_0px_rgba(42,42,42,1)] h-[400px] md:h-[500px] mb-16">
@@ -650,6 +762,16 @@ function MainSite() {
                    <p className="text-xs font-black uppercase opacity-50 mb-1">Station</p>
                    <p className="text-lg font-bold">{heroEvent.access}</p>
                  </div>
+              </div>
+              <div className="mt-8 pt-6 border-t border-artistic-text/10">
+                <a 
+                  href={`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(heroEvent.locationName + ' ' + (heroEvent.address || ''))}`}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="inline-flex items-center gap-2 text-artistic-primary font-black hover:underline"
+                >
+                  Google Mapsで開く <ExternalLink size={14} />
+                </a>
               </div>
             </div>
             <div className="bg-[#D8E2DC] border-2 border-artistic-text p-10 rounded-[2.5rem] shadow-[8px_8px_0px_0px_rgba(42,42,42,1)] flex flex-col justify-center relative group">
@@ -856,6 +978,7 @@ export default function App() {
         <Routes>
           <Route path="/" element={<MainSite />} />
           <Route path="/admin" element={<AdminDashboard />} />
+          <Route path="*" element={<MainSite />} />
         </Routes>
       </HashRouter>
     </ErrorBoundary>

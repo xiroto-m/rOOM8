@@ -13,3 +13,13 @@
   --color-artistic-green: #06D6A0;
   --color-artistic-blue: #E6F0FF;
 }
+
+@layer base {
+  ::selection {
+    @apply bg-artistic-accent text-artistic-text;
+  }
+  
+  html {
+    scroll-behavior: smooth;
+  }
+}

@@ -9,15 +9,32 @@ const app = initializeApp(config);
 const db = getFirestore(app);
 
 const futureEvents = [
-  { date: "2024.06.15 (土)", time: "14:00〜", locationName: "東京ミッドタウン", address: "東京都港区赤坂9-7-1", access: "六本木駅直結", fee: "1,500円", googleMapEmbedUrl: embedUrl, order: 2 },
-  { date: "2024.07.20 (土)", time: "10:00〜", locationName: "代々木公園", address: "東京都渋谷区代々木神園町2-1", access: "原宿駅徒歩3分", fee: "無料", googleMapEmbedUrl: embedUrl, order: 3 },
-  { date: "2024.08.05 (日)", time: "18:00〜", locationName: "豊洲PIT", address: "東京都江東区豊洲6-1-23", access: "新豊洲駅徒歩3分", fee: "3,000円", googleMapEmbedUrl: embedUrl, order: 4 },
+  { 
+    title: "あの高島くん厳選！ボードゲームをギャラリーで遊び尽くす 🔥",
+    date: "2026.05.15 (金)", 
+    time: "19:30〜", 
+    locationName: "代々木台マンション 4階8号室", 
+    address: "東京都渋谷区代々木 4-28-8 代々木台マンション 408", 
+    access: "京王新線 初台駅 徒歩7分 / 小田急 参宮橋駅 徒歩10分", 
+    fee: "1,000円 (19歳以下・お子様無料)", 
+    googleMapEmbedUrl: embedUrl, 
+    order: 1,
+    likesCount: 1
+  },
+  { 
+    title: "晴れろ！！☀️ ルーフトップでスカイバー 🏔 持ち寄りギャラリー rOOM8",
+    date: "2026.05.31 (日)", 
+    time: "13:00〜", 
+    locationName: "代々木台マンション 屋上", 
+    address: "東京都渋谷区代々木 4-28-8 代々木台マンション 屋上", 
+    access: "京王新線 初台駅 徒歩7分 / 小田急 参宮橋駅 徒歩10分", 
+    fee: "1,000円 (19歳以下・お子様無料)", 
+    googleMapEmbedUrl: embedUrl, 
+    order: 2,
+    likesCount: 1
+  },
 ];
-const pastEvents = [
-  { date: "2024.04.15 (月)", time: "13:00〜", locationName: "渋谷ヒカリエ", address: "東京都渋谷区渋谷2-21-1", access: "渋谷駅直結", fee: "1,000円", googleMapEmbedUrl: embedUrl, order: 5 },
-  { date: "2024.03.10 (日)", time: "11:00〜", locationName: "新宿御苑", address: "東京都新宿区内藤町11", access: "新宿御苑前駅徒歩5分", fee: "500円", googleMapEmbedUrl: embedUrl, order: 6 },
-  { date: "2024.02.01 (木)", time: "15:00〜", locationName: "池袋サンシャインシティ", address: "東京都豊島区東池袋3-1", access: "東池袋駅徒歩3分", fee: "1,000円", googleMapEmbedUrl: embedUrl, order: 7 },
-];
+const pastEvents: any[] = [];
 
 async function seed() {
   try {
