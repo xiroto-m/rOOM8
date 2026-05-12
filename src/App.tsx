@@ -422,7 +422,7 @@ function MainSite() {
   );
   
   const activeEvents = useMemo(() => 
-    effectiveEvents.filter(ev => !isPastEvent(ev.date)),
+    effectiveEvents.filter(ev => !isPastEvent(ev.date) && ev.isPublished !== false),
     [effectiveEvents]
   );
   
@@ -436,7 +436,7 @@ function MainSite() {
     [effectiveEvents]
   );
   
-  const heroEvent = activeEvents[0] || null;
+  const heroEvent = useMemo(() => activeEvents[0] || null, [activeEvents]);
 
   return (
     <div className="min-h-screen bg-artistic-bg text-artistic-text font-sans relative overflow-x-hidden">
@@ -795,17 +795,46 @@ function MainSite() {
         <Section id="location" className="bg-stone-100 rounded-[3rem] my-12 border-2 border-artistic-text" innerClassName="p-8 md:p-12">
           <h2 className="text-4xl font-black mb-16 text-center underline decoration-artistic-accent">開催概要 🌟</h2>
           
-          <div className="rounded-[2.5rem] overflow-hidden border-2 border-artistic-text shadow-[12px_12px_0px_0px_rgba(42,42,42,1)] h-[400px] md:h-[500px] mb-16 bg-stone-200">
-            <iframe 
-              src={heroEvent.googleMapEmbedUrl}
-              width="100%" 
-              height="100%" 
-              title="Google Maps"
-              style={{ border: 0, minHeight: '300px' }} 
-              allowFullScreen={true} 
-              loading="lazy" 
-              referrerPolicy="no-referrer"
-            />
+          <div className="rounded-[2.5rem] overflow-hidden border-2 border-artistic-text shadow-[12px_12px_0px_0px_rgba(42,42,42,1)] h-[350px] md:h-[500px] mb-8 bg-stone-200 relative group">
+            {heroEvent.googleMapEmbedUrl ? (
+              <iframe 
+                src={heroEvent.googleMapEmbedUrl}
+                width="100%" 
+                height="100%" 
+                title="Google Maps"
+                className="w-full h-full relative z-10"
+                style={{ border: 0, minHeight: '350px', display: 'block' }} 
+                allowFullScreen={true} 
+                referrerPolicy="no-referrer-when-downgrade"
+              />
+            ) : (
+              <div className="w-full h-full flex items-center justify-center font-black text-gray-400 p-8 text-center px-12">
+                地図データが設定されていません
+              </div>
+            )}
+            
+            {/* Mobile Fallback Prompt */}
+            <div className="absolute bottom-4 right-4 md:hidden">
+              <a 
+                href={`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(heroEvent.address || heroEvent.locationName)}`}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="bg-white/90 backdrop-blur-sm border-2 border-artistic-text px-3 py-2 rounded-xl text-[10px] font-black flex items-center gap-1 shadow-lg"
+              >
+                地図が開かない場合はこちら
+              </a>
+            </div>
+          </div>
+
+          <div className="flex flex-col md:flex-row justify-center items-center gap-4 mb-16">
+             <a 
+              href={`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(heroEvent.address || heroEvent.locationName)}`}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="w-full md:w-auto bg-white border-2 border-artistic-text px-6 py-3 rounded-2xl font-black text-sm flex items-center justify-center gap-2 hover:bg-artistic-accent transition-colors shadow-[4px_4px_0px_0px_rgba(42,42,42,1)]"
+            >
+              Google Mapsで開く
+            </a>
           </div>
 
           <div className="grid md:grid-cols-2 gap-8 mb-12">
