@@ -916,7 +916,7 @@ function MainSite() {
       {/* Details Section */}
       {!loading && heroEvent && (
         <Section id="location" className="bg-stone-100 rounded-[3rem] my-12 border-2 border-artistic-text" innerClassName="p-8 md:p-12">
-          <h2 className="text-4xl font-black mb-16 text-center underline decoration-artistic-accent">開催概要 🌟</h2>
+          <h2 className="text-4xl font-black mb-16 text-center underline decoration-artistic-accent">会場へのアクセス 📍</h2>
           
           <div 
             className="rounded-[2.5rem] overflow-hidden border-2 border-artistic-text shadow-[12px_12px_0px_0px_rgba(42,42,42,1)] h-[350px] md:h-[500px] mb-8 bg-stone-200 relative group"
@@ -977,15 +977,23 @@ function MainSite() {
                    <p className="text-lg font-bold">{heroEvent.access}</p>
                  </div>
               </div>
-              <div className="mt-8 pt-6 border-t border-artistic-text/10">
-                <a 
-                  href={`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(heroEvent.locationName + ' ' + (heroEvent.address || ''))}`}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="inline-flex items-center gap-2 text-artistic-primary font-black hover:underline"
+              <div className="mt-8 pt-6 border-t border-artistic-text/10 relative">
+                <button 
+                  onClick={() => {
+                    navigator.clipboard.writeText(heroEvent.address);
+                    const toast = document.getElementById('copy-toast-address');
+                    if (toast) {
+                      toast.classList.remove('opacity-0');
+                      setTimeout(() => toast.classList.add('opacity-0'), 2000);
+                    }
+                  }}
+                  className="inline-flex items-center gap-2 text-artistic-primary font-black hover:underline cursor-pointer"
                 >
-                  Google Mapsで開く <ExternalLink size={14} />
-                </a>
+                  住所をコピー <Copy size={14} />
+                </button>
+                <div id="copy-toast-address" className="absolute top-0 right-0 bg-artistic-text text-white px-4 py-2 rounded-xl text-xs font-black opacity-0 transition-opacity pointer-events-none">
+                  Copied!
+                </div>
               </div>
             </div>
             <div className="bg-[#D8E2DC] border-2 border-artistic-text p-10 rounded-[2.5rem] shadow-[8px_8px_0px_0px_rgba(42,42,42,1)] flex flex-col justify-center relative group">
@@ -1011,7 +1019,7 @@ function MainSite() {
                   }}
                   className="flex items-center gap-2 text-xs font-black uppercase opacity-40 hover:opacity-100 transition-opacity mt-4 cursor-pointer"
                 >
-                  <Copy size={14} /> Copy Address
+                  <Copy size={14} /> Copy Email
                 </button>
               </div>
               <div id="copy-toast" className="absolute top-4 right-4 bg-artistic-text text-white px-4 py-2 rounded-xl text-xs font-black opacity-0 transition-opacity pointer-events-none">
