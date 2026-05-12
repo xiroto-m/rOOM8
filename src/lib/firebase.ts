@@ -17,7 +17,8 @@ export interface EventItem {
   access: string;
   fee: string;
   googleMapEmbedUrl: string;
-  facebookEventUrl?: string; // Add Facebook Event URL
+  youtubeUrl?: string; // Add YouTube URL
+  facebookEventUrl?: string; // Restore Facebook URL for backward compatibility
   description?: string;      // Add Description
   title?: string;            // Add Title
   order: number;
@@ -28,7 +29,8 @@ export interface EventItem {
 
 export interface EventConfigData extends EventItem {
   instagram?: string;
-  facebook?: string;
+  youtube?: string;
+  facebook?: string; // Restore for backward compatibility
   contactEmail?: string;
 }
 

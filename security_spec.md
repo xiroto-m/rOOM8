@@ -7,6 +7,11 @@
 - Users cannot modify or delete existing likes.
 - Timestamps must be valid server timestamps.
 
+## Analytics Data Invariants
+- `analytics_visits` documents must be keyed by `YYYY-MM-DD_IP`.
+- Public users can create visits but not read, update, or delete them.
+- `analytics_daily_stats` can only be updated/read by admins or through atomic count increments (if implemented).
+
 ## 2. The "Dirty Dozen" Payloads
 
 ### Identity & Spoofing

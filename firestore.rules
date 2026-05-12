@@ -41,7 +41,7 @@ service cloud.firestore {
         && data.access is string && data.access.size() <= 300
         && data.fee is string && data.fee.size() <= 100
         && data.googleMapEmbedUrl is string && data.googleMapEmbedUrl.size() <= 1000
-        && (!data.keys().hasAny(['facebookEventUrl']) || (data.facebookEventUrl is string && data.facebookEventUrl.size() <= 1000))
+        && (!data.keys().hasAny(['youtubeUrl']) || (data.youtubeUrl is string && data.youtubeUrl.size() <= 1000))
         && (!data.keys().hasAny(['description']) || (data.description is string && data.description.size() <= 10000))
         && (!data.keys().hasAny(['title']) || (data.title is string && data.title.size() <= 200))
         && (!data.keys().hasAny(['likesCount']) || data.likesCount is number)
@@ -55,6 +55,15 @@ service cloud.firestore {
         && likeId == data.ip
         && data.eventId is string && data.eventId.size() <= 128
         && data.createdAt == request.time;
+    }
+
+    function isValidVisit(data, visitId) {
+      let expectedId = data.date + '_' + data.ip;
+      return data.keys().hasAll(['ip', 'date', 'timestamp'])
+        && data.ip is string && data.ip.size() <= 64
+        && data.date is string && data.date.size() <= 10
+        && visitId == expectedId
+        && data.timestamp == request.time;
     }
 
     // --- COLLECTION RULES ---
@@ -83,6 +92,17 @@ service cloud.firestore {
         // Nobody can update or delete a like
         allow update, delete: if false;
       }
+    }
+
+    match /analytics_visits/{visitId} {
+      allow read: if isAdmin();
+      allow create: if isValidVisit(incoming(), visitId);
+      allow update, delete: if isAdmin();
+    }
+
+    match /analytics_daily_stats/{date} {
+      allow read: if isAdmin();
+      allow create, update, delete: if isAdmin();
     }
   }
 }

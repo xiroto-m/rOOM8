@@ -24,12 +24,14 @@ import {
   addDoc,
   query,
   orderBy,
+  limit,
   serverTimestamp 
 } from 'firebase/firestore';
 import { EVENT_INFO } from '../constants';
 import { formatEventDate } from '../lib/dateUtils';
 import { Link } from 'react-router-dom';
-import { LogIn, LogOut, Save, AlertCircle, CheckCircle, ArrowLeft, ArrowUp, ArrowDown, Plus, Trash2, Edit2, Calendar, Settings, Copy, Heart } from 'lucide-react';
+import { LogIn, LogOut, Save, AlertCircle, CheckCircle, ArrowLeft, ArrowUp, ArrowDown, Plus, Trash2, Edit2, Calendar, Settings, Copy, Heart, BarChart3 } from 'lucide-react';
+import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
 
 const ADMIN_EMAILS = ["hiroto.mizutani@gmail.com", "taku448@gmail.com"];
 
@@ -138,13 +140,13 @@ const EventEditModal = ({ event, onSave, onClose, saving }: { event: EventItem, 
           </div>
 
           <div className="space-y-2">
-            <label className="text-xs font-black uppercase opacity-60">Facebookイベントページ URL (任意)</label>
+            <label className="text-xs font-black uppercase opacity-60">YouTube動画 URL (任意)</label>
             <input 
               type="url" 
-              value={formData.facebookEventUrl || ''} 
-              onChange={e => setFormData({...formData, facebookEventUrl: e.target.value})}
+              value={formData.youtubeUrl || ''} 
+              onChange={e => setFormData({...formData, youtubeUrl: e.target.value})}
               className="w-full border-2 border-artistic-text p-3 rounded-xl font-bold outline-none"
-              placeholder="https://www.facebook.com/events/..."
+              placeholder="https://youtube.com/..."
             />
           </div>
 
@@ -198,15 +200,48 @@ export default function AdminDashboard() {
   const [user, setUser] = useState<User | null>(null);
   const [loading, setLoading] = useState(true);
   const [events, setEvents] = useState<EventItem[]>([]);
+  const [analyticsData, setAnalyticsData] = useState<{date: string, count: number}[]>([]);
+  const [activeTab, setActiveTab] = useState<'events' | 'settings' | 'analytics'>('events');
   const [globalSettings, setGlobalSettings] = useState({
     instagram: EVENT_INFO.instagram,
-    facebook: EVENT_INFO.facebook,
+    youtube: EVENT_INFO.youtube,
+    facebook: '', // Add fallback
     contactEmail: EVENT_INFO.contactEmail
   });
   const [editingEvent, setEditingEvent] = useState<EventItem | null>(null);
   const [deletingEventId, setDeletingEventId] = useState<string | null>(null);
   const [status, setStatus] = useState<{ type: 'success' | 'error' | null, message: string }>({ type: null, message: '' });
   const [saving, setSaving] = useState(false);
+
+  useEffect(() => {
+    if (activeTab === 'analytics' && user) {
+      fetchAnalytics();
+    }
+  }, [activeTab, user]);
+
+  const fetchAnalytics = async () => {
+    try {
+      const analyticsRef = collection(db, 'analytics_visits');
+      // Limit to a reasonable number to avoid heavy load in simple applet
+      const q = query(analyticsRef, orderBy('date', 'desc'), limit(1000));
+      const snapshot = await getDocs(q);
+      
+      const counts: {[key: string]: number} = {};
+      snapshot.docs.forEach(doc => {
+        const data = doc.data();
+        counts[data.date] = (counts[data.date] || 0) + 1;
+      });
+
+      const chartData = Object.keys(counts).map(date => ({
+        date,
+        count: counts[date]
+      })).sort((a, b) => a.date.localeCompare(b.date)).slice(-14);
+
+      setAnalyticsData(chartData);
+    } catch (err) {
+      console.error("Failed to fetch analytics:", err);
+    }
+  };
 
   useEffect(() => {
     const unsub = onAuthStateChanged(auth, (u) => {
@@ -247,6 +282,7 @@ export default function AdminDashboard() {
           fee: '',
           googleMapEmbedUrl: '',
           order: 0,
+          youtubeUrl: data.youtubeUrl || data.facebookEventUrl || '', // Fallback to old field
           ...data 
         } as EventItem;
       });
@@ -258,7 +294,12 @@ export default function AdminDashboard() {
       const settingsRef = doc(db, 'settings', 'global');
       const settingsSnap = await getDoc(settingsRef);
       if (settingsSnap.exists()) {
-        setGlobalSettings(settingsSnap.data() as any);
+        const data = settingsSnap.data();
+        setGlobalSettings((prev: any) => ({
+          ...prev,
+          ...data,
+          youtube: data.youtube || data.facebook || prev.youtube // Fallback for settings too
+        }));
       }
     } catch (err) {
       console.error("Failed to fetch data", err);
@@ -367,7 +408,7 @@ export default function AdminDashboard() {
       access: event.access,
       fee: event.fee,
       googleMapEmbedUrl: event.googleMapEmbedUrl,
-      facebookEventUrl: event.facebookEventUrl || '',
+      youtubeUrl: event.youtubeUrl || '',
       description: event.description || '',
       isPublished: false, // Default duplicated event to draft
       order: nextOrder
@@ -437,57 +478,150 @@ export default function AdminDashboard() {
           </button>
         </div>
 
-        {/* Global Settings Section */}
-        <div className="mb-12">
-          <h2 className="text-2xl font-black mb-6 flex items-center gap-2">
-            <Settings size={24} className="text-artistic-primary" /> Global Settings
-          </h2>
-          <form onSubmit={handleSaveGlobal} className="bg-white border-4 border-artistic-text p-6 md:p-10 rounded-[2rem] shadow-[8px_8px_0px_0px_rgba(42,42,42,1)] space-y-6">
-            <div className="grid md:grid-cols-2 gap-6">
-              <div className="space-y-2">
-                <label className="text-xs font-black uppercase opacity-60">Instagram URL</label>
-                <input 
-                  type="text" 
-                  value={globalSettings.instagram || ''} 
-                  onChange={e => setGlobalSettings({...globalSettings, instagram: e.target.value})}
-                  className="w-full border-2 border-artistic-text p-3 rounded-xl font-bold outline-none"
-                />
-              </div>
-              <div className="space-y-2">
-                <label className="text-xs font-black uppercase opacity-60">Facebook URL</label>
-                <input 
-                  type="text" 
-                  value={globalSettings.facebook || ''} 
-                  onChange={e => setGlobalSettings({...globalSettings, facebook: e.target.value})}
-                  className="w-full border-2 border-artistic-text p-3 rounded-xl font-bold outline-none"
-                />
-              </div>
-            </div>
-            <div className="space-y-2">
-              <label className="text-xs font-black uppercase opacity-60">Contact Email</label>
-              <input 
-                type="email" 
-                value={globalSettings.contactEmail || ''} 
-                onChange={e => setGlobalSettings({...globalSettings, contactEmail: e.target.value})}
-                className="w-full border-2 border-artistic-text p-3 rounded-xl font-bold outline-none"
-              />
-            </div>
-            <button 
-              type="submit" 
-              disabled={saving}
-              className="px-8 py-3 bg-artistic-text text-white font-black rounded-xl flex items-center gap-2 hover:bg-neutral-800 disabled:opacity-50"
-            >
-              <Save size={18} /> 全般設定を保存
-            </button>
-          </form>
+        {/* Tab Navigation */}
+        <div className="flex flex-wrap gap-2 mb-10 overflow-x-auto pb-2">
+          <button 
+            onClick={() => setActiveTab('events')}
+            className={`px-6 py-3 rounded-2xl font-black flex items-center gap-2 transition-all border-4 ${activeTab === 'events' ? 'bg-artistic-text text-white border-artistic-text' : 'bg-white text-artistic-text border-artistic-text/10 hover:border-artistic-text'}`}
+          >
+            <Calendar size={18} /> イベント管理
+          </button>
+          <button 
+            onClick={() => setActiveTab('analytics')}
+            className={`px-6 py-3 rounded-2xl font-black flex items-center gap-2 transition-all border-4 ${activeTab === 'analytics' ? 'bg-artistic-text text-white border-artistic-text' : 'bg-white text-artistic-text border-artistic-text/10 hover:border-artistic-text'}`}
+          >
+            <BarChart3 size={18} /> アクセス分析
+          </button>
+          <button 
+            onClick={() => setActiveTab('settings')}
+            className={`px-6 py-3 rounded-2xl font-black flex items-center gap-2 transition-all border-4 ${activeTab === 'settings' ? 'bg-artistic-text text-white border-artistic-text' : 'bg-white text-artistic-text border-artistic-text/10 hover:border-artistic-text'}`}
+          >
+            <Settings size={18} /> 全般設定
+          </button>
         </div>
 
-        {/* Events Management List */}
-        <div className="mb-12">
-          <div className="flex justify-between items-center mb-6">
-            <h2 className="text-2xl font-black flex items-center gap-2">
-              <Calendar size={24} className="text-artistic-pink" /> イベント管理
+        {/* Global Settings Section */}
+        {activeTab === 'settings' && (
+          <div className="animate-in fade-in slide-in-from-bottom-4">
+            <h2 className="text-2xl font-black mb-6 flex items-center gap-2">
+              <Settings size={24} className="text-artistic-primary" /> Global Settings
             </h2>
+            <form onSubmit={handleSaveGlobal} className="bg-white border-4 border-artistic-text p-6 md:p-10 rounded-[2rem] shadow-[8px_8px_0px_0px_rgba(42,42,42,1)] space-y-6">
+              <div className="grid md:grid-cols-2 gap-6">
+                <div className="space-y-2">
+                  <label className="text-xs font-black uppercase opacity-60">Instagram URL</label>
+                  <input 
+                    type="text" 
+                    value={globalSettings.instagram || ''} 
+                    onChange={e => setGlobalSettings({...globalSettings, instagram: e.target.value})}
+                    className="w-full border-2 border-artistic-text p-3 rounded-xl font-bold outline-none"
+                  />
+                </div>
+                <div className="space-y-2">
+                  <label className="text-xs font-black uppercase opacity-60">YouTube URL</label>
+                  <input 
+                    type="text" 
+                    value={globalSettings.youtube || ''} 
+                    onChange={e => setGlobalSettings({...globalSettings, youtube: e.target.value})}
+                    className="w-full border-2 border-artistic-text p-3 rounded-xl font-bold outline-none"
+                  />
+                </div>
+              </div>
+              <div className="space-y-2">
+                <label className="text-xs font-black uppercase opacity-60">Contact Email</label>
+                <input 
+                  type="email" 
+                  value={globalSettings.contactEmail || ''} 
+                  onChange={e => setGlobalSettings({...globalSettings, contactEmail: e.target.value})}
+                  className="w-full border-2 border-artistic-text p-3 rounded-xl font-bold outline-none"
+                />
+              </div>
+              <button 
+                type="submit" 
+                disabled={saving}
+                className="px-8 py-3 bg-artistic-text text-white font-black rounded-xl flex items-center gap-2 hover:bg-neutral-800 disabled:opacity-50"
+              >
+                <Save size={18} /> 全般設定を保存
+              </button>
+            </form>
+          </div>
+        )}
+
+        {/* Analytics Section */}
+        {activeTab === 'analytics' && (
+          <div className="space-y-8 animate-in fade-in slide-in-from-bottom-4">
+            <div className="grid md:grid-cols-2 gap-6">
+              <div className="bg-white border-4 border-artistic-text p-8 rounded-[2rem] shadow-[8px_8px_0px_0px_rgba(42,42,42,1)]">
+                <h3 className="text-xl font-black mb-6 flex items-center gap-2">
+                   <BarChart3 size={24} /> 訪問者数 (過去14日間)
+                </h3>
+                <div className="h-[300px]">
+                  {analyticsData.length > 0 ? (
+                    <ResponsiveContainer width="100%" height="100%">
+                      <LineChart data={analyticsData}>
+                        <CartesianGrid strokeDasharray="3 3" stroke="#eee" />
+                        <XAxis 
+                          dataKey="date" 
+                          tick={{fontSize: 10, fontWeight: 'bold'}}
+                          tickFormatter={(val) => val.split('-').slice(1).join('/')}
+                        />
+                        <YAxis tick={{fontSize: 10, fontWeight: 'bold'}} />
+                        <Tooltip 
+                          contentStyle={{ 
+                            borderRadius: '12px', 
+                            border: '2px solid #2a2a2a',
+                            fontWeight: 'bold'
+                          }}
+                        />
+                        <Line 
+                          type="monotone" 
+                          dataKey="count" 
+                          stroke="#FF7EB3" 
+                          strokeWidth={4}
+                          dot={{r: 6, strokeWidth: 2, fill: '#fff'}}
+                          activeDot={{r: 8}}
+                        />
+                      </LineChart>
+                    </ResponsiveContainer>
+                  ) : (
+                    <div className="h-full flex items-center justify-center text-gray-400 font-bold italic">
+                      データがありません
+                    </div>
+                  )}
+                </div>
+              </div>
+
+              <div className="bg-white border-4 border-artistic-text p-8 rounded-[2rem] shadow-[8px_8px_0px_0px_rgba(42,42,42,1)]">
+                <h3 className="text-xl font-black mb-6 flex items-center gap-2">
+                  <Heart size={24} className="text-artistic-pink" fill="currentColor" /> イベント別「いいね」数
+                </h3>
+                <div className="space-y-4 max-h-[300px] overflow-y-auto pr-2">
+                  {events.sort((a, b) => (b.likesCount || 0) - (a.likesCount || 0)).map(ev => (
+                    <div key={ev.id} className="flex items-center justify-between p-4 border-2 border-artistic-text rounded-xl odd:bg-artistic-blue/5">
+                      <div className="min-w-0 mr-4">
+                        <p className="font-black truncate text-sm">{ev.title || ev.date}</p>
+                        <p className="text-[10px] opacity-60 font-bold uppercase">{ev.date} @ {ev.locationName}</p>
+                      </div>
+                      <div className="flex items-center gap-1 font-black text-artistic-pink">
+                        <Heart size={14} fill="currentColor" />
+                        <span>{ev.likesCount || 0}</span>
+                      </div>
+                    </div>
+                  ))}
+                  {events.length === 0 && <p className="text-center text-gray-400 italic">データがありません</p>}
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Events Management List */}
+        {activeTab === 'events' && (
+          <div className="animate-in fade-in slide-in-from-bottom-4">
+            <div className="flex justify-between items-center mb-6">
+              <h2 className="text-2xl font-black flex items-center gap-2">
+                <Calendar size={24} className="text-artistic-pink" /> イベント管理
+              </h2>
             <div className="flex gap-2">
               <button 
                 onClick={startNewEvent}
@@ -589,6 +723,7 @@ export default function AdminDashboard() {
             ))}
           </div>
         </div>
+        )}
 
         {/* Edit/Add Event Form */}
         {editingEvent && (

@@ -156,7 +156,7 @@ function MainSite() {
   const [likedEvents, setLikedEvents] = useState<Set<string>>(new Set());
   const [globalSettings, setGlobalSettings] = useState({
     instagram: EVENT_INFO.instagram,
-    facebook: EVENT_INFO.facebook,
+    youtube: EVENT_INFO.youtube,
     contactEmail: EVENT_INFO.contactEmail
   });
 
@@ -164,7 +164,40 @@ function MainSite() {
     // Fetch IP address
     fetch('https://api.ipify.org?format=json')
       .then(res => res.json())
-      .then(data => setUserIP(data.ip))
+      .then(data => {
+        const ip = data.ip;
+        setUserIP(ip);
+        
+        // Tracking visit
+        const today = new Date().toISOString().split('T')[0];
+        const visitKey = `visit_${today}`;
+        const hasVisitedToday = localStorage.getItem(visitKey);
+        
+        if (!hasVisitedToday) {
+          const visitId = `${today}_${ip}`;
+          const visitRef = doc(db, 'analytics_visits', visitId);
+          
+          // Use batch to record visit
+          // Note: Aggregating stats on read is actually easier for this scale, 
+          // but let's try to increment for a bit more "advanced" feel.
+          const batch = writeBatch(db);
+          batch.set(visitRef, {
+            ip: ip,
+            date: today,
+            timestamp: serverTimestamp()
+          });
+          // We can't easily increment the same doc without knowing if it exists 
+          // or using a transaction. Since this is an applet, we'll keep it simple:
+          // Just record the visit. We'll aggregate stats on the Admin page.
+          
+          batch.commit().then(() => {
+            localStorage.setItem(visitKey, 'true');
+          }).catch(err => {
+            // Ignore errors for tracking (e.g. if doc already exists)
+            console.warn("Analytics: Visit already recorded or error", err);
+          });
+        }
+      })
       .catch(err => console.error("Failed to fetch IP:", err));
 
     // Load liked events from localStorage
@@ -192,6 +225,7 @@ function MainSite() {
             fee: '',
             googleMapEmbedUrl: '',
             order: 0,
+            youtubeUrl: data.youtubeUrl || data.facebookEventUrl || '', // Fallback to old field
             ...data 
           } as EventItem;
         }).filter(ev => ev.isPublished !== false);
@@ -210,7 +244,12 @@ function MainSite() {
     const unsubGlobal = onSnapshot(doc(db, 'settings', 'global'), 
       (snapshot) => {
         if (snapshot.exists()) {
-          setGlobalSettings(snapshot.data() as any);
+          const data = snapshot.data();
+          setGlobalSettings(prev => ({
+            ...prev,
+            ...data,
+            youtube: data.youtube || data.facebook || prev.youtube // Fallback
+          }));
         }
       },
       (err) => {
@@ -320,7 +359,7 @@ function MainSite() {
       {/* Top Header Navigation */}
       <nav className="p-6 md:p-8 flex flex-col md:flex-row justify-between items-start md:items-end border-b-2 border-artistic-text max-w-7xl mx-auto w-full">
         <div className="flex flex-col">
-          <span className="text-[10px] tracking-[0.3em] font-black uppercase opacity-40 mb-3 ml-1">Shibuya / Yoyogi Community Gallery</span>
+          <span className="text-[10px] tracking-[0.3em] font-black uppercase opacity-40 mb-3 ml-1">Yoyogi Community Gallery</span>
           <h1 className="text-6xl md:text-7xl font-black tracking-[-0.06em] leading-none">
             rOOM<span className="text-artistic-primary underline decoration-artistic-accent decoration-8 underline-offset-[12px]">8</span>
           </h1>
@@ -390,14 +429,14 @@ function MainSite() {
                 <p className="text-lg md:text-xl font-black italic tracking-tight">💰 {heroEvent.fee}</p>
                 <div className="flex gap-3">
                   {heroEvent.id && <LikeButton eventId={heroEvent.id} count={heroEvent.likesCount} />}
-                  {heroEvent.facebookEventUrl && (
+                  {heroEvent.youtubeUrl && (
                     <a 
-                      href={heroEvent.facebookEventUrl}
+                      href={heroEvent.youtubeUrl}
                       target="_blank"
                       rel="noopener noreferrer"
-                      className="bg-[#1877F2] text-white px-6 py-3 rounded-2xl text-xs md:text-sm font-black border-2 border-white/40 hover:scale-105 transition-transform"
+                      className="bg-[#FF0000] text-white px-6 py-3 rounded-2xl text-xs md:text-sm font-black border-2 border-white/40 hover:scale-105 transition-transform"
                     >
-                      FB EVENT
+                      YOUTUBE
                     </a>
                   )}
                 </div>
@@ -483,14 +522,14 @@ function MainSite() {
                     <p className="text-xs font-bold text-gray-500">💰 {ev.fee}</p>
                     <LikeButton eventId={ev.id!} count={ev.likesCount} compact />
                   </div>
-                  {ev.facebookEventUrl && (
+                  {ev.youtubeUrl && (
                     <a 
-                      href={ev.facebookEventUrl}
+                      href={ev.youtubeUrl}
                       target="_blank"
                       rel="noopener noreferrer"
-                      className="bg-[#1877F2] text-white px-3 py-1.5 rounded-lg text-[10px] font-bold hover:opacity-90 transition-opacity"
+                      className="bg-[#FF0000] text-white px-3 py-1.5 rounded-lg text-[10px] font-bold hover:opacity-90 transition-opacity"
                     >
-                      FBイベント
+                      YOUTUBE
                     </a>
                   )}
                 </div>
@@ -760,7 +799,7 @@ function MainSite() {
       {/* Facilities */}
       <Section className="py-32">
         <h2 className="text-4xl md:text-6xl font-black mb-20 text-left flex flex-col md:flex-row md:items-end gap-3 tracking-tighter">
-          WHAT YOU CAN DO <span className="text-lg md:text-xl font-black text-artistic-primary mb-1 md:mb-2 uppercase opacity-40">/ Facilities at rOOM8</span>
+          WHAT YOU CAN DO
         </h2>
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
           {SECTIONS.facilities.map((fac, i) => (
@@ -812,17 +851,17 @@ function MainSite() {
         <div className="max-w-7xl mx-auto px-6 flex flex-col md:flex-row justify-between items-center gap-8">
           <div className="flex flex-col items-center md:items-start text-center md:text-left">
             <h2 className="text-3xl font-black tracking-tighter mb-2">rOOM<span className="text-artistic-primary">8</span></h2>
-            <p className="text-[10px] font-black uppercase tracking-[0.3em] opacity-40">Open your passion / Shibuya Gallery</p>
+            <p className="text-[10px] font-black uppercase tracking-[0.3em] opacity-40">Open your passion / Yoyogi Gallery</p>
           </div>
           
           <div className="flex gap-8 text-sm font-black uppercase tracking-[0.1em]">
             <a href={globalSettings.instagram || EVENT_INFO.instagram} className="hover:text-artistic-accent">Instagram</a>
-            <a href={globalSettings.facebook || EVENT_INFO.facebook} className="hover:text-artistic-accent">Facebook</a>
+            <a href={globalSettings.youtube || EVENT_INFO.youtube} className="hover:text-artistic-accent">YouTube</a>
             <a href={`mailto:${globalSettings.contactEmail || EVENT_INFO.contactEmail}`} className="hover:text-artistic-accent">Contact</a>
           </div>
 
           <div className="text-[10px] font-bold opacity-30 text-center md:text-right">
-            &copy; {new Date().getFullYear()} rOOM8 SHIBUYA. <br className="md:hidden" /> ALL RIGHTS RESERVED.
+            &copy; {new Date().getFullYear()} rOOM8 YOYOGI. <br className="md:hidden" /> ALL RIGHTS RESERVED.
           </div>
         </div>
       </footer>

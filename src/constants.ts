@@ -11,9 +11,9 @@ export const EVENT_INFO = {
   access: "京王新線 初台駅 徒歩7分 / 小田急 参宮橋駅 徒歩10分",
   fee: "1,000円 (19歳以下・お子様無料)",
   googleMapEmbedUrl: "https://www.google.com/maps/embed?pb=!1m18!1m12!1m3!1d3241.1347648356193!2d139.6914561!3d35.6737525!2m3!1f0!2f0!3f0!3m2!1i1024!2i768!4f13.1!3m3!1m2!1s0x60188cb7e4e16d41%3A0x67db233eaca5144b!2z5Luj44CF5pyo5Y-w44Oe44Oz44K344On44Oz!5e0!3m2!1sja!2sjp!4v1714900000000!5m2!1sja!2sjp",
-  instagram: "https://instagram.com/",
-  facebook: "https://facebook.com/",
-  contactEmail: "room8.shibuya@example.com",
+  instagram: "https://www.instagram.com/tackyosya955/",
+  youtube: "https://youtube.com/@tackyosya955?si=eZRhJn1KSxNry-o3",
+  contactEmail: "hiroto.mizutani@gmail.com",
   apps: [
     {
       name: "TapTack - Buy & Sell",
@@ -35,7 +35,7 @@ export const EVENT_INFO = {
 export const SECTIONS = {
   hero: {
     catchCopy: "みんなの『好き』を持ち寄って 飾る！語る！繋がる！",
-    title: "とある渋谷の8号室 持ち寄りギャラリー rOOM8",
+    title: "代々木のマンションの8号室 持ち寄りギャラリー rOOM8",
   },
   about: {
     description: "既存の枠（フォローやタイムライン）から抜け出し、50:50の関係で交流する場所。美味しい食べ物、作品、スキル、知識などポートフォリオを持ち寄りワイワイする空間です。",

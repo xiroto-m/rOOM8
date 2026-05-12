@@ -15,6 +15,7 @@
         "status": { "type": "string", "enum": ["draft", "published"] },
         "order": { "type": "number" },
         "likesCount": { "type": "number" },
+        "youtubeUrl": { "type": "string" },
         "updatedAt": { "type": "string", "format": "date-time" }
       },
       "required": [
@@ -38,6 +39,27 @@
         "createdAt": { "type": "string", "format": "date-time" }
       },
       "required": ["ip", "eventId", "createdAt"]
+    },
+    "Visit": {
+      "title": "Visit",
+      "description": "A unique daily visit from an IP",
+      "type": "object",
+      "properties": {
+        "ip": { "type": "string" },
+        "date": { "type": "string" },
+        "timestamp": { "type": "string", "format": "date-time" }
+      },
+      "required": ["ip", "date", "timestamp"]
+    },
+    "DailyStats": {
+      "title": "Daily Stats",
+      "description": "Aggregated daily stats",
+      "type": "object",
+      "properties": {
+        "date": { "type": "string" },
+        "count": { "type": "number" }
+      },
+      "required": ["date", "count"]
     }
   },
   "firestore": {
@@ -52,6 +74,14 @@
     "/events/{eventId}/likes/{likeId}": {
       "schema": "Like",
       "description": "Likes for a specific event, keyed by a value derived from IP"
+    },
+    "/analytics_visits/{visitId}": {
+      "schema": "Visit",
+      "description": "Daily unique IP visits"
+    },
+    "/analytics_daily_stats/{date}": {
+      "schema": "DailyStats",
+      "description": "Aggregated stats by date"
     }
   }
 }
