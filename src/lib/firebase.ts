@@ -22,6 +22,7 @@ export interface EventItem {
   title?: string;            // Add Title
   order: number;
   isPublished?: boolean;     // Add Draft/Publish status
+  likesCount?: number;       // Add Likes Count
   updatedAt?: any;
 }
 

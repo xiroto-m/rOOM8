@@ -14,6 +14,7 @@
         "googleMapEmbedUrl": { "type": "string" },
         "status": { "type": "string", "enum": ["draft", "published"] },
         "order": { "type": "number" },
+        "likesCount": { "type": "number" },
         "updatedAt": { "type": "string", "format": "date-time" }
       },
       "required": [
@@ -26,6 +27,17 @@
         "googleMapEmbedUrl",
         "updatedAt"
       ]
+    },
+    "Like": {
+      "title": "Like",
+      "description": "A like from a specific IP address",
+      "type": "object",
+      "properties": {
+        "ip": { "type": "string" },
+        "eventId": { "type": "string" },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["ip", "eventId", "createdAt"]
     }
   },
   "firestore": {
@@ -36,6 +48,10 @@
     "/events/{eventId}": {
       "schema": "EventConfig",
       "description": "Collection of upcoming events"
+    },
+    "/events/{eventId}/likes/{likeId}": {
+      "schema": "Like",
+      "description": "Likes for a specific event, keyed by a value derived from IP"
     }
   }
 }

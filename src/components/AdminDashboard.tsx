@@ -29,7 +29,7 @@ import {
 import { EVENT_INFO } from '../constants';
 import { formatEventDate } from '../lib/dateUtils';
 import { Link } from 'react-router-dom';
-import { LogIn, LogOut, Save, AlertCircle, CheckCircle, ArrowLeft, ArrowUp, ArrowDown, Plus, Trash2, Edit2, Calendar, Settings, Copy } from 'lucide-react';
+import { LogIn, LogOut, Save, AlertCircle, CheckCircle, ArrowLeft, ArrowUp, ArrowDown, Plus, Trash2, Edit2, Calendar, Settings, Copy, Heart } from 'lucide-react';
 
 const ADMIN_EMAILS = ["hiroto.mizutani@gmail.com", "taku448@gmail.com"];
 
@@ -549,6 +549,11 @@ export default function AdminDashboard() {
                         <span className="bg-stone-300 text-stone-700 px-2 py-0.5 rounded-lg text-xs font-black uppercase">非公開</span>
                       ) : (
                         <span className="bg-green-100 text-green-700 px-2 py-0.5 rounded-lg text-xs font-black uppercase border border-green-300">公開中</span>
+                      )}
+                      {event.likesCount !== undefined && event.likesCount > 0 && (
+                        <span className="bg-artistic-pink/10 text-artistic-pink px-2 py-0.5 rounded-lg text-xs font-black flex items-center gap-1 border border-artistic-pink/30">
+                          <Heart size={10} fill="currentColor" /> {event.likesCount}
+                        </span>
                       )}
                     </div>
                     {event.title && (

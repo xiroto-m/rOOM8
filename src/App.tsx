@@ -17,9 +17,67 @@ import {
 import { QRCodeSVG } from "qrcode.react";
 import { EVENT_INFO, SECTIONS } from "./constants";
 import AdminDashboard from "./components/AdminDashboard";
-import { db, EventItem } from "./lib/firebase";
+import { db, EventItem, auth } from "./lib/firebase";
 import { formatEventDate } from "./lib/dateUtils";
-import { doc, onSnapshot, collection, query, orderBy, getDocFromServer } from "firebase/firestore";
+import { 
+  doc, 
+  onSnapshot, 
+  collection, 
+  query, 
+  orderBy, 
+  getDocFromServer,
+  writeBatch,
+  increment,
+  serverTimestamp,
+  getDoc
+} from "firebase/firestore";
+
+enum OperationType {
+  CREATE = 'create',
+  UPDATE = 'update',
+  DELETE = 'delete',
+  LIST = 'list',
+  GET = 'get',
+  WRITE = 'write',
+}
+
+interface FirestoreErrorInfo {
+  error: string;
+  operationType: OperationType;
+  path: string | null;
+  authInfo: {
+    userId?: string | null;
+    email?: string | null;
+    emailVerified?: boolean | null;
+    isAnonymous?: boolean | null;
+    tenantId?: string | null;
+    providerInfo?: {
+      providerId?: string | null;
+      email?: string | null;
+    }[];
+  }
+}
+
+function handleFirestoreError(error: unknown, operationType: OperationType, path: string | null) {
+  const errInfo: FirestoreErrorInfo = {
+    error: error instanceof Error ? error.message : String(error),
+    authInfo: {
+      userId: auth.currentUser?.uid,
+      email: auth.currentUser?.email,
+      emailVerified: auth.currentUser?.emailVerified,
+      isAnonymous: auth.currentUser?.isAnonymous,
+      tenantId: auth.currentUser?.tenantId,
+      providerInfo: auth.currentUser?.providerData?.map(provider => ({
+        providerId: provider.providerId,
+        email: provider.email,
+      })) || []
+    },
+    operationType,
+    path
+  }
+  console.error('Firestore Error: ', JSON.stringify(errInfo));
+  throw new Error(JSON.stringify(errInfo));
+}
 
 // Test connection strictly mandated by instructions
 async function testConnection() {
@@ -94,6 +152,8 @@ function MainSite() {
   const [events, setEvents] = useState<EventItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [userIP, setUserIP] = useState<string | null>(null);
+  const [likedEvents, setLikedEvents] = useState<Set<string>>(new Set());
   const [globalSettings, setGlobalSettings] = useState({
     instagram: EVENT_INFO.instagram,
     facebook: EVENT_INFO.facebook,
@@ -101,6 +161,21 @@ function MainSite() {
   });
 
   useEffect(() => {
+    // Fetch IP address
+    fetch('https://api.ipify.org?format=json')
+      .then(res => res.json())
+      .then(data => setUserIP(data.ip))
+      .catch(err => console.error("Failed to fetch IP:", err));
+
+    // Load liked events from localStorage
+    const saved = localStorage.getItem('rOOM8_liked_events');
+    if (saved) {
+      try {
+        setLikedEvents(new Set(JSON.parse(saved)));
+      } catch (e) {
+        console.error("Failed to parse liked events");
+      }
+    }
     // Listen to events collection
     const eventsRef = collection(db, 'events');
     const unsubEvents = onSnapshot(eventsRef, 
@@ -148,6 +223,85 @@ function MainSite() {
       unsubGlobal();
     };
   }, []);
+
+  const handleLike = async (eventId: string) => {
+    if (!userIP || !eventId || likedEvents.has(eventId)) return;
+
+    const pathForLike = `events/${eventId}/likes/${userIP}`;
+    const pathForEvent = `events/${eventId}`;
+
+    try {
+      const likeDocRef = doc(db, 'events', eventId, 'likes', userIP);
+      const eventDocRef = doc(db, 'events', eventId);
+
+      // Check if already liked in Firestore to be sure
+      let likeSnap;
+      try {
+        likeSnap = await getDoc(likeDocRef);
+      } catch (err) {
+        handleFirestoreError(err, OperationType.GET, pathForLike);
+        return;
+      }
+
+      if (likeSnap.exists()) {
+        const newLiked = new Set(likedEvents);
+        newLiked.add(eventId);
+        setLikedEvents(newLiked);
+        localStorage.setItem('rOOM8_liked_events', JSON.stringify(Array.from(newLiked)));
+        return;
+      }
+
+      const batch = writeBatch(db);
+      batch.set(likeDocRef, {
+        ip: userIP,
+        eventId: eventId,
+        createdAt: serverTimestamp()
+      });
+      batch.update(eventDocRef, {
+        likesCount: increment(1)
+      });
+
+      try {
+        await batch.commit();
+      } catch (err) {
+        handleFirestoreError(err, OperationType.WRITE, `batch:${pathForLike}+${pathForEvent}`);
+      }
+
+      const newLiked = new Set(likedEvents);
+      newLiked.add(eventId);
+      setLikedEvents(newLiked);
+      localStorage.setItem('rOOM8_liked_events', JSON.stringify(Array.from(newLiked)));
+    } catch (err) {
+      console.error("Failed to like event:", err);
+    }
+  };
+
+  const LikeButton = ({ eventId, count, compact = false }: { eventId: string, count?: number, compact?: boolean }) => {
+    const isLiked = likedEvents.has(eventId);
+    return (
+      <button 
+        onClick={(e) => {
+          e.preventDefault();
+          handleLike(eventId);
+        }}
+        disabled={isLiked || !userIP}
+        className={`flex items-center gap-2 px-4 py-2 rounded-2xl border-2 border-artistic-text transition-all font-black group
+          ${isLiked 
+            ? 'bg-artistic-pink text-white border-artistic-pink' 
+            : 'bg-white text-artistic-text hover:bg-artistic-pink/10'
+          } ${compact ? 'text-xs px-3 py-1.5' : 'text-sm'}
+        `}
+      >
+        <Heart 
+          size={compact ? 14 : 18} 
+          fill={isLiked ? "currentColor" : "none"} 
+          className={isLiked ? "" : "group-hover:scale-110 transition-transform"}
+        />
+        <span>{count || 0}</span>
+        {isLiked && <span className="ml-1 opacity-80 text-[10px]">Liked!</span>}
+      </button>
+    );
+  };
 
   const heroEvent = events[0] || (loading ? null : {
     date: EVENT_INFO.nextDate,
@@ -234,16 +388,19 @@ function MainSite() {
               
               <div className="bg-white/20 p-5 md:p-6 rounded-2xl md:rounded-[2rem] border border-white/30 backdrop-blur-md flex flex-wrap items-center justify-between gap-6 mt-8">
                 <p className="text-lg md:text-xl font-black italic tracking-tight">💰 {heroEvent.fee}</p>
-                {heroEvent.facebookEventUrl && (
-                  <a 
-                    href={heroEvent.facebookEventUrl}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="bg-[#1877F2] text-white px-6 py-3 rounded-2xl text-xs md:text-sm font-black border-2 border-white/40 hover:scale-105 transition-transform"
-                  >
-                    FB EVENT
-                  </a>
-                )}
+                <div className="flex gap-3">
+                  {heroEvent.id && <LikeButton eventId={heroEvent.id} count={heroEvent.likesCount} />}
+                  {heroEvent.facebookEventUrl && (
+                    <a 
+                      href={heroEvent.facebookEventUrl}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="bg-[#1877F2] text-white px-6 py-3 rounded-2xl text-xs md:text-sm font-black border-2 border-white/40 hover:scale-105 transition-transform"
+                    >
+                      FB EVENT
+                    </a>
+                  )}
+                </div>
               </div>
             </div>
           </motion.div>
@@ -322,7 +479,10 @@ function MainSite() {
                   </p>
                 )}
                 <div className="flex flex-wrap items-center justify-between gap-2 mt-4 pt-4 border-t-2 border-dashed border-gray-200">
-                  <p className="text-xs font-bold text-gray-500">💰 {ev.fee}</p>
+                  <div className="flex items-center gap-3">
+                    <p className="text-xs font-bold text-gray-500">💰 {ev.fee}</p>
+                    <LikeButton eventId={ev.id!} count={ev.likesCount} compact />
+                  </div>
                   {ev.facebookEventUrl && (
                     <a 
                       href={ev.facebookEventUrl}

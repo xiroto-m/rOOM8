@@ -20,7 +20,7 @@ service cloud.firestore {
     }
 
     function isValidId(id) {
-      return id is string && id.size() <= 128 && id.matches('^[a-zA-Z0-9_\\-]+$');
+      return id is string && id.size() <= 128 && id.matches('^[a-zA-Z0-9_\\-\\.]+$');
     }
 
     function incoming() {
@@ -43,8 +43,18 @@ service cloud.firestore {
         && data.googleMapEmbedUrl is string && data.googleMapEmbedUrl.size() <= 1000
         && (!data.keys().hasAny(['facebookEventUrl']) || (data.facebookEventUrl is string && data.facebookEventUrl.size() <= 1000))
         && (!data.keys().hasAny(['description']) || (data.description is string && data.description.size() <= 10000))
+        && (!data.keys().hasAny(['title']) || (data.title is string && data.title.size() <= 200))
+        && (!data.keys().hasAny(['likesCount']) || data.likesCount is number)
         && data.order is number
         && data.updatedAt is timestamp;
+    }
+
+    function isValidLike(data, likeId) {
+      return data.keys().hasAll(['ip', 'eventId', 'createdAt'])
+        && data.ip is string && data.ip.size() <= 64
+        && likeId == data.ip
+        && data.eventId is string && data.eventId.size() <= 128
+        && data.createdAt == request.time;
     }
 
     // --- COLLECTION RULES ---
@@ -55,8 +65,24 @@ service cloud.firestore {
 
     match /events/{eventId} {
       allow read: if true;
-      allow create, update: if isAdmin() && isValidId(eventId) && isValidEvent(incoming());
+      // Allow admins to do everything
+      allow create: if isAdmin() && isValidId(eventId) && isValidEvent(incoming());
+      
+      // Allow public to increment likesCount, but ONLY that field
+      allow update: if (isAdmin() && isValidEvent(incoming()))
+                      || (isValidId(eventId) && 
+                          incoming().diff(existing()).affectedKeys().hasOnly(['likesCount']) &&
+                          incoming().likesCount == (existing().get('likesCount', 0) + 1));
+      
       allow delete: if isAdmin() && isValidId(eventId);
+
+      match /likes/{likeId} {
+        allow read: if true;
+        // Public can create a like if it's the correct format
+        allow create: if isValidId(likeId) && isValidLike(incoming(), likeId);
+        // Nobody can update or delete a like
+        allow update, delete: if false;
+      }
     }
   }
 }
