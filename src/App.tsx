@@ -324,20 +324,22 @@ function MainSite() {
           handleLike(eventId);
         }}
         disabled={isLiked || !userIP}
-        className={`flex items-center gap-2 px-4 py-2 rounded-2xl border-2 border-artistic-text transition-all font-black group
+        className={`flex items-center gap-2 px-3 py-2 rounded-2xl border-2 border-artistic-text transition-all font-black group
           ${isLiked 
             ? 'bg-artistic-pink text-white border-artistic-pink' 
             : 'bg-white text-artistic-text hover:bg-artistic-pink/10'
-          } ${compact ? 'text-xs px-3 py-1.5' : 'text-sm'}
+          } ${compact ? 'text-[10px] px-2.5 py-1.5' : 'text-xs'}
         `}
       >
         <Heart 
-          size={compact ? 14 : 18} 
+          size={compact ? 12 : 16} 
           fill={isLiked ? "currentColor" : "none"} 
           className={isLiked ? "" : "group-hover:scale-110 transition-transform"}
         />
-        <span>{count || 0}</span>
-        {isLiked && <span className="ml-1 opacity-80 text-[10px]">Liked!</span>}
+        <span>{isLiked ? "いいね済み" : "いいね"}</span>
+        <span className={`bg-black/10 px-1.5 py-0.5 rounded-lg text-[10px] min-w-[1.2rem] text-center ${isLiked ? 'text-white' : 'text-artistic-text'}`}>
+          {count || 0}
+        </span>
       </button>
     );
   };
@@ -426,7 +428,10 @@ function MainSite() {
               )}
               
               <div className="bg-white/20 p-5 md:p-6 rounded-2xl md:rounded-[2rem] border border-white/30 backdrop-blur-md flex flex-wrap items-center justify-between gap-6 mt-8">
-                <p className="text-lg md:text-xl font-black italic tracking-tight">💰 {heroEvent.fee}</p>
+                <div className="flex flex-col">
+                  <span className="text-[10px] font-black uppercase opacity-60 mb-0.5">参加費</span>
+                  <p className="text-lg md:text-xl font-black italic tracking-tight">💰 {heroEvent.fee}</p>
+                </div>
                 <div className="flex gap-3">
                   {heroEvent.id && <LikeButton eventId={heroEvent.id} count={heroEvent.likesCount} />}
                   {heroEvent.youtubeUrl && (
@@ -434,9 +439,9 @@ function MainSite() {
                       href={heroEvent.youtubeUrl}
                       target="_blank"
                       rel="noopener noreferrer"
-                      className="bg-[#FF0000] text-white px-6 py-3 rounded-2xl text-xs md:text-sm font-black border-2 border-white/40 hover:scale-105 transition-transform"
+                      className="bg-[#FF0000] text-white px-6 py-3 rounded-2xl text-xs md:text-sm font-black border-2 border-white/40 hover:scale-105 transition-transform flex items-center gap-2"
                     >
-                      YOUTUBE
+                      動画を見る
                     </a>
                   )}
                 </div>
@@ -518,8 +523,11 @@ function MainSite() {
                   </p>
                 )}
                 <div className="flex flex-wrap items-center justify-between gap-2 mt-4 pt-4 border-t-2 border-dashed border-gray-200">
-                  <div className="flex items-center gap-3">
-                    <p className="text-xs font-bold text-gray-500">💰 {ev.fee}</p>
+                  <div className="flex items-center gap-6">
+                    <div className="flex flex-col">
+                      <span className="text-[8px] font-black uppercase opacity-60">参加費</span>
+                      <p className="text-[11px] font-black text-gray-700 whitespace-nowrap">💰 {ev.fee}</p>
+                    </div>
                     <LikeButton eventId={ev.id!} count={ev.likesCount} compact />
                   </div>
                   {ev.youtubeUrl && (
@@ -527,9 +535,9 @@ function MainSite() {
                       href={ev.youtubeUrl}
                       target="_blank"
                       rel="noopener noreferrer"
-                      className="bg-[#FF0000] text-white px-3 py-1.5 rounded-lg text-[10px] font-bold hover:opacity-90 transition-opacity"
+                      className="bg-[#FF0000] text-white px-3 py-1.5 rounded-lg text-[10px] font-bold hover:opacity-90 transition-opacity whitespace-nowrap"
                     >
-                      YOUTUBE
+                      動画を見る
                     </a>
                   )}
                 </div>
@@ -549,46 +557,63 @@ function MainSite() {
           </div>
         </Section>
       )}
-      <Section id="about" className="bg-white border-y-2 border-artistic-text py-24 md:py-32">
-        <div className="grid lg:grid-cols-2 gap-16 md:gap-24 items-center">
+      {/* Consolidated About & Action Section */}
+      <Section id="about" className="bg-white border-y-2 border-artistic-text py-24 md:py-32 overflow-hidden">
+        <div className="grid lg:grid-cols-12 gap-16 md:gap-24 items-start">
           <motion.div
             initial={{ opacity: 0, x: -20 }}
             whileInView={{ opacity: 1, x: 0 }}
             viewport={{ once: true }}
+            className="lg:col-span-5"
           >
             <h2 className="text-4xl md:text-6xl font-black mb-12 flex items-center gap-4 tracking-tighter">
               rOOM<span className="text-artistic-primary underline decoration-artistic-accent">8</span>とは？
             </h2>
-            <div className="text-xl md:text-3xl leading-[1.3] text-artistic-text mb-12 font-black tracking-tight">
+            <div className="text-xl md:text-2xl leading-[1.4] text-artistic-text mb-12 font-black tracking-tight">
               {SECTIONS.about.description}
             </div>
-            <div className="space-y-6">
+            <div className="space-y-4">
               {SECTIONS.about.points.map((point, i) => (
-                <div key={i} className="flex font-black items-start gap-4 text-artistic-text bg-artistic-blue/30 p-5 md:p-6 rounded-[2rem] border-2 border-artistic-text shadow-[6px_6px_0px_0px_rgba(42,42,42,1)] hover:scale-[1.02] transition-transform">
-                  <div className="bg-artistic-pink p-3 rounded-xl text-white shadow-[2px_2px_0px_0px_rgba(42,42,42,1)] shrink-0">
-                    <Heart size={24} fill="currentColor" />
+                <div key={i} className="flex font-black items-start gap-4 text-artistic-text bg-artistic-blue/20 p-4 md:p-5 rounded-2xl border-2 border-artistic-text shadow-[4px_4px_0px_0px_rgba(42,42,42,1)]">
+                  <div className="bg-artistic-pink p-2 rounded-lg text-white shrink-0">
+                    <Heart size={18} fill="currentColor" />
                   </div>
-                  <span className="text-lg md:text-xl leading-snug">{point}</span>
+                  <span className="text-base md:text-lg leading-snug">{point}</span>
                 </div>
               ))}
             </div>
           </motion.div>
-          <div className="grid grid-cols-2 gap-8 p-4">
-            <div className="space-y-8 pt-16">
-              <div className="aspect-square bg-artistic-accent border-2 border-artistic-text rounded-[3rem] shadow-[12px_12px_0px_0px_rgba(42,42,42,1)] flex items-center justify-center">
-                <Users size={80} className="text-artistic-text/20" />
-              </div>
-              <div className="aspect-video bg-artistic-pink border-2 border-artistic-text rounded-[3rem] shadow-[12px_12px_0px_0px_rgba(42,42,42,1)] flex items-center justify-center">
-                <Palette size={64} className="text-white/20" />
-              </div>
-            </div>
-            <div className="space-y-8">
-              <div className="aspect-video bg-artistic-green border-2 border-artistic-text rounded-[3rem] shadow-[12px_12px_0px_0px_rgba(42,42,42,1)] flex items-center justify-center">
-                <Music size={64} className="text-artistic-text/20" />
-              </div>
-              <div className="aspect-square bg-artistic-blue border-2 border-artistic-text rounded-[3rem] shadow-[12px_12px_0px_0px_rgba(42,42,42,1)] flex items-center justify-center">
-                <BookOpen size={80} className="text-artistic-text/20" />
-              </div>
+
+          <div className="lg:col-span-1 hidden lg:flex justify-center h-full pt-16">
+            <div className="w-0.5 h-full bg-artistic-text/10" />
+          </div>
+
+          <div className="lg:col-span-6">
+            <span className="text-[10px] font-black uppercase tracking-[0.4em] opacity-40 mb-6 block">What you can do</span>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
+              {SECTIONS.facilities.map((fac, i) => (
+                <motion.div
+                  key={i}
+                  initial={{ opacity: 0, y: 20 }}
+                  whileInView={{ opacity: 1, y: 0 }}
+                  transition={{ delay: i * 0.1 }}
+                  viewport={{ once: true }}
+                  className={`p-8 rounded-[2rem] border-2 border-artistic-text shadow-[6px_6px_0px_0px_rgba(42,42,42,1)] flex flex-col items-start hover:scale-[1.03] transition-transform cursor-default
+                    ${i === 0 ? 'bg-[#FDE2E4]' : ''} 
+                    ${i === 1 ? 'bg-[#FFF1E6]' : ''} 
+                    ${i === 2 ? 'bg-[#E6F0FF]' : ''} 
+                    ${i === 3 ? 'bg-[#f0f9ff]' : ''}`}
+                >
+                  <div className="mb-4 p-3 bg-white border-2 border-artistic-text rounded-xl shadow-[3px_3px_0px_0px_rgba(42,42,42,1)]">
+                    {i === 0 && <ShoppingBag className="text-artistic-pink" size={24} />}
+                    {i === 1 && <Music className="text-artistic-primary" size={24} />}
+                    {i === 2 && <BookOpen className="text-blue-500" size={24} />}
+                    {i === 3 && <Monitor className="text-artistic-green" size={24} />}
+                  </div>
+                  <h3 className="font-black text-xl mb-3 tracking-tighter leading-none">{fac.title}</h3>
+                  <p className="text-artistic-text/80 text-xs md:text-sm font-bold leading-relaxed">{fac.desc}</p>
+                </motion.div>
+              ))}
             </div>
           </div>
         </div>
@@ -796,55 +821,6 @@ function MainSite() {
         </Section>
       )}
 
-      {/* Facilities */}
-      <Section className="py-32">
-        <h2 className="text-4xl md:text-6xl font-black mb-20 text-left flex flex-col md:flex-row md:items-end gap-3 tracking-tighter">
-          WHAT YOU CAN DO
-        </h2>
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-          {SECTIONS.facilities.map((fac, i) => (
-            <motion.div
-              key={i}
-              initial={{ opacity: 0, y: 20 }}
-              whileInView={{ opacity: 1, y: 0 }}
-              transition={{ delay: i * 0.1 }}
-              className={`p-12 md:p-14 rounded-[2.5rem] md:rounded-[3.5rem] border-2 border-artistic-text shadow-[8px_8px_0px_0px_rgba(42,42,42,1)] flex flex-col items-center text-center hover:scale-105 transition-transform cursor-default overflow-hidden
-                ${i === 0 ? 'bg-[#FDE2E4]' : ''} 
-                ${i === 1 ? 'bg-[#FFF1E6]' : ''} 
-                ${i === 2 ? 'bg-[#E6F0FF]' : ''} 
-                ${i === 3 ? 'bg-[#f0f9ff]' : ''}`}
-            >
-              <div className="mb-8 p-6 bg-white border-2 border-artistic-text rounded-[2rem] shadow-[4px_4px_0px_0px_rgba(42,42,42,1)] relative z-10">
-                {i === 0 && <ShoppingBag className="text-artistic-pink" size={40} />}
-                {i === 1 && <Music className="text-artistic-primary" size={40} />}
-                {i === 2 && <BookOpen className="text-blue-500" size={40} />}
-                {i === 3 && <Monitor className="text-artistic-green" size={40} />}
-              </div>
-              <h3 className="font-black text-2xl md:text-3xl mb-6 tracking-tighter leading-none">{fac.title}</h3>
-              <p className="text-artistic-text/80 text-sm md:text-base font-bold leading-relaxed">{fac.desc}</p>
-            </motion.div>
-          ))}
-        </div>
-      </Section>
-
-      {/* Potluck Rules */}
-      <Section className="bg-artistic-accent/20 rounded-[3rem] py-24 mb-24 px-12">
-        <h2 className="text-4xl font-black mb-16 text-center italic">Everyone is a Creator 🙏</h2>
-        <div className="grid md:grid-cols-2 gap-12">
-          <Card className="hover:-rotate-1 transition-transform">
-            <h3 className="text-3xl font-black mb-6 text-artistic-primary">飲食の持ち寄り 😋</h3>
-            <div className="text-lg font-bold leading-relaxed text-artistic-text/80">
-              {SECTIONS.potluck.food}
-            </div>
-          </Card>
-          <Card className="hover:rotate-1 transition-transform bg-artistic-pink/5">
-            <h3 className="text-3xl font-black mb-6 text-artistic-pink">作品の持ち寄り 🎨</h3>
-            <div className="text-lg font-bold leading-relaxed text-artistic-text/80">
-              {SECTIONS.potluck.works}
-            </div>
-          </Card>
-        </div>
-      </Section>
 
       {/* Footer */}
       <footer className="bg-artistic-text text-white py-12 border-t-4 border-artistic-primary">
