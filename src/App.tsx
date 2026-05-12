@@ -20,7 +20,8 @@ import {
   X,
   MapPin,
   CalendarPlus,
-  Download
+  Download,
+  Check
 } from "lucide-react";
 import { QRCodeSVG } from "qrcode.react";
 import { EVENT_INFO, SECTIONS, FALLBACK_EVENTS } from "./constants";
@@ -557,47 +558,47 @@ function MainSite() {
     );
   };
 
-  const SocialShare = ({ event, compact = false }: { event: EventItem | null, compact?: boolean }) => {
-    const url = typeof window !== 'undefined' ? encodeURIComponent(window.location.origin + window.location.pathname) : '';
-    const text = encodeURIComponent(event ? `${event.title || event.locationName} に参加予定！ - rOOM8\n` : "rOOM8 - 「好き」を持ち寄って飾る！語る！繋がる！\n");
-    
+
+  const CopyEventInfo = ({ event, compact = false }: { event: EventItem, compact?: boolean }) => {
+    const [copied, setCopied] = useState(false);
+
+    const handleCopy = (e: React.MouseEvent) => {
+      e.preventDefault();
+      e.stopPropagation();
+      
+      const { monthDay, dayOfWeek } = formatEventDate(event.date);
+      const daySuffix = dayOfWeek ? (dayOfWeek.includes('(') ? dayOfWeek : `(${dayOfWeek})`) : '' ;
+      
+      const text = `${event.title || event.locationName}\n` +
+                   `📅 ${monthDay}${daySuffix} ${event.time}\n` +
+                   `📍 ${event.locationName}${event.address ? ` (${event.address})` : ''}\n` +
+                   `🔗 https://xiroto-m.github.io/rOOM8\n` +
+                   `#rOOM8`;
+                   
+      navigator.clipboard.writeText(text).then(() => {
+        setCopied(true);
+        trackAction('copy_event_info', { eventId: event.id, title: event.title });
+        setTimeout(() => setCopied(false), 2000);
+      });
+    };
+
     const height = compact ? "h-11" : "h-12";
-    const buttonBase = `flex items-center justify-center gap-2 px-3 rounded-xl border-2 border-artistic-text transition-all shadow-[4px_4px_0px_0px_rgba(42,42,42,1)] hover:shadow-none hover:translate-x-[2px] hover:translate-y-[2px] active:scale-95 ${height} min-w-[85px] group/btn`;
+    const buttonBase = `flex items-center justify-center gap-2 px-4 rounded-xl border-2 border-artistic-text font-black transition-all shadow-[4px_4px_0px_0px_rgba(42,42,42,1)] hover:shadow-none hover:translate-x-[2px] hover:translate-y-[2px] active:scale-95 ${height} min-w-[120px] group/btn bg-white text-artistic-text hover:bg-artistic-blue/10`;
 
     return (
-      <div className="flex flex-wrap items-center gap-2" onClick={(e) => e.stopPropagation()}>
-        <a 
-          href={`https://x.com/intent/tweet?url=${url}&text=${text}`}
-          target="_blank"
-          rel="noopener noreferrer"
-          className={`${buttonBase} bg-white text-artistic-text hover:bg-black hover:text-white`}
-          title="Share on X"
-        >
-          <svg viewBox="0 0 24 24" width={14} height={14} fill="currentColor" className="transition-colors">
-            <path d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-5.214-6.817L4.99 21.75H1.68l7.73-8.835L1.254 2.25H8.08l4.713 6.231zm-1.161 17.52h1.833L7.084 4.126H5.117z"/>
-          </svg>
-          <span className="text-[11px] font-black tracking-tighter transition-colors">X</span>
-        </a>
-        <a 
-          href={`https://www.facebook.com/sharer/sharer.php?u=${url}`}
-          target="_blank"
-          rel="noopener noreferrer"
-          className={`${buttonBase} bg-white text-artistic-text hover:bg-[#1877F2] hover:text-white`}
-          title="Share on Facebook"
-        >
-          <Facebook size={14} strokeWidth={3} className="transition-colors" />
-          <span className="text-[11px] font-black tracking-tighter transition-colors">FB</span>
-        </a>
-        <a 
-          href={`https://social-plugins.line.me/lineit/share?url=${url}&text=${text}`}
-          target="_blank"
-          rel="noopener noreferrer"
-          className={`${buttonBase} bg-white text-artistic-text hover:bg-[#00B900] hover:text-white`}
-          title="Share on LINE"
-        >
-          <span className="text-[11px] font-black tracking-tighter transition-colors">LINE</span>
-        </a>
-      </div>
+      <button onClick={handleCopy} className={buttonBase} title="イベント情報をコピー">
+        {copied ? (
+          <motion.div initial={{ scale: 0.5, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} className="flex items-center gap-2 text-artistic-primary">
+            <Check size={compact ? 16 : 18} strokeWidth={3} />
+            <span className={compact ? "text-[10px]" : "text-sm tracking-tighter"}>COPIED!</span>
+          </motion.div>
+        ) : (
+          <>
+            <Copy size={compact ? 16 : 18} strokeWidth={3} className="transition-colors" />
+            <span className={compact ? "text-[10px]" : "text-sm tracking-tighter"}>COPY INFO</span>
+          </>
+        )}
+      </button>
     );
   };
 
@@ -711,9 +712,9 @@ function MainSite() {
                   <AddToCalendar event={event} />
                 </div>
 
-                <div className="flex gap-4">
+                <div className="flex flex-wrap gap-4">
                   <LikeButton eventId={event.id!} count={event.likesCount} />
-                  <SocialShare event={event} />
+                  <CopyEventInfo event={event} />
                 </div>
 
                 {event.youtubeUrl && (
@@ -1005,7 +1006,7 @@ function MainSite() {
                     <div className="flex flex-wrap items-center gap-4">
                       {heroEvent.id && <LikeButton eventId={heroEvent.id} count={heroEvent.likesCount} compact />}
                       <AddToCalendar event={heroEvent} compact />
-                      <SocialShare event={heroEvent} compact />
+                      <CopyEventInfo event={heroEvent} compact />
                     </div>
                     
                     <div className="flex flex-wrap items-center gap-4">
@@ -1190,7 +1191,7 @@ function MainSite() {
                         <div className="flex flex-wrap items-center gap-3">
                           <LikeButton eventId={ev.id!} count={ev.likesCount} compact />
                           <AddToCalendar event={ev} compact />
-                          <SocialShare event={ev} compact />
+                          <CopyEventInfo event={ev} compact />
                         </div>
                         
                         <div className="flex items-center justify-center w-12 h-12 rounded-2xl border-2 border-artistic-text group-hover:bg-artistic-text group-hover:text-white transition-all shadow-[4px_4px_0px_0px_rgba(42,42,42,1)] group-hover:shadow-none group-hover:translate-x-[2px] group-hover:translate-y-[2px]">
