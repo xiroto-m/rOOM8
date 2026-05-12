@@ -23,6 +23,7 @@ import {
   deleteDoc,
   addDoc,
   query,
+  where,
   orderBy,
   limit,
   serverTimestamp 
@@ -35,6 +36,7 @@ import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContai
 import Papa from 'papaparse';
 
 const ADMIN_EMAILS = ["hiroto.mizutani@gmail.com", "taku448@gmail.com"];
+const ANALYTICS_START_DATE = new Date('2026-05-13T00:00:00+09:00');
 
 const EventEditModal = ({ event, onSave, onClose, saving }: { event: EventItem, onSave: (event: EventItem) => void, onClose: () => void, saving: boolean }) => {
   const [formData, setFormData] = useState<EventItem>(event);
@@ -214,10 +216,15 @@ export default function AdminDashboard() {
   const [events, setEvents] = useState<EventItem[]>([]);
   const [analyticsData, setAnalyticsData] = useState<{date: string, count: number}[]>([]);
   const [deviceData, setDeviceData] = useState<{name: string, value: number}[]>([]);
+  const [referrerData, setReferrerData] = useState<{name: string, value: number}[]>([]);
   const [hourlyData, setHourlyData] = useState<{hour: string, count: number}[]>([]);
   const [actionStats, setActionStats] = useState<{name: string, value: number}[]>([]);
   const [visitorStats, setVisitorStats] = useState({ new: 0, returning: 0 });
-  const [activeTab, setActiveTab] = useState<'events' | 'settings' | 'analytics'>('events');
+  const [totalPageViews, setTotalPageViews] = useState(0);
+  const [engagementStats, setEngagementStats] = useState({ avgDuration: 0, avgScroll: 0 });
+  const [feedback, setFeedback] = useState<any[]>([]);
+  const [analysisPeriod, setAnalysisPeriod] = useState<number>(14);
+  const [activeTab, setActiveTab] = useState<'events' | 'settings' | 'analytics' | 'feedback'>('events');
   const [globalSettings, setGlobalSettings] = useState({
     instagram: EVENT_INFO.instagram,
     youtube: EVENT_INFO.youtube,
@@ -226,25 +233,48 @@ export default function AdminDashboard() {
   });
   const [editingEvent, setEditingEvent] = useState<EventItem | null>(null);
   const [deletingEventId, setDeletingEventId] = useState<string | null>(null);
+  const [deletingFeedbackId, setDeletingFeedbackId] = useState<string | null>(null);
   const [status, setStatus] = useState<{ type: 'success' | 'error' | null, message: string }>({ type: null, message: '' });
   const [saving, setSaving] = useState(false);
+  const [fetchingAnalytics, setFetchingAnalytics] = useState(false);
 
   useEffect(() => {
-    if (activeTab === 'analytics' && user) {
+    if ((activeTab === 'analytics' || activeTab === 'feedback') && user) {
       fetchAnalytics();
     }
-  }, [activeTab, user]);
+  }, [activeTab, user, analysisPeriod]);
 
   const fetchAnalytics = async () => {
+    setFetchingAnalytics(true);
     try {
       const analyticsRef = collection(db, 'analytics_visits');
-      const q = query(analyticsRef, orderBy('timestamp', 'desc'), limit(1000));
-      const snapshot = await getDocs(q);
+      const cutoff = new Date();
+      cutoff.setDate(cutoff.getDate() - analysisPeriod);
+      
+      const aggregationStart = cutoff > ANALYTICS_START_DATE ? cutoff : ANALYTICS_START_DATE;
+      
+      const q = query(
+        analyticsRef, 
+        where('timestamp', '>=', aggregationStart)
+      );
+      
+      let snapshot;
+      try {
+        snapshot = await getDocs(q);
+      } catch (err) {
+        handleLocalFirestoreError(err, OperationType.GET, 'analytics_visits');
+        return;
+      }
       
       const counts: {[key: string]: number} = {};
       const deviceCounts: {[key: string]: number} = { mobile: 0, desktop: 0 };
+      const referrerCounts: {[key: string]: number} = {};
       const hours: {[key: string]: number} = {};
       const deviceVisitCounts: {[key: string]: number} = {};
+      
+      let totalDuration = 0;
+      let totalScroll = 0;
+      let durationCount = 0;
 
       for (let i = 0; i < 24; i++) {
         hours[i.toString().padStart(2, '0')] = 0;
@@ -252,15 +282,38 @@ export default function AdminDashboard() {
 
       snapshot.docs.forEach(doc => {
         const data = doc.data();
-        counts[data.date] = (counts[data.date] || 0) + 1;
+        // Use data.date if exists, otherwise fallback to date from timestamp as fallback
+        const docDate = data.date || (data.timestamp ? new Date(data.timestamp.toDate().toLocaleString("en-US", {timeZone: "Asia/Tokyo"})).toISOString().split('T')[0] : null);
+        
+        if (docDate) {
+          counts[docDate] = (counts[docDate] || 0) + 1;
+        }
+
         if (data.deviceType) {
           deviceCounts[data.deviceType] = (deviceCounts[data.deviceType] || 0) + 1;
         }
 
-        // Hour analysis
+        // Referrer analysis
+        const ref = data.referrer ? (data.referrer.includes('facebook') ? 'Facebook' : 
+                                   data.referrer.includes('instagram') ? 'Instagram' :
+                                   data.referrer === 'direct' ? '直接入力' : 
+                                   new URL(data.referrer).hostname) : '直接入力';
+        referrerCounts[ref] = (referrerCounts[ref] || 0) + 1;
+
+        // Engagement metrics - fix 0 checking
+        if (typeof data.duration === 'number' && data.duration >= 0) {
+          totalDuration += data.duration;
+          durationCount++;
+        }
+        if (typeof data.maxScrollDepth === 'number' && data.maxScrollDepth >= 0) {
+          totalScroll += data.maxScrollDepth;
+        }
+        
+        // Hour analysis in JST
         if (data.timestamp) {
           const date = data.timestamp.toDate();
-          const hour = date.getHours().toString().padStart(2, '0');
+          // Force JST for hour analysis
+          const hour = date.toLocaleTimeString('ja-JP', { timeZone: 'Asia/Tokyo', hour: '2-digit', hour12: false }).split(':')[0];
           hours[hour] = (hours[hour] || 0) + 1;
         }
 
@@ -270,8 +323,20 @@ export default function AdminDashboard() {
         }
       });
 
-      // Fetch actions
-      const actionsSnapshot = await getDocs(collection(db, 'analytics_actions'));
+      setEngagementStats({
+        avgDuration: durationCount > 0 ? Math.round(totalDuration / durationCount) : 0,
+        avgScroll: snapshot.size > 0 ? Math.round(totalScroll / snapshot.size) : 0
+      });
+
+      setTotalPageViews(snapshot.size);
+
+      setReferrerData(Object.keys(referrerCounts).map(name => ({ name, value: referrerCounts[name] })).sort((a, b) => b.value - a.value).slice(0, 5));
+
+      // Fetch actions with cutoff
+      const actionsRef = collection(db, 'analytics_actions');
+      const actionsQ = query(actionsRef, where('timestamp', '>=', aggregationStart));
+      const actionsSnapshot = await getDocs(actionsQ);
+      
       const actionCounts: {[key: string]: number} = {};
       actionsSnapshot.forEach(doc => {
         const data = doc.data();
@@ -294,20 +359,41 @@ export default function AdminDashboard() {
       const newVisitors = deviceIds.length - returning;
       setVisitorStats({ new: newVisitors, returning });
 
-      const chartData = Object.keys(counts).map(date => ({
-        date,
-        count: counts[date]
-      })).sort((a, b) => a.date.localeCompare(b.date)).slice(-14);
+      // Fill missing dates in analyticsData to ensure the chart shows the full period (zero-fill)
+      const filledChartData = [];
+      const jstNow = new Date(new Date().toLocaleString("en-US", {timeZone: "Asia/Tokyo"}));
+      
+      // Zero-fill dates up to analysisPeriod, but not earlier than ANALYTICS_START_DATE
+      for (let i = analysisPeriod - 1; i >= 0; i--) {
+        const d = new Date(jstNow);
+        d.setDate(d.getDate() - i);
+        
+        // Skip dates before aggregation start
+        if (d < ANALYTICS_START_DATE && d.toDateString() !== ANALYTICS_START_DATE.toDateString()) continue;
 
-      setAnalyticsData(chartData);
+        const dateStr = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+        filledChartData.push({
+          date: dateStr,
+          count: counts[dateStr] || 0
+        });
+      }
+      setAnalyticsData(filledChartData);
 
       const pieData = Object.keys(deviceCounts).map(type => ({
         name: type === 'mobile' ? 'モバイル' : 'デスクトップ',
         value: deviceCounts[type]
       })).filter(d => d.value > 0);
       setDeviceData(pieData);
+
+      // Fetch Feedback
+      const feedbackRef = collection(db, 'feedback');
+      const feedbackQ = query(feedbackRef, orderBy('timestamp', 'desc'), limit(50));
+      const feedbackSnapshot = await getDocs(feedbackQ);
+      setFeedback(feedbackSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() })));
     } catch (err) {
       console.error("Failed to fetch analytics:", err);
+    } finally {
+      setFetchingAnalytics(false);
     }
   };
 
@@ -317,6 +403,8 @@ export default function AdminDashboard() {
       setLoading(false);
       const email = u?.email?.toLowerCase();
       if (email && ADMIN_EMAILS.includes(email)) {
+        // Mark this device as admin to exclude from analytics
+        localStorage.setItem('room8_is_admin', 'true');
         fetchData();
       }
     });
@@ -332,6 +420,20 @@ export default function AdminDashboard() {
   };
 
   const handleLogout = () => signOut(auth);
+
+  const handleLocalFirestoreError = (error: unknown, operationType: string, path: string | null) => {
+    const errInfo = {
+      error: error instanceof Error ? error.message : String(error),
+      authInfo: {
+        userId: user?.uid,
+        email: user?.email,
+      },
+      operationType,
+      path
+    };
+    console.error('Local Firestore Error: ', JSON.stringify(errInfo));
+    setStatus({ type: 'error', message: `アクセス権限エラー: ${errInfo.error}` });
+  };
 
   const fetchData = async () => {
     try {
@@ -382,9 +484,46 @@ export default function AdminDashboard() {
       setStatus({ type: 'success', message: 'グローバル設定が保存されました。' });
       setTimeout(() => setStatus({ type: null, message: '' }), 3000);
     } catch (err) {
-      handleFirestoreError(err, OperationType.WRITE, 'settings/global');
+      handleLocalFirestoreError(err, OperationType.WRITE, 'settings/global');
     } finally {
       setSaving(false);
+    }
+  };
+
+  const handleExportFeedbackCSV = () => {
+    const dataToExport = feedback.map(fb => ({
+      date: fb.timestamp?.toDate().toLocaleString("ja-JP", {timeZone: "Asia/Tokyo"}),
+      rating: fb.rating,
+      comment: fb.comment || '',
+      deviceId: fb.deviceId || '',
+      isTest: fb.testData ? 'YES' : 'NO'
+    }));
+
+    const csv = Papa.unparse(dataToExport);
+    const blob = new Blob(["\uFEFF" + csv], { type: 'text/csv;charset=utf-8;' });
+    const link = document.createElement("a");
+    const url = URL.createObjectURL(blob);
+    link.setAttribute("href", url);
+    link.setAttribute("download", `feedback_export_${new Date().toISOString().split('T')[0]}.csv`);
+    link.style.visibility = 'hidden';
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+  };
+
+  const handleDeleteFeedback = async (id: string) => {
+    setSaving(true);
+    setStatus({ type: null, message: '' });
+    try {
+      await deleteDoc(doc(db, 'feedback', id));
+      setFeedback(prev => prev.filter(fb => fb.id !== id));
+      setStatus({ type: 'success', message: 'フィードバックを削除しました。' });
+      setTimeout(() => setStatus({ type: null, message: '' }), 3000);
+    } catch (err) {
+      handleLocalFirestoreError(err, OperationType.DELETE, `feedback/${id}`);
+    } finally {
+      setSaving(false);
+      setDeletingFeedbackId(null);
     }
   };
 
@@ -482,7 +621,7 @@ export default function AdminDashboard() {
       setEditingEvent(null);
       fetchData();
     } catch (err) {
-      handleFirestoreError(err, OperationType.WRITE, 'events');
+      handleLocalFirestoreError(err, OperationType.WRITE, 'events');
       setStatus({ type: 'error', message: '保存に失敗しました。' });
     } finally {
       setSaving(false);
@@ -501,7 +640,7 @@ export default function AdminDashboard() {
       console.error(err);
       setStatus({ type: 'error', message: '削除に失敗しました。権限を確認してください。' });
       try {
-        handleFirestoreError(err, OperationType.DELETE, `events/${id}`);
+        handleLocalFirestoreError(err, OperationType.DELETE, `events/${id}`);
       } catch (e) {}
     } finally {
       setSaving(false);
@@ -529,7 +668,7 @@ export default function AdminDashboard() {
       }));
       fetchData();
     } catch (err) {
-      handleFirestoreError(err, OperationType.WRITE, 'events');
+      handleLocalFirestoreError(err, OperationType.WRITE, 'events');
       setStatus({ type: 'error', message: '並び替えに失敗しました。' });
     } finally {
       setSaving(false);
@@ -603,39 +742,53 @@ export default function AdminDashboard() {
   }
 
   return (
-    <div className="min-h-screen bg-artistic-bg p-4 md:p-12">
-      <div className="max-w-4xl mx-auto">
-        <div className="flex flex-col md:flex-row md:items-center justify-between gap-6 mb-12">
-          <div className="flex items-center gap-4">
-            <Link to="/" className="p-2 border-2 border-artistic-text rounded-full hover:bg-artistic-blue transition-colors">
-              <ArrowLeft size={20} />
+    <div className="min-h-screen bg-artistic-bg p-6 md:p-16 lg:p-24">
+      <div className="max-w-7xl mx-auto">
+        <div className="flex flex-col md:flex-row md:items-center justify-between gap-10 mb-20">
+          <div className="flex items-center gap-8">
+            <Link to="/" className="p-4 border-2 border-artistic-text rounded-full hover:bg-artistic-blue transition-all shadow-[4px_4px_0px_0px_rgba(42,42,42,1)] active:translate-x-[2px] active:translate-y-[2px] active:shadow-none hover:scale-105">
+              <ArrowLeft size={28} />
             </Link>
-            <h1 className="text-4xl font-black">Dashboard</h1>
+            <h1 className="text-5xl md:text-7xl font-black tracking-tighter italic">Dashboard</h1>
           </div>
-          <button onClick={handleLogout} className="flex items-center gap-2 font-bold text-artistic-text/60 hover:text-artistic-pink">
-            <LogOut size={20} /> Logout
+          <button onClick={handleLogout} className="flex items-center gap-3 px-6 py-3 border-2 border-artistic-text/10 rounded-2xl font-black text-artistic-text/50 hover:text-artistic-pink hover:border-artistic-pink/30 transition-all">
+            <LogOut size={22} /> Logout
           </button>
         </div>
 
+        {/* Status Message */}
+        {status.type && (
+          <div className={`fixed bottom-8 left-1/2 -translate-x-1/2 z-[100] px-8 py-4 rounded-2xl font-black shadow-[8px_8px_0px_0px_rgba(42,42,42,1)] border-4 border-artistic-text flex items-center gap-3 animate-in fade-in slide-in-from-bottom-4 ${status.type === 'success' ? 'bg-artistic-green text-white' : 'bg-artistic-pink text-white'}`}>
+            {status.type === 'success' ? <CheckCircle /> : <AlertCircle />}
+            {status.message}
+          </div>
+        )}
+
         {/* Tab Navigation */}
-        <div className="flex flex-wrap gap-2 mb-10 overflow-x-auto pb-2">
+        <div className="flex flex-wrap gap-4 mb-20 overflow-x-auto pb-4 snap-x">
           <button 
             onClick={() => setActiveTab('events')}
-            className={`px-6 py-3 rounded-2xl font-black flex items-center gap-2 transition-all border-4 ${activeTab === 'events' ? 'bg-artistic-text text-white border-artistic-text' : 'bg-white text-artistic-text border-artistic-text/10 hover:border-artistic-text'}`}
+            className={`px-10 py-5 rounded-[1.5rem] font-black flex items-center gap-4 transition-all border-4 shadow-[6px_6px_0px_0px_rgba(42,42,42,1)] active:translate-x-[2px] active:translate-y-[2px] active:shadow-none snap-start whitespace-nowrap ${activeTab === 'events' ? 'bg-artistic-text text-white border-artistic-text' : 'bg-white text-artistic-text border-artistic-text/10 hover:border-artistic-text'}`}
           >
-            <Calendar size={18} /> イベント管理
+            <Calendar size={24} /> イベント管理
           </button>
           <button 
             onClick={() => setActiveTab('analytics')}
-            className={`px-6 py-3 rounded-2xl font-black flex items-center gap-2 transition-all border-4 ${activeTab === 'analytics' ? 'bg-artistic-text text-white border-artistic-text' : 'bg-white text-artistic-text border-artistic-text/10 hover:border-artistic-text'}`}
+            className={`px-10 py-5 rounded-[1.5rem] font-black flex items-center gap-4 transition-all border-4 shadow-[6px_6px_0px_0px_rgba(42,42,42,1)] active:translate-x-[2px] active:translate-y-[2px] active:shadow-none snap-start whitespace-nowrap ${activeTab === 'analytics' ? 'bg-artistic-text text-white border-artistic-text' : 'bg-white text-artistic-text border-artistic-text/10 hover:border-artistic-text'}`}
           >
-            <BarChart3 size={18} /> アクセス分析
+            <BarChart3 size={24} /> アクセス分析
+          </button>
+          <button 
+            onClick={() => setActiveTab('feedback')}
+            className={`px-10 py-5 rounded-[1.5rem] font-black flex items-center gap-4 transition-all border-4 shadow-[6px_6px_0px_0px_rgba(42,42,42,1)] active:translate-x-[2px] active:translate-y-[2px] active:shadow-none snap-start whitespace-nowrap ${activeTab === 'feedback' ? 'bg-artistic-text text-white border-artistic-text' : 'bg-white text-artistic-text border-artistic-text/10 hover:border-artistic-text'}`}
+          >
+            <Heart size={24} /> フィードバック
           </button>
           <button 
             onClick={() => setActiveTab('settings')}
-            className={`px-6 py-3 rounded-2xl font-black flex items-center gap-2 transition-all border-4 ${activeTab === 'settings' ? 'bg-artistic-text text-white border-artistic-text' : 'bg-white text-artistic-text border-artistic-text/10 hover:border-artistic-text'}`}
+            className={`px-10 py-5 rounded-[1.5rem] font-black flex items-center gap-4 transition-all border-4 shadow-[6px_6px_0px_0px_rgba(42,42,42,1)] active:translate-x-[2px] active:translate-y-[2px] active:shadow-none snap-start whitespace-nowrap ${activeTab === 'settings' ? 'bg-artistic-text text-white border-artistic-text' : 'bg-white text-artistic-text border-artistic-text/10 hover:border-artistic-text'}`}
           >
-            <Settings size={18} /> 全般設定
+            <Settings size={24} /> 全般設定
           </button>
         </div>
 
@@ -688,57 +841,113 @@ export default function AdminDashboard() {
 
         {/* Analytics Section */}
         {activeTab === 'analytics' && (
-          <div className="space-y-8 animate-in fade-in slide-in-from-bottom-4">
+          <div className="space-y-16 animate-in fade-in slide-in-from-bottom-4">
+            {/* Analytics Header & Period selector */}
+            <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-8">
+               <div>
+                  <h2 className="text-4xl md:text-6xl font-black italic mb-2 tracking-tighter">Analytics Overview</h2>
+                  <p className="font-bold opacity-40 uppercase tracking-widest text-xs flex items-center gap-2">
+                    <span className="w-2 h-2 bg-artistic-green rounded-full animate-pulse" />
+                    Timezone: Asia/Tokyo (JST)
+                  </p>
+                  <p className="text-[10px] font-black opacity-30 mt-1">
+                    LAST UPDATED: {new Date().toLocaleString("ja-JP", {timeZone: "Asia/Tokyo"})} (JST)
+                  </p>
+               </div>
+               <div className="bg-white border-4 border-artistic-text p-2 rounded-2xl flex gap-1 shadow-[4px_4px_0px_0px_rgba(42,42,42,1)]">
+                  {[7, 14, 30, 90].map((p) => (
+                    <button
+                      key={p}
+                      onClick={() => setAnalysisPeriod(p)}
+                      className={`px-6 py-2 rounded-xl text-sm font-black transition-all ${analysisPeriod === p ? 'bg-artistic-text text-white shadow-lg' : 'bg-transparent text-artistic-text/30 hover:text-artistic-text hover:bg-artistic-bg'}`}
+                    >
+                      {p}日間
+                    </button>
+                  ))}
+                </div>
+             </div>
+
             {/* Overview Cards */}
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-              <div className="bg-white border-4 border-artistic-text p-4 rounded-2xl shadow-[4px_4px_0px_0px_rgba(42,42,42,1)]">
-                <p className="text-[10px] font-black uppercase opacity-60 mb-1">総アクセス</p>
-                <p className="text-2xl font-black">{analyticsData.reduce((acc, curr) => acc + curr.count, 0)}</p>
+            <div className="grid grid-cols-2 md:grid-cols-5 gap-6">
+              <div className="bg-white border-4 border-artistic-text p-8 rounded-[2.5rem] shadow-[10px_10px_0px_0px_rgba(42,42,42,1)] flex flex-col justify-between">
+                <p className="text-[10px] font-black uppercase opacity-40 mb-4 tracking-[0.2em]">総アクセス</p>
+                <p className="text-4xl lg:text-5xl font-black">{totalPageViews}</p>
+                <button 
+                  onClick={() => fetchAnalytics()} 
+                  disabled={fetchingAnalytics}
+                  className="mt-4 text-[10px] font-black uppercase text-artistic-primary hover:underline flex items-center gap-1 disabled:opacity-30"
+                >
+                  <BarChart3 size={12} className={fetchingAnalytics ? 'animate-spin' : ''} /> {fetchingAnalytics ? '更新中...' : 'データを更新'}
+                </button>
               </div>
-              <div className="bg-white border-4 border-artistic-text p-4 rounded-2xl shadow-[4px_4px_0px_0px_rgba(42,42,42,1)]">
-                <p className="text-[10px] font-black uppercase opacity-60 mb-1">リピーター</p>
-                <p className="text-2xl font-black text-artistic-accent">{visitorStats.returning}</p>
+              <div className="bg-white border-4 border-artistic-text p-8 rounded-[2.5rem] shadow-[10px_10px_0px_0px_rgba(42,42,42,1)] flex flex-col justify-between">
+                <p className="text-[10px] font-black uppercase opacity-40 mb-4 tracking-[0.2em]">平均滞在時間</p>
+                <div className="flex items-baseline gap-1">
+                  <p className="text-4xl lg:text-5xl font-black text-artistic-primary">{engagementStats.avgDuration}</p>
+                  <span className="text-xs font-black opacity-40">s</span>
+                </div>
               </div>
-              <div className="bg-white border-4 border-artistic-text p-4 rounded-2xl shadow-[4px_4px_0px_0px_rgba(42,42,42,1)]">
-                <p className="text-[10px] font-black uppercase opacity-60 mb-1">新規</p>
-                <p className="text-2xl font-black text-artistic-pink">{visitorStats.new}</p>
+              <div className="bg-white border-4 border-artistic-text p-8 rounded-[2.5rem] shadow-[10px_10px_0px_0px_rgba(42,42,42,1)] flex flex-col justify-between">
+                <p className="text-[10px] font-black uppercase opacity-40 mb-4 tracking-[0.2em]">平均スクロール</p>
+                <div className="flex items-baseline gap-1">
+                  <p className="text-4xl lg:text-5xl font-black text-artistic-green">{engagementStats.avgScroll}</p>
+                  <span className="text-xs font-black opacity-40">%</span>
+                </div>
               </div>
-              <div className="bg-white border-4 border-artistic-text p-4 rounded-2xl shadow-[4px_4px_0px_0px_rgba(42,42,42,1)]">
-                <p className="text-[10px] font-black uppercase opacity-60 mb-1">イベント総数</p>
-                <p className="text-2xl font-black">{events.length}</p>
+              <div className="bg-white border-4 border-artistic-text p-8 rounded-[2.5rem] shadow-[10px_10px_0px_0px_rgba(42,42,42,1)] flex flex-col justify-between">
+                <p className="text-[10px] font-black uppercase opacity-40 mb-4 tracking-[0.2em]">リピーター</p>
+                <p className="text-4xl lg:text-5xl font-black text-artistic-accent">{visitorStats.returning}</p>
+              </div>
+              <div className="bg-white border-4 border-artistic-text p-8 rounded-[2.5rem] shadow-[10px_10px_0px_0px_rgba(42,42,42,1)] flex flex-col justify-between">
+                <p className="text-[10px] font-black uppercase opacity-40 mb-4 tracking-[0.2em]">新規訪問者</p>
+                <p className="text-4xl lg:text-5xl font-black text-artistic-pink">{visitorStats.new}</p>
               </div>
             </div>
 
-            <div className="grid md:grid-cols-2 gap-6">
-              <div className="bg-white border-4 border-artistic-text p-8 rounded-[2rem] shadow-[8px_8px_0px_0px_rgba(42,42,42,1)]">
-                <h3 className="text-xl font-black mb-6 flex items-center gap-2">
-                   <BarChart3 size={24} /> 訪問者数 (過去14日間)
-                </h3>
-                <div className="h-[300px]">
+            <div className="grid md:grid-cols-2 gap-12">
+              <div className="bg-white border-4 border-artistic-text p-12 md:p-16 rounded-[3.5rem] shadow-[12px_12px_0px_0px_rgba(42,42,42,1)]">
+                <div className="flex items-center gap-4 mb-10">
+                  <div className="w-12 h-12 bg-artistic-pink/20 rounded-2xl flex items-center justify-center text-artistic-pink">
+                    <BarChart3 size={24} />
+                  </div>
+                  <h3 className="text-2xl font-black italic">訪問者数 (過去{analysisPeriod}日間)</h3>
+                </div>
+                <div className="h-[400px]">
                   {analyticsData.length > 0 ? (
                     <ResponsiveContainer width="100%" height="100%">
-                      <LineChart data={analyticsData}>
-                        <CartesianGrid strokeDasharray="3 3" stroke="#eee" />
+                      <LineChart data={analyticsData} margin={{ top: 30, right: 40, left: 20, bottom: 30 }}>
+                        <CartesianGrid strokeDasharray="3 3" stroke="#eee" vertical={false} />
                         <XAxis 
                           dataKey="date" 
-                          tick={{fontSize: 10, fontWeight: 'bold'}}
+                          axisLine={false}
+                          tickLine={false}
+                          tick={{fontSize: 12, fontWeight: 'bold', fill: '#2a2a2a', opacity: 0.4}}
                           tickFormatter={(val) => val.split('-').slice(1).join('/')}
+                          dy={20}
                         />
-                        <YAxis tick={{fontSize: 10, fontWeight: 'bold'}} allowDecimals={false} />
+                        <YAxis 
+                          axisLine={false}
+                          tickLine={false}
+                          tick={{fontSize: 12, fontWeight: 'bold', fill: '#2a2a2a', opacity: 0.4}} 
+                          allowDecimals={false} 
+                          dx={-10}
+                        />
                         <Tooltip 
                           contentStyle={{ 
-                            borderRadius: '12px', 
-                            border: '2px solid #2a2a2a',
-                            fontWeight: 'bold'
+                            borderRadius: '16px', 
+                            border: '3px solid #2a2a2a',
+                            boxShadow: '6px 6px 0px 0px rgba(42,42,42,1)',
+                            fontWeight: 'bold',
+                            padding: '12px'
                           }}
                         />
                         <Line 
                           type="monotone" 
                           dataKey="count" 
                           stroke="#FF7EB3" 
-                          strokeWidth={4}
-                          dot={{r: 6, strokeWidth: 2, fill: '#fff'}}
-                          activeDot={{r: 8}}
+                          strokeWidth={6}
+                          dot={{r: 8, strokeWidth: 3, fill: '#fff', stroke: '#FF7EB3'}}
+                          activeDot={{r: 10, strokeWidth: 0}}
                         />
                       </LineChart>
                     </ResponsiveContainer>
@@ -750,28 +959,47 @@ export default function AdminDashboard() {
                 </div>
               </div>
 
-              <div className="bg-white border-4 border-artistic-text p-8 rounded-[2rem] shadow-[8px_8px_0px_0px_rgba(42,42,42,1)]">
-                <h3 className="text-xl font-black mb-6 flex items-center gap-2">
-                  <Clock size={24} /> 時間帯別アクティビティ
-                </h3>
-                <div className="h-[300px]">
+              <div className="bg-white border-4 border-artistic-text p-12 md:p-16 rounded-[3.5rem] shadow-[12px_12px_0px_0px_rgba(42,42,42,1)]">
+                <div className="flex items-center gap-4 mb-10">
+                  <div className="w-12 h-12 bg-artistic-blue/20 rounded-2xl flex items-center justify-center text-artistic-blue">
+                    <Clock size={24} />
+                  </div>
+                  <h3 className="text-2xl font-black italic">時間帯別アクティビティ</h3>
+                </div>
+                <div className="h-[400px]">
                   {hourlyData.length > 0 ? (
                     <ResponsiveContainer width="100%" height="100%">
-                      <BarChart data={hourlyData}>
+                      <BarChart data={hourlyData} margin={{ top: 30, right: 30, left: 20, bottom: 30 }}>
                         <CartesianGrid strokeDasharray="3 3" stroke="#eee" vertical={false} />
                         <XAxis 
                           dataKey="hour" 
-                          tick={{fontSize: 10, fontWeight: 'bold'}}
+                          axisLine={false}
+                          tickLine={false}
+                          tick={{fontSize: 12, fontWeight: 'bold', fill: '#2a2a2a', opacity: 0.4}}
+                          dy={20}
                         />
-                        <YAxis tick={{fontSize: 10, fontWeight: 'bold'}} allowDecimals={false} />
+                        <YAxis 
+                          axisLine={false}
+                          tickLine={false}
+                          tick={{fontSize: 12, fontWeight: 'bold', fill: '#2a2a2a', opacity: 0.4}} 
+                          allowDecimals={false} 
+                          dx={-10}
+                        />
                         <Tooltip 
-                          contentStyle={{ borderRadius: '12px', border: '2px solid #2a2a2a', fontWeight: 'bold' }}
+                          contentStyle={{ 
+                            borderRadius: '16px', 
+                            border: '3px solid #2a2a2a',
+                            boxShadow: '6px 6px 0px 0px rgba(42,42,42,1)',
+                            fontWeight: 'bold',
+                            padding: '12px'
+                          }}
                           cursor={{fill: 'rgba(59, 204, 255, 0.1)'}}
                         />
                         <Bar 
                           dataKey="count" 
                           fill="#3BCCFF" 
-                          radius={[4, 4, 0, 0]}
+                          radius={[8, 8, 0, 0]}
+                          maxBarSize={50}
                         />
                       </BarChart>
                     </ResponsiveContainer>
@@ -783,31 +1011,40 @@ export default function AdminDashboard() {
                 </div>
               </div>
 
-              <div className="bg-white border-4 border-artistic-text p-8 rounded-[2rem] shadow-[8px_8px_0px_0px_rgba(42,42,42,1)]">
-                <h3 className="text-xl font-black mb-6 flex items-center gap-2">
-                  <Monitor size={24} /> デバイス内訳
-                </h3>
-                <div className="h-[300px]">
-                  {deviceData.length > 0 ? (
+              <div className="bg-white border-4 border-artistic-text p-12 md:p-16 rounded-[3.5rem] shadow-[12px_12px_0px_0px_rgba(42,42,42,1)]">
+                <div className="flex items-center gap-4 mb-10">
+                  <div className="w-12 h-12 bg-artistic-green/20 rounded-2xl flex items-center justify-center text-artistic-green">
+                    <Monitor size={24} />
+                  </div>
+                  <h3 className="text-2xl font-black italic">流入元 TOP 5</h3>
+                </div>
+                <div className="h-[350px]">
+                  {referrerData.length > 0 ? (
                     <ResponsiveContainer width="100%" height="100%">
-                      <PieChart>
+                      <PieChart margin={{ top: 20, right: 40, left: 40, bottom: 20 }}>
                         <Pie
-                          data={deviceData}
+                          data={referrerData}
                           cx="50%"
-                          cy="50%"
-                          innerRadius={60}
-                          outerRadius={80}
-                          paddingAngle={5}
+                          cy="45%"
+                          innerRadius={70}
+                          outerRadius={100}
+                          paddingAngle={10}
                           dataKey="value"
                         >
-                          {deviceData.map((_entry, index) => (
-                            <Cell key={`cell-${index}`} fill={index === 0 ? '#3BCCFF' : '#FF7EB3'} />
+                          {referrerData.map((_entry, index) => (
+                            <Cell key={`cell-${index}`} fill={['#3BCCFF', '#FF7EB3', '#50E3C2', '#FFD200', '#2a2a2a'][index % 5]} strokeWidth={0} />
                           ))}
                         </Pie>
                         <Tooltip 
-                          contentStyle={{ borderRadius: '12px', border: '2px solid #2a2a2a', fontWeight: 'bold' }}
+                          contentStyle={{ 
+                            borderRadius: '16px', 
+                            border: '3px solid #2a2a2a',
+                            boxShadow: '6px 6px 0px 0px rgba(42,42,42,1)',
+                            fontWeight: 'bold',
+                            padding: '12px'
+                          }}
                         />
-                        <Legend iconType="circle" wrapperStyle={{ fontWeight: 'bold' }} />
+                        <Legend iconType="circle" wrapperStyle={{ fontWeight: '900', paddingTop: '20px' }} />
                       </PieChart>
                     </ResponsiveContainer>
                   ) : (
@@ -818,31 +1055,84 @@ export default function AdminDashboard() {
                 </div>
               </div>
 
-              <div className="bg-white border-4 border-artistic-text p-8 rounded-[2rem] shadow-[8px_8px_0px_0px_rgba(42,42,42,1)]">
-                <h3 className="text-xl font-black mb-6 flex items-center gap-2">
-                  <Copy size={24} /> 外部リンクのクリック数
-                </h3>
-                <div className="h-[300px]">
-                  {actionStats.length > 0 ? (
+              <div className="bg-white border-4 border-artistic-text p-12 md:p-16 rounded-[3.5rem] shadow-[12px_12px_0px_0px_rgba(42,42,42,1)]">
+                <div className="flex items-center gap-4 mb-10">
+                  <div className="w-12 h-12 bg-artistic-accent/20 rounded-2xl flex items-center justify-center text-artistic-accent">
+                    <Monitor size={24} />
+                  </div>
+                  <h3 className="text-2xl font-black italic">デバイス内訳</h3>
+                </div>
+                <div className="h-[350px]">
+                  {deviceData.length > 0 ? (
                     <ResponsiveContainer width="100%" height="100%">
-                      <PieChart>
+                      <PieChart margin={{ top: 20, right: 40, left: 40, bottom: 20 }}>
                         <Pie
-                          data={actionStats}
+                          data={deviceData}
                           cx="50%"
-                          cy="50%"
-                          innerRadius={60}
-                          outerRadius={80}
-                          paddingAngle={5}
+                          cy="45%"
+                          innerRadius={70}
+                          outerRadius={100}
+                          paddingAngle={10}
                           dataKey="value"
                         >
-                          {actionStats.map((_entry, index) => (
-                            <Cell key={`cell-${index}`} fill={['#1877F2', '#FF0000', '#FFCC00'][index % 3]} />
+                          {deviceData.map((_entry, index) => (
+                            <Cell key={`cell-${index}`} fill={index === 0 ? '#3BCCFF' : '#FF7EB3'} strokeWidth={0} />
                           ))}
                         </Pie>
                         <Tooltip 
-                          contentStyle={{ borderRadius: '12px', border: '2px solid #2a2a2a', fontWeight: 'bold' }}
+                          contentStyle={{ 
+                            borderRadius: '16px', 
+                            border: '3px solid #2a2a2a',
+                            boxShadow: '6px 6px 0px 0px rgba(42,42,42,1)',
+                            fontWeight: 'bold',
+                            padding: '12px'
+                          }}
                         />
-                        <Legend iconType="circle" wrapperStyle={{ fontWeight: 'bold' }} />
+                        <Legend iconType="circle" wrapperStyle={{ fontWeight: '900', paddingTop: '20px' }} />
+                      </PieChart>
+                    </ResponsiveContainer>
+                  ) : (
+                    <div className="h-full flex items-center justify-center text-gray-400 font-bold italic">
+                      データがありません
+                    </div>
+                  )}
+                </div>
+              </div>
+
+              <div className="bg-white border-4 border-artistic-text p-12 md:p-16 rounded-[3.5rem] shadow-[12px_12px_0px_0px_rgba(42,42,42,1)]">
+                <div className="flex items-center gap-4 mb-10">
+                  <div className="w-12 h-12 bg-artistic-blue/20 rounded-2xl flex items-center justify-center text-artistic-blue">
+                    <Copy size={24} />
+                  </div>
+                  <h3 className="text-2xl font-black italic">外部リンクのクリック数</h3>
+                </div>
+                <div className="h-[350px]">
+                  {actionStats.length > 0 ? (
+                    <ResponsiveContainer width="100%" height="100%">
+                      <PieChart margin={{ top: 20, right: 40, left: 40, bottom: 20 }}>
+                        <Pie
+                          data={actionStats}
+                          cx="50%"
+                          cy="45%"
+                          innerRadius={70}
+                          outerRadius={100}
+                          paddingAngle={10}
+                          dataKey="value"
+                        >
+                          {actionStats.map((_entry, index) => (
+                            <Cell key={`cell-${index}`} fill={['#1877F2', '#FF0000', '#FFCC00'][index % 3]} strokeWidth={0} />
+                          ))}
+                        </Pie>
+                        <Tooltip 
+                          contentStyle={{ 
+                            borderRadius: '16px', 
+                            border: '3px solid #2a2a2a',
+                            boxShadow: '6px 6px 0px 0px rgba(42,42,42,1)',
+                            fontWeight: 'bold',
+                            padding: '12px'
+                          }}
+                        />
+                        <Legend iconType="circle" wrapperStyle={{ fontWeight: '900', paddingTop: '20px' }} />
                       </PieChart>
                     </ResponsiveContainer>
                   ) : (
@@ -854,11 +1144,14 @@ export default function AdminDashboard() {
               </div>
             </div>
 
-            <div className="bg-white border-4 border-artistic-text p-8 rounded-[2rem] shadow-[8px_8px_0px_0px_rgba(42,42,42,1)]">
-              <h3 className="text-xl font-black mb-6 flex items-center gap-2">
-                <Heart size={24} className="text-artistic-pink" fill="currentColor" /> イベント別「いいね」数
-              </h3>
-              <div className="space-y-4 max-h-[300px] overflow-y-auto pr-2">
+            <div className="bg-white border-4 border-artistic-text p-12 md:p-16 rounded-[4rem] shadow-[16px_16px_0px_0px_rgba(42,42,42,1)]">
+              <div className="flex items-center gap-4 mb-10">
+                <div className="w-12 h-12 bg-artistic-pink/20 rounded-2xl flex items-center justify-center text-artistic-pink">
+                  <Heart size={24} fill="currentColor" />
+                </div>
+                <h3 className="text-3xl font-black italic">イベント別「いいね」数</h3>
+              </div>
+              <div className="space-y-6 max-h-[500px] overflow-y-auto pr-4 custom-scrollbar">
                 {events.sort((a, b) => (b.likesCount || 0) - (a.likesCount || 0)).map(ev => (
                   <div key={ev.id} className="flex items-center justify-between p-4 border-2 border-artistic-text rounded-xl odd:bg-artistic-blue/5">
                     <div className="min-w-0 mr-4">
@@ -874,39 +1167,152 @@ export default function AdminDashboard() {
                 {events.length === 0 && <p className="text-center text-gray-400 italic">データがありません</p>}
               </div>
             </div>
+
+            {/* Definitions and Notes Section */}
+            <div className="bg-white border-4 border-artistic-text p-10 md:p-12 rounded-[3.5rem] shadow-[12px_12px_0px_0px_rgba(42,42,42,1)] animate-in fade-in slide-in-from-bottom-8 mt-12 mb-12">
+              <h3 className="text-2xl font-black italic mb-8 border-b-4 border-artistic-bg pb-4">📊 データ定義と前提事項</h3>
+              <div className="grid md:grid-cols-2 gap-10">
+                <div className="space-y-6">
+                  <div className="bg-artistic-bg/50 p-8 rounded-[2rem] border-2 border-artistic-text/10 shadow-sm">
+                    <h4 className="font-black text-artistic-primary mb-3 text-lg flex items-center gap-2">
+                      <div className="w-2 h-2 rounded-full bg-artistic-primary" /> 総アクセス数
+                    </h4>
+                    <p className="text-sm font-bold opacity-80 leading-relaxed">
+                      期間内の延べページビュー数です。同じ人が10回アクセスすれば10件としてカウントされます。
+                    </p>
+                  </div>
+                  <div className="bg-artistic-bg/50 p-8 rounded-[2rem] border-2 border-artistic-text/10 shadow-sm">
+                    <h4 className="font-black text-amber-600 mb-3 text-lg flex items-center gap-2">
+                      <div className="w-2 h-2 rounded-full bg-amber-600" /> リピーターの定義
+                    </h4>
+                    <p className="text-sm font-bold opacity-80 leading-relaxed">
+                      選択された集計期間内（例：14日間）において、<span className="text-amber-800 bg-amber-100 px-2 py-0.5 rounded-lg border border-amber-200">同じデバイス（ブラウザ）から2回以上アクセス</span>があった訪問者を指します。
+                    </p>
+                  </div>
+                </div>
+                <div className="space-y-6">
+                  <div className="bg-artistic-bg/50 p-8 rounded-[2rem] border-2 border-artistic-text/10 shadow-sm">
+                    <h4 className="font-black text-artistic-pink mb-3 text-lg flex items-center gap-2">
+                      <div className="w-2 h-2 rounded-full bg-artistic-pink" /> 管理者アクセスの除外
+                    </h4>
+                    <p className="text-sm font-bold opacity-80 leading-relaxed">
+                      管理者はログイン中の計測を自動的に除外していますが、<span className="text-artistic-pink bg-rose-100 px-2 py-0.5 rounded-lg border border-rose-200">未ログイン状態やシークレットモードでのアクセス</span>は一般ユーザーとして集計に含まれます。
+                    </p>
+                  </div>
+                  <div className="bg-artistic-bg/50 p-8 rounded-[2rem] border-2 border-artistic-text/10 shadow-sm">
+                    <h4 className="font-black text-artistic-green mb-3 text-lg flex items-center gap-2">
+                      <div className="w-2 h-2 rounded-full bg-artistic-green" /> 地域・時間帯
+                    </h4>
+                    <p className="text-sm font-bold opacity-80 leading-relaxed">
+                      すべての時間データは日本標準時（JST / Asia/Tokyo）に基づいて集計されています。
+                    </p>
+                  </div>
+                </div>
+              </div>
+            </div>
           </div>
         )}
 
-        {/* Events Management List */}
-        {activeTab === 'events' && (
-          <div className="animate-in fade-in slide-in-from-bottom-4">
-            <div className="flex justify-between items-center mb-6">
-              <h2 className="text-2xl font-black flex items-center gap-2">
-                <Calendar size={24} className="text-artistic-pink" /> イベント管理
+        {/* Feedback List Section */}
+        {activeTab === 'feedback' && (
+          <div className="space-y-8 animate-in fade-in slide-in-from-bottom-4">
+            <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-6">
+              <h2 className="text-4xl md:text-6xl font-black italic tracking-tighter flex items-center gap-4">
+                <Heart size={48} className="text-artistic-pink" fill="currentColor" /> User Feedback
               </h2>
-            <div className="flex gap-2">
               <button 
-                onClick={startNewEvent}
-                className="bg-artistic-primary text-white h-12 w-12 rounded-full flex items-center justify-center border-2 border-artistic-text shadow-[4px_4px_0px_0px_rgba(42,42,42,1)] hover:scale-105 transition-transform"
+                onClick={handleExportFeedbackCSV}
+                className="bg-white text-artistic-text h-14 px-8 rounded-2xl flex items-center justify-center gap-3 border-4 border-artistic-text shadow-[6px_6px_0px_0px_rgba(42,42,42,1)] hover:translate-y-0.5 hover:shadow-none transition-all font-black text-lg"
               >
-                <Plus size={24} />
+                <Download size={24} /> フィードバックCSV出力
               </button>
-              <button 
-                onClick={handleExportCSV}
-                className="bg-white text-artistic-text h-12 px-4 rounded-xl flex items-center justify-center gap-2 border-2 border-artistic-text shadow-[4px_4px_0px_0px_rgba(42,42,42,1)] hover:translate-y-0.5 hover:shadow-none transition-all font-black text-xs"
-              >
-                <Download size={18} /> CSV出力
-              </button>
-              <label className="bg-white text-artistic-text h-12 px-4 rounded-xl flex items-center justify-center gap-2 border-2 border-artistic-text shadow-[4px_4px_0px_0px_rgba(42,42,42,1)] hover:translate-y-0.5 hover:shadow-none transition-all font-black text-xs cursor-pointer">
-                <Upload size={18} /> CSV読込
-                <input type="file" accept=".csv" onChange={handleImportCSV} className="hidden" />
-              </label>
+            </div>
+
+            <div className="grid gap-8">
+               {feedback.map((fb) => (
+                 <div key={fb.id} className="group bg-white border-4 border-artistic-text p-8 md:p-10 rounded-[2.5rem] shadow-[12px_12px_0px_0px_rgba(42,42,42,1)] relative transition-all hover:shadow-[16px_16px_0px_0px_rgba(42,42,42,1)]">
+                    {fb.testData && (
+                      <div className="absolute -top-4 -right-4 bg-artistic-blue text-white px-4 py-1 rounded-xl text-[10px] font-black border-2 border-artistic-text rotate-[10deg] shadow-sm z-10">
+                        ADMIN TEST
+                      </div>
+                    )}
+                    <div className="flex justify-between items-start mb-6">
+                      <div className="flex gap-2">
+                        {[1, 2, 3, 4, 5].map((star) => (
+                          <Heart 
+                            key={star} 
+                            size={24} 
+                            fill={fb.rating >= star ? "#FB6B6B" : "none"} 
+                            stroke={fb.rating >= star ? "#FB6B6B" : "#2a2a2a"} 
+                            strokeWidth={3}
+                          />
+                        ))}
+                      </div>
+                      <div className="flex items-center gap-4">
+                        <span className="text-xs font-black opacity-30 italic">
+                          {fb.timestamp?.toDate().toLocaleString("ja-JP", {timeZone: "Asia/Tokyo"})}
+                        </span>
+                        <button 
+                          onClick={() => fb.id && setDeletingFeedbackId(fb.id)}
+                          disabled={saving}
+                          className="p-3 text-stone-300 hover:text-artistic-pink transition-colors relative z-10"
+                          title="削除"
+                        >
+                          <Trash2 size={24} />
+                        </button>
+                      </div>
+                    </div>
+                    <p className="text-xl md:text-2xl font-bold leading-relaxed italic mb-8 text-artistic-text/90">
+                      「{fb.comment || '（コメントなし）'}」
+                    </p>
+                    <div className="flex flex-wrap gap-3 pt-6 border-t-2 border-dashed border-artistic-text/5">
+                      <span className="text-[10px] font-black uppercase opacity-20 tracking-widest bg-stone-50 px-3 py-1 rounded-lg">
+                        ID: {fb.id}
+                      </span>
+                      <span className="text-[10px] font-black uppercase opacity-20 tracking-widest bg-stone-50 px-3 py-1 rounded-lg">
+                        Device: {fb.deviceId?.slice(0, 12)}...
+                      </span>
+                    </div>
+                 </div>
+               ))}
+               {feedback.length === 0 && (
+                 <div className="bg-white border-4 border-dashed border-artistic-text p-24 text-center rounded-[3.5rem]">
+                   <p className="text-2xl font-bold opacity-30 italic">フィードバックはまだありません 📥</p>
+                 </div>
+               )}
             </div>
           </div>
+        )}
+        {/* Events Management List */}
+        {activeTab === 'events' && (
+          <div className="animate-in fade-in slide-in-from-bottom-4 space-y-12">
+              <h2 className="text-3xl font-black flex items-center gap-3 italic">
+                <Calendar size={32} className="text-artistic-pink" /> イベント管理
+              </h2>
+            <div className="flex flex-wrap gap-4 items-center">
+              <button 
+                onClick={startNewEvent}
+                className="bg-artistic-primary text-white h-14 px-6 rounded-2xl flex items-center justify-center gap-3 border-2 border-artistic-text shadow-[6px_6px_0px_0px_rgba(42,42,42,1)] hover:scale-105 active:scale-95 transition-all font-black"
+              >
+                <Plus size={24} /> 新規作成
+              </button>
+              <div className="flex gap-3">
+                <button 
+                  onClick={handleExportCSV}
+                  className="bg-white text-artistic-text h-14 px-6 rounded-2xl flex items-center justify-center gap-3 border-2 border-artistic-text shadow-[6px_6px_0px_0px_rgba(42,42,42,1)] hover:translate-y-0.5 hover:shadow-none transition-all font-black text-sm"
+                >
+                  <Download size={20} /> CSV出力
+                </button>
+                <label className="bg-white text-artistic-text h-14 px-6 rounded-2xl flex items-center justify-center gap-3 border-2 border-artistic-text shadow-[6px_6px_0px_0px_rgba(42,42,42,1)] hover:translate-y-0.5 hover:shadow-none transition-all font-black text-sm cursor-pointer">
+                  <Upload size={20} /> CSV読込
+                  <input type="file" accept=".csv" onChange={handleImportCSV} className="hidden" />
+                </label>
+              </div>
+            </div>
 
-          <div className="space-y-8">
-            <div className="space-y-4">
-              <h3 className="text-lg font-black bg-artistic-accent inline-block px-3 py-1 rounded-lg">開催予定のイベント</h3>
+          <div className="space-y-12">
+            <div className="space-y-6">
+              <h3 className="text-xl font-black bg-artistic-accent inline-block px-4 py-2 rounded-xl shadow-[3px_3px_0px_0px_rgba(42,42,42,1)] border-2 border-artistic-text">開催予定のイベント</h3>
               {events.filter(e => !isPastEvent(e.date)).length === 0 && (
                 <div className="bg-white border-2 border-dashed border-artistic-text p-12 text-center rounded-[2rem] flex flex-col items-center justify-center gap-6">
                   <p className="opacity-60 font-black text-lg">予定されているイベントはありません</p>
@@ -1048,6 +1454,40 @@ export default function AdminDashboard() {
                   </button>
                   <button 
                     onClick={() => setDeletingEventId(null)}
+                    disabled={saving}
+                    className="px-8 border-2 border-artistic-text font-black rounded-xl hover:bg-neutral-100"
+                  >
+                    キャンセル
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Feedback Deleting Modal */}
+        {deletingFeedbackId && (
+          <div className="fixed inset-0 bg-neutral-900/50 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+            <div className="bg-white border-4 border-artistic-text rounded-[2rem] shadow-[12px_12px_0px_0px_rgba(42,42,42,1)] w-full max-w-md overflow-hidden">
+              <div className="p-8 border-b-4 border-artistic-text bg-artistic-pink/20">
+                <h3 className="text-2xl font-black text-artistic-text">フィードバックを削除</h3>
+              </div>
+              <div className="p-8 space-y-6">
+                <p className="font-bold text-lg">このフィードバックを削除してもよろしいですか？</p>
+                <p className="text-sm opacity-70">※この操作は取り消せません。</p>
+                <div className="pt-4 flex gap-4">
+                  <button 
+                    onClick={() => {
+                      handleDeleteFeedback(deletingFeedbackId);
+                    }}
+                    disabled={saving}
+                    className="flex-1 bg-artistic-pink text-white font-black py-4 rounded-xl flex items-center justify-center gap-3 hover:opacity-90 disabled:opacity-50"
+                  >
+                    <Trash2 size={20} />
+                    {saving ? '削除中...' : '削除する'}
+                  </button>
+                  <button 
+                    onClick={() => setDeletingFeedbackId(null)}
                     disabled={saving}
                     className="px-8 border-2 border-artistic-text font-black rounded-xl hover:bg-neutral-100"
                   >

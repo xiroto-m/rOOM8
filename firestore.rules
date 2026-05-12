@@ -57,15 +57,17 @@ service cloud.firestore {
         && data.createdAt == request.time;
     }
 
-    function isValidVisit(data, visitId) {
-      let expectedId = data.date + '_' + data.deviceId;
+    function isValidVisit(data) {
       return data.keys().hasAll(['deviceId', 'ip', 'date', 'deviceType', 'userAgent', 'timestamp'])
         && data.deviceId is string && data.deviceId.size() <= 128
         && data.ip is string && data.ip.size() <= 64
         && data.date is string && data.date.size() <= 10
         && data.deviceType in ['mobile', 'desktop']
-        && visitId == expectedId
-        && data.timestamp == request.time;
+        && data.timestamp is timestamp
+        && (!data.keys().hasAny(['duration']) || data.duration is number)
+        && (!data.keys().hasAny(['maxScrollDepth']) || data.maxScrollDepth is number)
+        && (!data.keys().hasAny(['referrer']) || data.referrer is string)
+        && (!data.keys().hasAny(['lastActive']) || data.lastActive is timestamp);
     }
 
     function isValidAction(data) {
@@ -73,7 +75,15 @@ service cloud.firestore {
         && data.actionType is string && data.actionType.size() <= 100
         && data.deviceId is string && data.deviceId.size() <= 128
         && data.date is string && data.date.size() <= 10
-        && data.timestamp == request.time;
+        && data.timestamp is timestamp;
+    }
+
+    function isValidFeedback(data) {
+      return data.keys().hasAll(['rating', 'comment', 'deviceId', 'timestamp'])
+        && data.rating is number && data.rating >= 1 && data.rating <= 5
+        && data.comment is string && data.comment.size() <= 5000
+        && data.deviceId is string && data.deviceId.size() <= 128
+        && data.timestamp is timestamp;
     }
 
     // --- COLLECTION RULES ---
@@ -107,13 +117,24 @@ service cloud.firestore {
 
     match /analytics_visits/{visitId} {
       allow read: if isAdmin();
-      allow create: if isValidVisit(incoming(), visitId);
-      allow update, delete: if isAdmin();
+      allow create: if isValidVisit(incoming()) && visitId == (incoming().date + '_' + incoming().deviceId);
+      // Allow updates to duration and scroll depth for non-admins
+      allow update: if isAdmin() || (
+        isValidVisit(incoming()) && 
+        incoming().diff(existing()).affectedKeys().hasAny(['duration', 'maxScrollDepth', 'lastActive'])
+      );
+      allow delete: if isAdmin();
     }
 
     match /analytics_actions/{actionId} {
       allow read: if isAdmin();
       allow create: if isValidAction(incoming());
+      allow update, delete: if isAdmin();
+    }
+
+    match /feedback/{feedbackId} {
+      allow read: if isAdmin();
+      allow create: if isValidFeedback(incoming());
       allow update, delete: if isAdmin();
     }
 

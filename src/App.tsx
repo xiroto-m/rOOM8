@@ -222,8 +222,13 @@ function MainSite() {
   }, [loading]);
 
   const trackAction = async (actionType: string, metadata: any = {}) => {
+    // Skip tracking for admin devices/users to avoid bias
+    if (localStorage.getItem('room8_is_admin') === 'true' || auth.currentUser) {
+      return;
+    }
     try {
-      const today = new Date().toISOString().split('T')[0];
+      const jstNow = new Date(new Date().toLocaleString("en-US", {timeZone: "Asia/Tokyo"}));
+      const today = `${jstNow.getFullYear()}-${String(jstNow.getMonth() + 1).padStart(2, '0')}-${String(jstNow.getDate()).padStart(2, '0')}`;
       const actionId = `${today}_${deviceId || 'anon'}_${Date.now()}`;
       await setDoc(doc(db, 'analytics_actions', actionId), {
         actionType,
@@ -289,53 +294,110 @@ function MainSite() {
     return () => window.removeEventListener('scroll', handleScroll);
   }, []);
 
+  const analyticsCleanupRef = React.useRef<(() => void) | null>(null);
+
   useEffect(() => {
     // Generate or retrieve persistent device ID
-    let deviceId = localStorage.getItem('rOOM8_device_id');
-    if (!deviceId) {
-      deviceId = crypto?.randomUUID ? crypto.randomUUID() : Math.random().toString(36).substring(2, 15);
-      localStorage.setItem('rOOM8_device_id', deviceId);
+    let currentDeviceId = deviceId;
+    if (!currentDeviceId) {
+      currentDeviceId = localStorage.getItem('rOOM8_device_id');
+      if (!currentDeviceId) {
+        currentDeviceId = crypto?.randomUUID ? crypto.randomUUID() : Math.random().toString(36).substring(2, 15);
+        localStorage.setItem('rOOM8_device_id', currentDeviceId);
+      }
+      setDeviceId(currentDeviceId);
     }
-    setDeviceId(deviceId);
 
-    // Fetch IP for metadata
-    fetch('https://api.ipify.org?format=json')
-      .then(res => res.json())
-      .then(data => {
-        const ip = data.ip;
-        setUserIP(ip);
-        
-        // Tracking visit by device ID + Date
-        const today = new Date().toISOString().split('T')[0];
-        const isMobile = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
-        const deviceType = isMobile ? 'mobile' : 'desktop';
-        const visitId = `${today}_${deviceId}`;
-        const visitRef = doc(db, 'analytics_visits', visitId);
-        
-        // Even if we use localStorage session check, 
-        // the visitId (Date_DeviceID) in Firestore guarantees uniqueness server-side
-        const visitKey = `visit_${today}`;
-        const hasVisitedToday = localStorage.getItem(visitKey);
-        
-        if (!hasVisitedToday) {
-          const batch = writeBatch(db);
-          batch.set(visitRef, {
-            deviceId: deviceId,
-            ip: ip,
-            date: today,
-            deviceType: deviceType,
-            userAgent: navigator.userAgent,
-            timestamp: serverTimestamp()
-          });
+    // Skip tracking for admin devices/users to avoid bias
+    const isAdmin = localStorage.getItem('room8_is_admin') === 'true' || auth.currentUser;
+    
+    if (!isAdmin) {
+      fetch('https://api.ipify.org?format=json')
+        .then(res => res.json())
+        .then(data => {
+          const ip = data.ip;
+          setUserIP(ip);
           
-          batch.commit().then(() => {
-            localStorage.setItem(visitKey, 'true');
-          }).catch(err => {
-            console.warn("Analytics: Visit already recorded or error", err);
-          });
-        }
-      })
-      .catch(err => console.error("Failed to fetch IP:", err));
+          // Tracking visit with Session ID (DeviceID + Timestamp) 
+          // to count each session/refresh as a unique access but keep same device grouped
+          const jstNow = new Date(new Date().toLocaleString("en-US", {timeZone: "Asia/Tokyo"}));
+          const today = `${jstNow.getFullYear()}-${String(jstNow.getMonth() + 1).padStart(2, '0')}-${String(jstNow.getDate()).padStart(2, '0')}`;
+          
+          const isMobile = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
+          const deviceType = isMobile ? 'mobile' : 'desktop';
+          const sessionId = `${Date.now()}_${Math.random().toString(36).substring(2, 7)}`;
+          const visitId = `${today}_${currentDeviceId}_${sessionId}`;
+          const visitRef = doc(db, 'analytics_visits', visitId);
+          const referrer = document.referrer || 'direct';
+          
+          let startTime = Date.now();
+          let maxScroll = 0;
+
+          const updateActivity = () => {
+            const scrollPos = window.scrollY + window.innerHeight;
+            const totalHeight = document.documentElement.scrollHeight;
+            if (totalHeight > 0) {
+              const scrollPercent = Math.round((scrollPos / totalHeight) * 100);
+              if (scrollPercent > maxScroll) maxScroll = Math.min(100, scrollPercent);
+            }
+          };
+
+          window.addEventListener('scroll', updateActivity);
+
+          const sendFinalActivity = async () => {
+            const duration = Math.round((Date.now() - startTime) / 1000);
+            try {
+              await setDoc(visitRef, {
+                duration: duration,
+                maxScrollDepth: maxScroll,
+                lastActive: serverTimestamp()
+              }, { merge: true });
+            } catch (e) {}
+          };
+
+          window.addEventListener('beforeunload', sendFinalActivity);
+
+          // Heartbeat or Periodic update to save duration/scroll
+          const activityInterval = setInterval(async () => {
+            const duration = Math.round((Date.now() - startTime) / 1000);
+            try {
+              await setDoc(visitRef, {
+                duration: duration,
+                maxScrollDepth: maxScroll,
+                lastActive: serverTimestamp()
+              }, { merge: true });
+            } catch (e) {}
+          }, 10000);
+
+          const recordVisit = async () => {
+            try {
+              await setDoc(visitRef, {
+                deviceId: currentDeviceId,
+                ip: ip,
+                date: today,
+                referrer: referrer,
+                deviceType: deviceType,
+                userAgent: navigator.userAgent,
+                timestamp: serverTimestamp(),
+                duration: 0,
+                maxScrollDepth: 0
+              });
+            } catch (err) {}
+          };
+
+          recordVisit();
+
+          // Store cleanup function in ref
+          analyticsCleanupRef.current = () => {
+            clearInterval(activityInterval);
+            window.removeEventListener('scroll', updateActivity);
+            window.removeEventListener('beforeunload', sendFinalActivity);
+          };
+        })
+        .catch(err => console.error("Failed to fetch IP:", err));
+    } else {
+      setLoading(false);
+    }
 
     // Load liked events from localStorage
     const saved = localStorage.getItem('rOOM8_liked_events');
@@ -599,6 +661,125 @@ function MainSite() {
           </>
         )}
       </button>
+    );
+  };
+
+  const FeedbackForm = () => {
+    const [rating, setRating] = useState<number>(0);
+    const [comment, setComment] = useState("");
+    const [submitted, setSubmitted] = useState(false);
+    const [isSubmitting, setIsSubmitting] = useState(false);
+
+    const handleSubmit = async (e: React.FormEvent) => {
+      e.preventDefault();
+      if (rating === 0) return;
+      
+      setIsSubmitting(true);
+      try {
+        const feedbackId = `fb_${Date.now()}_${deviceId || 'anon'}`;
+        const isAdmin = localStorage.getItem('room8_is_admin') === 'true' || auth.currentUser;
+        
+        await setDoc(doc(db, 'feedback', feedbackId), {
+          rating,
+          comment,
+          deviceId: deviceId || 'anon',
+          ip: userIP,
+          timestamp: serverTimestamp(),
+          userAgent: navigator.userAgent,
+          testData: isAdmin ? true : false
+        });
+        setSubmitted(true);
+        trackAction('submit_feedback', { rating });
+      } catch (err) {
+        console.error("Feedback submission error:", err);
+      } finally {
+        setIsSubmitting(false);
+      }
+    };
+
+    if (submitted) {
+      return (
+        <motion.div 
+          initial={{ opacity: 0, scale: 0.9 }} 
+          animate={{ opacity: 1, scale: 1 }}
+          className="bg-artistic-accent border-4 border-artistic-text p-8 md:p-12 rounded-[2.5rem] md:rounded-[3.5rem] text-center shadow-[12px_12px_0px_0px_rgba(42,42,42,1)]"
+        >
+          <div className="text-6xl mb-6 text-artistic-primary">🙌</div>
+          <h3 className="text-2xl md:text-3xl font-black mb-4 italic">フィードバックありがとうございます！</h3>
+          <p className="font-bold opacity-70 text-lg">今後の運営の参考にさせていただきます。</p>
+        </motion.div>
+      );
+    }
+
+    return (
+      <motion.div 
+        initial={{ opacity: 0, y: 20 }}
+        whileInView={{ opacity: 1, y: 0 }}
+        viewport={{ once: true }}
+        className="bg-artistic-accent border-4 border-artistic-text p-8 md:p-12 rounded-[2.5rem] md:rounded-[3.5rem] shadow-[12px_12px_0px_0px_rgba(42,42,42,1)] md:shadow-[20px_20px_0px_0px_rgba(42,42,42,1)] relative overflow-hidden"
+      >
+        <div className="relative z-10 flex flex-col md:flex-row items-center md:items-start gap-8 md:gap-16">
+          <div className="w-24 h-24 md:w-32 md:h-32 bg-white rounded-[2rem] flex items-center justify-center shrink-0 shadow-[4px_4px_0px_0px_rgba(42,42,42,1)] border-2 border-artistic-text rotate-[4deg]">
+            <Share2 size={60} className="text-artistic-primary" strokeWidth={2.5} />
+          </div>
+
+          <div className="flex-1 text-center md:text-left">
+            <h3 className="text-3xl md:text-5xl font-black mb-4 tracking-tighter leading-none italic">
+              運営へのメッセージ 📣
+            </h3>
+            <p className="text-lg md:text-xl font-bold leading-relaxed mb-10 text-artistic-text/90">
+              rOOM8をもっと良くするために、あなたの声を聞かせてください。<br className="hidden md:block" />
+              匿名で送信できます。お気軽にどうぞ！✨
+            </p>
+
+            <form onSubmit={handleSubmit} className="space-y-8 max-w-2xl mx-auto md:mx-0">
+              <div className="flex flex-col gap-4">
+                 <span className="text-xs font-black uppercase tracking-widest opacity-40">どのくらい満足していますか？</span>
+                 <div className="flex justify-center md:justify-start gap-3">
+                   {[1, 2, 3, 4, 5].map((star) => (
+                     <button
+                       key={star}
+                       type="button"
+                       onClick={() => setRating(star)}
+                       className={`p-3 md:p-4 rounded-2xl border-2 transition-all shadow-[4px_4px_0px_0px_rgba(0,0,0,0.1)] hover:shadow-none hover:translate-x-[2px] hover:translate-y-[2px] ${rating >= star ? 'bg-artistic-pink text-white border-artistic-text shadow-artistic-text/20' : 'bg-white text-stone-200 border-artistic-text/20 hover:border-artistic-pink/30'}`}
+                     >
+                       <Heart size={32} fill={rating >= star ? "currentColor" : "none"} strokeWidth={3} />
+                     </button>
+                   ))}
+                 </div>
+              </div>
+              
+              <div className="flex flex-col gap-4">
+                <span className="text-xs font-black uppercase tracking-widest opacity-40">詳しいお話を聞かせてください（自由記述）</span>
+                <textarea
+                  value={comment}
+                  onChange={(e) => setComment(e.target.value)}
+                  placeholder="開催してほしいイベントや、サイトの使い勝手、改善してほしい点など..."
+                  className="w-full h-40 p-6 bg-white border-4 border-artistic-text rounded-[2rem] font-bold text-lg focus:outline-none focus:ring-8 focus:ring-artistic-primary/10 transition-all resize-none shadow-inner"
+                />
+              </div>
+
+              <div className="flex flex-col sm:flex-row items-center gap-6">
+                <button
+                  type="submit"
+                  disabled={rating === 0 || isSubmitting}
+                  className={`w-full sm:w-auto px-12 py-5 rounded-[1.5rem] font-black text-xl transition-all shadow-[6px_6px_0px_0px_rgba(42,42,42,1)] active:shadow-none active:translate-x-[2px] active:translate-y-[2px] border-2 border-artistic-text ${rating === 0 || isSubmitting ? 'bg-stone-100 text-stone-400 border-stone-200' : 'bg-artistic-primary text-white hover:bg-artistic-primary/90'}`}
+                >
+                  {isSubmitting ? '送信中...' : 'フィードバックを送信する'}
+                </button>
+                {rating === 0 && (
+                  <p className="text-xs font-bold opacity-40 italic">※まずは満足度を選択してください</p>
+                )}
+              </div>
+            </form>
+          </div>
+        </div>
+        
+        {/* Decorative background element */}
+        <div className="absolute -bottom-10 -right-10 opacity-10 rotate-[-15deg] pointer-events-none">
+          <Share2 size={300} />
+        </div>
+      </motion.div>
     );
   };
 
@@ -1434,9 +1615,7 @@ function MainSite() {
           viewport={{ once: true }}
           className="bg-artistic-accent border-4 border-artistic-text p-8 md:p-12 rounded-[2.5rem] md:rounded-[3.5rem] shadow-[12px_12px_0px_0px_rgba(42,42,42,1)] md:shadow-[20px_20px_0px_0px_rgba(42,42,42,1)] relative overflow-hidden"
         >
-          {/* Decorative background circle */}
-          <div className="absolute top-0 right-0 w-64 h-64 bg-white/10 rounded-full -mr-20 -mt-20 blur-2xl" />
-          
+          {/* ... existing content ... */}
           <div className="relative z-10 flex flex-col md:flex-row items-center gap-8 md:gap-16">
             <div className="w-24 h-24 md:w-32 md:h-32 bg-[#FF0000] rounded-[2rem] flex items-center justify-center shrink-0 shadow-[4px_4px_0px_0px_rgba(42,42,42,1)] border-2 border-artistic-text rotate-[-6deg]">
               <Youtube size={60} className="text-white" strokeWidth={2.5} />
@@ -1495,6 +1674,11 @@ function MainSite() {
             </div>
           </div>
         </motion.div>
+      </Section>
+
+      {/* Feedback Section */}
+      <Section className="py-12">
+        <FeedbackForm />
       </Section>
 
       {loading && (
