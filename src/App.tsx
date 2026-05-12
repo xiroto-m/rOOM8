@@ -153,9 +153,46 @@ class ErrorBoundary extends React.Component<{ children: ReactNode }, { hasError:
 function MainSite() {
   const [events, setEvents] = useState<EventItem[]>([]);
   const [loading, setLoading] = useState(true);
+  const [loadingProgress, setLoadingProgress] = useState(0);
+  const [loadingMessage, setLoadingMessage] = useState("データを取得中...");
   const [error, setError] = useState<string | null>(null);
   const [userIP, setUserIP] = useState<string | null>(null);
   const [deviceId, setDeviceId] = useState<string | null>(null);
+
+  const loadingMessages = [
+    "スピーカーを設置中...",
+    "会場を掃除中...",
+    "ビールの在庫を確認中...",
+    "ピザのトッピングを選び中...",
+    "レコードの針を落とし中...",
+    "ネオンサインを点灯中...",
+    "誰かの「好き」を読み込み中...",
+    "50:50の関係性を計算中...",
+    "代々木の空気をサンプリング中..."
+  ];
+
+  // Simulated progress during initial load
+  useEffect(() => {
+    if (loading) {
+      const interval = setInterval(() => {
+        setLoadingProgress(prev => {
+          if (prev >= 95) return prev;
+          // Slowly increase to 95% until data actually arrives
+          const step = Math.random() * 8;
+          return Math.min(95, prev + step);
+        });
+        
+        // Randomly change messages
+        if (Math.random() > 0.7) {
+          setLoadingMessage(loadingMessages[Math.floor(Math.random() * loadingMessages.length)]);
+        }
+      }, 150);
+      return () => clearInterval(interval);
+    } else {
+      // Fast finish when loaded
+      setLoadingProgress(100);
+    }
+  }, [loading]);
 
   const trackAction = async (actionType: string, metadata: any = {}) => {
     try {
@@ -437,6 +474,92 @@ function MainSite() {
   );
   
   const heroEvent = useMemo(() => activeEvents[0] || null, [activeEvents]);
+
+  const [showLoadingScreen, setShowLoadingScreen] = useState(true);
+
+  // Transition from progress to content
+  useEffect(() => {
+    if (loadingProgress === 100) {
+      const timer = setTimeout(() => setShowLoadingScreen(false), 800);
+      return () => clearTimeout(timer);
+    }
+  }, [loadingProgress]);
+
+  if (showLoadingScreen) {
+    return (
+      <div className="fixed inset-0 z-[100] bg-artistic-bg flex flex-col items-center justify-center p-6 overflow-hidden">
+        {/* Animated Background Grids */}
+        <div className="absolute inset-0 opacity-[0.05] pointer-events-none" 
+             style={{ backgroundImage: 'radial-gradient(circle, #2a2a2a 1px, transparent 1px)', backgroundSize: '32px 32px' }} />
+        
+        <motion.div 
+          initial={{ opacity: 0, scale: 0.9 }}
+          animate={{ opacity: 1, scale: 1 }}
+          className="relative z-10 w-full max-w-md"
+        >
+          <div className="bg-white border-4 border-artistic-text p-8 md:p-12 rounded-[2.5rem] shadow-[16px_16px_0px_0px_rgba(42,42,42,1)] md:shadow-[24px_24px_0px_0px_rgba(42,42,42,1)] relative overflow-hidden">
+            <div className="text-[10px] font-black uppercase tracking-[0.5em] opacity-40 mb-4 block text-center">System Initializing...</div>
+            
+            <h1 className="text-6xl md:text-8xl font-black italic tracking-tighter text-center mb-8">
+              {Math.floor(loadingProgress)}<span className="text-artistic-primary">%</span>
+            </h1>
+            
+            <div className="h-10 w-full bg-stone-100 border-2 border-artistic-text rounded-2xl overflow-hidden mb-6 relative">
+              <motion.div 
+                className="h-full bg-artistic-accent"
+                initial={{ width: 0 }}
+                animate={{ width: `${loadingProgress}%` }}
+                transition={{ type: "spring", bounce: 0, duration: 0.5 }}
+              />
+              <div className="absolute inset-0 flex items-center justify-center">
+                 <div className="w-full h-full flex items-center justify-center opacity-10 font-black text-[8px] overflow-hidden whitespace-nowrap">
+                   LOADING ROOM8 LOADING ROOM8 LOADING ROOM8 LOADING ROOM8 LOADING ROOM8
+                 </div>
+              </div>
+            </div>
+            
+            <div className="flex items-center gap-3 justify-center">
+              <motion.div
+                animate={{ rotate: 360 }}
+                transition={{ repeat: Infinity, duration: 2, ease: "linear" }}
+                className="text-artistic-pink"
+              >
+                <SettingsIcon size={20} />
+              </motion.div>
+              <p className="font-black text-sm md:text-base animate-pulse">{loadingMessage}</p>
+            </div>
+          </div>
+          
+          <div className="mt-12 flex justify-center gap-4 opacity-20">
+            <Music size={24} />
+            <Palette size={24} />
+            <Monitor size={24} />
+            <Heart size={24} />
+          </div>
+        </motion.div>
+        
+        {/* Abstract shapes floating around */}
+        <motion.div 
+           animate={{ 
+             y: [0, -20, 0], 
+             rotate: [0, 10, -10, 0],
+             scale: [1, 1.1, 1]
+           }} 
+           transition={{ duration: 5, repeat: Infinity }}
+           className="absolute top-20 left-[10%] w-32 h-32 bg-artistic-primary/20 rounded-full blur-3xl" 
+        />
+        <motion.div 
+           animate={{ 
+             y: [0, 20, 0], 
+             rotate: [0, -15, 15, 0],
+             scale: [1, 1.2, 1]
+           }} 
+           transition={{ duration: 7, repeat: Infinity }}
+           className="absolute bottom-20 right-[15%] w-48 h-48 bg-artistic-accent/20 rounded-full blur-3xl" 
+        />
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-artistic-bg text-artistic-text font-sans relative overflow-x-hidden">
@@ -795,7 +918,10 @@ function MainSite() {
         <Section id="location" className="bg-stone-100 rounded-[3rem] my-12 border-2 border-artistic-text" innerClassName="p-8 md:p-12">
           <h2 className="text-4xl font-black mb-16 text-center underline decoration-artistic-accent">開催概要 🌟</h2>
           
-          <div className="rounded-[2.5rem] overflow-hidden border-2 border-artistic-text shadow-[12px_12px_0px_0px_rgba(42,42,42,1)] h-[350px] md:h-[500px] mb-8 bg-stone-200 relative group">
+          <div 
+            className="rounded-[2.5rem] overflow-hidden border-2 border-artistic-text shadow-[12px_12px_0px_0px_rgba(42,42,42,1)] h-[350px] md:h-[500px] mb-8 bg-stone-200 relative group"
+            style={{ isolation: 'isolate', transform: 'translate3d(0, 0, 0)' }}
+          >
             {heroEvent.googleMapEmbedUrl ? (
               <iframe 
                 src={heroEvent.googleMapEmbedUrl}
@@ -803,7 +929,7 @@ function MainSite() {
                 height="100%" 
                 title="Google Maps"
                 className="w-full h-full relative z-10"
-                style={{ border: 0, minHeight: '350px', display: 'block' }} 
+                style={{ border: 0, minHeight: '350px', display: 'block', borderRadius: '2.5rem' }} 
                 allowFullScreen={true} 
                 referrerPolicy="no-referrer-when-downgrade"
               />
