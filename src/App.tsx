@@ -159,6 +159,23 @@ function MainSite() {
   const [error, setError] = useState<string | null>(null);
   const [userIP, setUserIP] = useState<string | null>(null);
   const [deviceId, setDeviceId] = useState<string | null>(null);
+  const [youtubeSubCount, setYoutubeSubCount] = useState<number>(10);
+
+  // Fetch YouTube subscriber count
+  useEffect(() => {
+    const fetchSubscribers = async () => {
+      try {
+        const response = await fetch('/api/youtube-subscribers');
+        const data = await response.json();
+        if (data.subscriberCount !== undefined) {
+          setYoutubeSubCount(data.subscriberCount);
+        }
+      } catch (error) {
+        console.error("Failed to fetch YouTube subscribers:", error);
+      }
+    };
+    fetchSubscribers();
+  }, []);
 
   const loadingMessages = [
     "スピーカーを設置中...",
@@ -1063,13 +1080,13 @@ function MainSite() {
                     Progress to 50
                   </div>
                   <div className="text-xl font-black text-artistic-primary">
-                    残り {Math.max(0, 50 - 34)} 人
+                    あと {Math.max(0, 50 - youtubeSubCount)} 人
                   </div>
                 </div>
                 <div className="h-4 w-full bg-white/30 border-2 border-artistic-text rounded-full overflow-hidden shadow-inner">
                   <motion.div 
                     initial={{ width: 0 }}
-                    whileInView={{ width: `${(34 / 50) * 100}%` }}
+                    animate={{ width: `${Math.min(100, (youtubeSubCount / 50) * 100)}%` }}
                     viewport={{ once: true }}
                     transition={{ duration: 1.5, ease: "easeOut" }}
                     className="h-full bg-white border-r-2 border-artistic-text relative"
@@ -1078,7 +1095,7 @@ function MainSite() {
                   </motion.div>
                 </div>
                 <div className="mt-2 text-[10px] font-black uppercase tracking-widest opacity-30 text-right">
-                  Goal: 50 Subscribers (Current: 34)
+                  Goal: 50 Subscribers (Current: {youtubeSubCount})
                 </div>
               </div>
 
