@@ -13,13 +13,21 @@ import {
   Calendar,
   Copy,
   ExternalLink,
-  Youtube
+  Youtube,
+  Share2,
+  Twitter,
+  Facebook,
+  X,
+  MapPin,
+  CalendarPlus,
+  Download
 } from "lucide-react";
 import { QRCodeSVG } from "qrcode.react";
 import { EVENT_INFO, SECTIONS, FALLBACK_EVENTS } from "./constants";
 import AdminDashboard from "./components/AdminDashboard";
 import { db, EventItem, auth } from "./lib/firebase";
 import { formatEventDate, isPastEvent } from "./lib/dateUtils";
+import { generateGoogleCalendarUrl, downloadICS } from "./lib/calendarUtils";
 import { 
   doc, 
   onSnapshot, 
@@ -270,6 +278,8 @@ function MainSite() {
     contactEmail: EVENT_INFO.contactEmail
   });
 
+  const [selectedEvent, setSelectedEvent] = useState<EventItem | null>(null);
+
   useEffect(() => {
     const handleScroll = () => {
       setIsScrolled(window.scrollY > 50);
@@ -440,34 +450,291 @@ function MainSite() {
 
   const LikeButton = ({ eventId, count, compact = false }: { eventId: string, count?: number, compact?: boolean }) => {
     const isLiked = likedEvents.has(eventId);
+    const height = compact ? "h-11" : "h-12";
+    const buttonBase = `flex items-center justify-center gap-2 px-4 rounded-xl border-2 transition-all font-black group/btn shrink-0 ${height} shadow-[4px_4px_0px_0px_rgba(42,42,42,1)] hover:shadow-none hover:translate-x-[2px] hover:translate-y-[2px] active:scale-95`;
+    
     return (
       <button 
         onClick={(e) => {
           e.preventDefault();
+          e.stopPropagation();
           handleLike(eventId);
         }}
         disabled={!userIP}
-        className={`flex items-center gap-2 px-3 py-2 rounded-2xl border-2 transition-all font-black group relative overflow-hidden
+        className={`${buttonBase} min-w-[120px]
           ${isLiked 
             ? 'bg-artistic-pink text-white border-artistic-text' 
-            : 'bg-white text-artistic-text border-artistic-text hover:bg-artistic-accent/20'
-          } ${compact ? 'text-[10px] px-2.5 py-1.5' : 'text-xs'}
+            : 'bg-white text-artistic-text border-artistic-text hover:bg-artistic-accent'
+          }
         `}
       >
         <motion.div
           animate={isLiked ? { scale: [1, 1.3, 1] } : {}}
           transition={{ duration: 0.3 }}
+          className="flex items-center justify-center"
         >
           <Heart 
-            size={compact ? 12 : 16} 
+            size={compact ? 16 : 18} 
             fill={isLiked ? "currentColor" : "none"} 
-            className={isLiked ? "" : "group-hover:scale-110 transition-transform"}
+            strokeWidth={3}
+            className="transition-colors"
           />
         </motion.div>
-        <span className={`px-1.5 py-0.5 rounded-lg text-[10px] min-w-[1.2rem] text-center font-mono ${isLiked ? 'bg-white/20 text-white' : 'bg-black/5 text-artistic-text'}`}>
+        <span className={`${compact ? 'text-[11px]' : 'text-sm'} tracking-tighter`}>{isLiked ? 'LIKED' : 'LIKE'}</span>
+        <span className={`px-1.5 py-0.5 rounded-lg text-[10px] min-w-[1.2rem] text-center font-mono transition-colors ${isLiked ? 'bg-white/20 text-white font-bold' : 'bg-black/5 text-artistic-text group-hover/btn:bg-black/10'}`}>
           {count || 0}
         </span>
       </button>
+    );
+  };
+
+  const AddToCalendar = ({ event, compact = false }: { event: EventItem, compact?: boolean }) => {
+    const calendarEvent = {
+      title: event.title || event.locationName,
+      description: event.description || '',
+      location: event.locationName + (event.address ? `, ${event.address}` : ''),
+      startDate: event.date,
+      startTime: event.time,
+    };
+
+    const googleUrl = generateGoogleCalendarUrl(calendarEvent);
+    const height = compact ? "h-11" : "h-12";
+    const buttonBase = `flex items-center justify-center gap-2 px-4 rounded-xl border-2 border-artistic-text font-black transition-all shadow-[4px_4px_0px_0px_rgba(42,42,42,1)] hover:shadow-none hover:translate-x-[2px] hover:translate-y-[2px] active:scale-95 ${height} min-w-[90px] group/btn`;
+
+    if (compact) {
+      return (
+        <div className="flex items-center gap-2">
+          <a 
+            href={googleUrl}
+            target="_blank"
+            rel="noopener noreferrer"
+            className={`${buttonBase} bg-white text-artistic-text hover:bg-artistic-accent`}
+            title="Google Calendar"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <CalendarPlus size={16} strokeWidth={3} className="transition-colors" />
+            <span className="text-[11px] tracking-tighter">CAL</span>
+          </a>
+          <button 
+            onClick={(e) => {
+              e.stopPropagation();
+              downloadICS(calendarEvent);
+            }}
+            className={`${buttonBase} bg-white text-artistic-text hover:bg-artistic-primary hover:text-white`}
+            title="Apple / Outlook / .ics"
+          >
+            <Download size={16} strokeWidth={3} className="transition-colors" />
+            <span className="text-[11px] tracking-tighter transition-colors">ICS</span>
+          </button>
+        </div>
+      );
+    }
+
+    const largeButtonClass = "flex-1 bg-white border-2 border-artistic-text px-6 py-3 rounded-2xl font-black text-sm flex items-center justify-center gap-2 transition-all shadow-[4px_4px_0px_0px_rgba(42,42,42,1)] hover:shadow-none hover:translate-x-[2px] hover:translate-y-[2px] active:scale-95";
+
+    return (
+      <div className="flex flex-col sm:flex-row gap-3 w-full">
+        <a 
+          href={googleUrl}
+          target="_blank"
+          rel="noopener noreferrer"
+          className={`${largeButtonClass} hover:bg-artistic-accent text-artistic-text`}
+          onClick={(e) => e.stopPropagation()}
+        >
+          <CalendarPlus size={20} strokeWidth={3} /> Google
+        </a>
+        <button 
+          onClick={(e) => {
+            e.stopPropagation();
+            downloadICS(calendarEvent);
+          }}
+          className={`${largeButtonClass} hover:bg-artistic-primary hover:text-white group`}
+        >
+          <Download size={20} strokeWidth={3} className="group-hover:text-white transition-colors" /> 
+          <span className="group-hover:text-white transition-colors">Apple / .ics</span>
+        </button>
+      </div>
+    );
+  };
+
+  const SocialShare = ({ event, compact = false }: { event: EventItem | null, compact?: boolean }) => {
+    const url = typeof window !== 'undefined' ? encodeURIComponent(window.location.origin + window.location.pathname) : '';
+    const text = encodeURIComponent(event ? `${event.title || event.locationName} に参加予定！ - rOOM8\n` : "rOOM8 - 「好き」を持ち寄って飾る！語る！繋がる！\n");
+    
+    const height = compact ? "h-11" : "h-12";
+    const buttonBase = `flex items-center justify-center gap-2 px-3 rounded-xl border-2 border-artistic-text transition-all shadow-[4px_4px_0px_0px_rgba(42,42,42,1)] hover:shadow-none hover:translate-x-[2px] hover:translate-y-[2px] active:scale-95 ${height} min-w-[85px] group/btn`;
+
+    return (
+      <div className="flex flex-wrap items-center gap-2" onClick={(e) => e.stopPropagation()}>
+        <a 
+          href={`https://x.com/intent/tweet?url=${url}&text=${text}`}
+          target="_blank"
+          rel="noopener noreferrer"
+          className={`${buttonBase} bg-white text-artistic-text hover:bg-black hover:text-white`}
+          title="Share on X"
+        >
+          <svg viewBox="0 0 24 24" width={14} height={14} fill="currentColor" className="transition-colors">
+            <path d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-5.214-6.817L4.99 21.75H1.68l7.73-8.835L1.254 2.25H8.08l4.713 6.231zm-1.161 17.52h1.833L7.084 4.126H5.117z"/>
+          </svg>
+          <span className="text-[11px] font-black tracking-tighter transition-colors">X</span>
+        </a>
+        <a 
+          href={`https://www.facebook.com/sharer/sharer.php?u=${url}`}
+          target="_blank"
+          rel="noopener noreferrer"
+          className={`${buttonBase} bg-white text-artistic-text hover:bg-[#1877F2] hover:text-white`}
+          title="Share on Facebook"
+        >
+          <Facebook size={14} strokeWidth={3} className="transition-colors" />
+          <span className="text-[11px] font-black tracking-tighter transition-colors">FB</span>
+        </a>
+        <a 
+          href={`https://social-plugins.line.me/lineit/share?url=${url}&text=${text}`}
+          target="_blank"
+          rel="noopener noreferrer"
+          className={`${buttonBase} bg-white text-artistic-text hover:bg-[#00B900] hover:text-white`}
+          title="Share on LINE"
+        >
+          <span className="text-[11px] font-black tracking-tighter transition-colors">LINE</span>
+        </a>
+      </div>
+    );
+  };
+
+  const EventModal = ({ event, onClose }: { event: EventItem, onClose: () => void }) => {
+    return (
+      <motion.div 
+        initial={{ opacity: 0 }}
+        animate={{ opacity: 1 }}
+        exit={{ opacity: 0 }}
+        className="fixed inset-0 z-[200] flex items-center justify-center p-4 md:p-6"
+      >
+        <div 
+          className="absolute inset-0 bg-artistic-text/40 backdrop-blur-sm"
+          onClick={onClose}
+        />
+        <motion.div 
+          initial={{ scale: 0.9, y: 20, opacity: 0 }}
+          animate={{ scale: 1, y: 0, opacity: 1 }}
+          className="bg-white border-4 border-artistic-text rounded-[2.5rem] md:rounded-[3.5rem] shadow-[24px_24px_0px_0px_rgba(42,42,42,1)] w-full max-w-4xl max-h-[90vh] overflow-hidden flex flex-col relative z-50"
+        >
+          {/* Header */}
+          <div className="p-6 md:p-8 border-b-2 border-artistic-text flex justify-between items-center bg-artistic-accent">
+            <div className="flex items-center gap-4">
+              <Calendar className="text-artistic-primary" size={32} />
+              <div className="flex flex-col">
+                <span className="text-[10px] font-black uppercase tracking-[0.4em] opacity-40 leading-none mb-1">Event Detail</span>
+                <h2 className="text-xl md:text-2xl font-black tracking-tight leading-none">
+                  {(() => {
+                    const { year, monthDay, dayOfWeek } = formatEventDate(event.date);
+                    return `${year}.${monthDay} ${dayOfWeek ? (dayOfWeek.includes('(') ? dayOfWeek : `(${dayOfWeek})`) : ''}`;
+                  })()}
+                </h2>
+              </div>
+            </div>
+            <button 
+              onClick={onClose}
+              className="p-3 bg-white border-2 border-artistic-text rounded-2xl hover:scale-110 transition-transform shadow-[4px_4px_0px_0px_rgba(42,42,42,1)]"
+            >
+              <X size={24} />
+            </button>
+          </div>
+
+          {/* Content */}
+          <div className="flex-1 overflow-y-auto p-6 md:p-10 space-y-8">
+            <div className="grid md:grid-cols-2 gap-8">
+              <div className="space-y-6">
+                <div>
+                  <span className="text-xs font-black uppercase tracking-[0.3em] opacity-40 block mb-2">Event Title</span>
+                  <h3 className="text-2xl md:text-4xl font-black leading-tight tracking-tight text-artistic-primary">
+                    {event.title || event.locationName}
+                  </h3>
+                </div>
+
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="bg-stone-50 border-2 border-artistic-text p-5 rounded-2xl flex flex-col gap-1 shadow-[4px_4px_0px_0px_rgba(42,42,42,1)]">
+                    <span className="text-[10px] font-black uppercase opacity-40 tracking-wider">Time</span>
+                    <div className="flex items-center gap-2">
+                       <Music size={16} className="text-artistic-primary" strokeWidth={3} />
+                       <p className="font-black italic text-lg leading-none">{event.time}</p>
+                    </div>
+                  </div>
+                  <div className="bg-stone-50 border-2 border-artistic-text p-5 rounded-2xl flex flex-col gap-1 shadow-[4px_4px_0px_0px_rgba(42,42,42,1)]">
+                    <span className="text-[10px] font-black uppercase opacity-40 tracking-wider">ENTRY FEE</span>
+                    <p className="font-black italic text-lg leading-snug truncate">💰 {event.fee.split(' ')[0]}</p>
+                  </div>
+                </div>
+
+                <div>
+                  <span className="text-xs font-black uppercase tracking-[0.3em] opacity-40 block mb-3">Location</span>
+                  <div className="bg-artistic-blue/10 border-2 border-artistic-text p-6 rounded-2xl space-y-3">
+                    <div className="flex items-center gap-3">
+                      <MapPin className="text-artistic-pink" size={20} />
+                      <p className="font-black text-lg">{event.locationName}</p>
+                    </div>
+                    <p className="text-sm font-bold opacity-80 pl-8">{event.address}</p>
+                    <p className="text-xs font-bold opacity-60 pl-8 italic">{event.access}</p>
+                  </div>
+                </div>
+
+                {event.description && (
+                  <div>
+                    <span className="text-xs font-black uppercase tracking-[0.3em] opacity-40 block mb-3">Description</span>
+                    <div className="bg-stone-50 border-2 border-artistic-text p-6 rounded-2xl whitespace-pre-wrap text-sm md:text-base font-medium leading-relaxed italic">
+                      {event.description}
+                    </div>
+                  </div>
+                )}
+              </div>
+
+              <div className="space-y-6">
+                <span className="text-xs font-black uppercase tracking-[0.3em] opacity-40 block">Map</span>
+                <div className="aspect-square bg-stone-100 border-2 border-artistic-text rounded-[2rem] overflow-hidden shadow-inner relative">
+                  {event.googleMapEmbedUrl ? (
+                    <iframe 
+                      src={event.googleMapEmbedUrl}
+                      width="100%" 
+                      height="100%" 
+                      style={{ border: 0 }} 
+                      allowFullScreen={true} 
+                      loading="lazy" 
+                      referrerPolicy="no-referrer-when-downgrade"
+                      className="absolute inset-0"
+                    />
+                  ) : (
+                    <div className="flex items-center justify-center h-full text-stone-400 font-black">地図なし</div>
+                  )}
+                </div>
+
+                <div className="space-y-4">
+                  <span className="text-xs font-black uppercase tracking-[0.3em] opacity-40 block">Calendar</span>
+                  <AddToCalendar event={event} />
+                </div>
+
+                <div className="flex gap-4">
+                  <LikeButton eventId={event.id!} count={event.likesCount} />
+                  <SocialShare event={event} />
+                </div>
+
+                {event.youtubeUrl && (
+                  <a 
+                    href={event.youtubeUrl}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="w-full bg-[#FF0000] text-white p-5 rounded-2xl font-black text-center flex items-center justify-center gap-3 border-2 border-artistic-text shadow-[4px_4px_0px_0px_rgba(42,42,42,1)] hover:scale-[1.02] transition-transform"
+                  >
+                    <Youtube size={24} /> 動画を見る
+                  </a>
+                )}
+              </div>
+            </div>
+          </div>
+          
+          <div className="p-4 bg-stone-50 border-t-2 border-artistic-text text-center text-[10px] font-black uppercase tracking-[0.3em] opacity-40">
+            rOOM8 Yoyogi Community Gallery
+          </div>
+        </motion.div>
+      </motion.div>
     );
   };
 
@@ -639,6 +906,22 @@ function MainSite() {
               >
                 Location
               </a>
+              <div className="hidden md:flex flex-col items-end">
+                <a 
+                  href="#youtube-registration"
+                  onClick={(e) => scrollToSection(e, 'youtube-registration')}
+                  className="flex items-center gap-1.5 px-3 py-1 bg-[#FF0000] text-white rounded-full text-[10px] font-black uppercase tracking-widest hover:scale-105 transition-all shadow-[2px_2px_0px_0px_rgba(42,42,42,1)]"
+                >
+                  <Youtube size={12} /> YouTube
+                </a>
+              </div>
+              <a 
+                href="#youtube-registration"
+                onClick={(e) => scrollToSection(e, 'youtube-registration')}
+                className="md:hidden flex items-center gap-1.5 px-3 py-1 bg-[#FF0000] text-white rounded-full text-[10px] font-black uppercase tracking-widest hover:scale-105 transition-all shadow-[2px_2px_0px_0px_rgba(42,42,42,1)]"
+              >
+                <Youtube size={12} />
+              </a>
               <Link to="/admin" className="text-[10px] font-black uppercase opacity-30 hover:opacity-100 transition-opacity flex items-center gap-1.5 px-2 py-1 border border-artistic-text/10 rounded-md">
                 <SettingsIcon size={10} /> Admin
               </Link>
@@ -655,7 +938,8 @@ function MainSite() {
           <motion.div 
             initial={{ opacity: 0, scale: 0.95 }}
             animate={{ opacity: 1, scale: 1 }}
-            className="lg:col-span-12 bg-artistic-primary text-white p-8 md:p-14 rounded-[2.5rem] md:rounded-[3.5rem] flex flex-col lg:flex-row gap-12 shadow-[12px_12px_0px_0px_rgba(42,42,42,1)] md:shadow-[20px_20px_0px_0px_rgba(42,42,42,1)] border-2 border-artistic-text relative z-10"
+            onClick={() => setSelectedEvent(heroEvent)}
+            className="lg:col-span-12 bg-artistic-primary text-white p-8 md:p-14 rounded-[2.5rem] md:rounded-[3.5rem] flex flex-col lg:flex-row gap-12 shadow-[12px_12px_0px_0px_rgba(42,42,42,1)] md:shadow-[20px_20px_0px_0px_rgba(42,42,42,1)] border-2 border-artistic-text relative z-10 cursor-pointer hover:scale-[1.005] transition-transform"
           >
             <div className="lg:w-1/2 flex flex-col justify-between">
               <div>
@@ -673,21 +957,21 @@ function MainSite() {
                           {displayTitle}
                         </h2>
                         
-                        <div className="flex items-baseline gap-4 mb-4">
+                        <div className="flex items-center gap-4 mb-4">
                           <h2 className="text-8xl md:text-9xl font-black leading-none tracking-[-0.08em]">
                             {monthDay || heroEvent.date}
                           </h2>
-                          <div className="flex flex-col">
-                             {year && <span className="text-xl font-black opacity-60 tracking-tighter">{year}</span>}
-                             <span className="text-3xl md:text-4xl font-black tracking-tighter text-artistic-accent">
-                               {dayOfWeek && dayOfWeek !== '' ? dayOfWeek : ''}
+                          <div className="flex flex-col justify-center gap-1">
+                             {year && <span className="text-lg md:text-2xl font-black opacity-60 tracking-wider leading-none">{year}</span>}
+                             <span className="text-lg md:text-2xl font-black tracking-tight text-artistic-accent drop-shadow-sm leading-none">
+                               {dayOfWeek && dayOfWeek !== '' ? (dayOfWeek.includes('(') ? dayOfWeek : `(${dayOfWeek})`) : ''}
                              </span>
                           </div>
                         </div>
                         
-                        <div className="inline-flex items-center gap-3 bg-white/10 backdrop-blur-sm border border-white/30 p-4 rounded-2xl mt-4">
-                          <Calendar size={20} className="text-artistic-accent" />
-                          <span className="text-xl md:text-2xl font-black tracking-tighter">
+                        <div className="inline-flex items-center gap-2 bg-white text-artistic-text border-2 border-artistic-text px-4 py-2 rounded-xl shadow-[4px_4px_0px_0px_rgba(42,42,42,1)] mt-4">
+                          <Music size={18} className="text-artistic-primary" strokeWidth={3} />
+                          <span className="text-xl md:text-2xl font-black tracking-tight leading-none">
                             {heroEvent.time}
                           </span>
                         </div>
@@ -711,60 +995,79 @@ function MainSite() {
                   </div>
                 )}
                 
-                <div className="bg-white/20 p-5 md:p-6 rounded-2xl md:rounded-[2rem] border border-white/30 backdrop-blur-md flex flex-wrap items-center justify-between gap-6">
-                  <div className="flex flex-col">
-                    <span className="text-[10px] font-black uppercase opacity-60 mb-0.5">参加費</span>
-                    <p className="text-lg md:text-xl font-black italic tracking-tight">💰 {heroEvent.fee}</p>
+                <div className="bg-white/20 p-6 md:p-8 rounded-2xl md:rounded-[2.5rem] border border-white/30 backdrop-blur-md flex flex-col gap-8">
+                  <div className="flex flex-col gap-2">
+                    <span className="text-[10px] font-black uppercase opacity-60 tracking-[0.2em]">ENTRY FEE</span>
+                    <p className="text-xl md:text-2xl font-black italic tracking-tight leading-snug break-words">💰 {heroEvent.fee}</p>
                   </div>
-                  <div className="flex gap-3">
-                    {heroEvent.id && <LikeButton eventId={heroEvent.id} count={heroEvent.likesCount} />}
-                    {heroEvent.facebookEventUrl && (
-                      <a 
-                        href={heroEvent.facebookEventUrl}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        onClick={() => trackAction('click_facebook', { eventId: heroEvent.id, title: heroEvent.title })}
-                        className="bg-[#1877F2] text-white px-6 py-3 rounded-2xl text-xs md:text-sm font-black border-2 border-white/40 hover:scale-105 transition-transform flex items-center gap-2 shadow-[4px_4px_0px_0px_rgba(0,0,0,0.2)]"
-                      >
-                        Facebookイベント
-                      </a>
-                    )}
-                    {heroEvent.youtubeUrl && (
-                      <a 
-                        href={heroEvent.youtubeUrl}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        onClick={() => trackAction('click_youtube', { eventId: heroEvent.id, title: heroEvent.title })}
-                        className="bg-[#FF0000] text-white px-6 py-3 rounded-2xl text-xs md:text-sm font-black border-2 border-white/40 hover:scale-105 transition-transform flex items-center gap-2 shadow-[4px_4px_0px_0px_rgba(0,0,0,0.2)]"
-                      >
-                        動画を見る
-                      </a>
-                    )}
+                  
+                  <div className="flex flex-col sm:flex-row flex-wrap items-start sm:items-center justify-between gap-8 pt-4">
+                    <div className="flex flex-wrap items-center gap-4">
+                      {heroEvent.id && <LikeButton eventId={heroEvent.id} count={heroEvent.likesCount} compact />}
+                      <AddToCalendar event={heroEvent} compact />
+                      <SocialShare event={heroEvent} compact />
+                    </div>
+                    
+                    <div className="flex flex-wrap items-center gap-4">
+                      {heroEvent.facebookEventUrl && (
+                        <a 
+                          href={heroEvent.facebookEventUrl}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            trackAction('click_facebook', { eventId: heroEvent.id, title: heroEvent.title });
+                          }}
+                          className="bg-[#1877F2] text-white px-8 h-11 rounded-xl text-xs md:text-sm font-black border-2 border-artistic-text hover:bg-[#1877F2]/80 transition-all flex items-center gap-2 shadow-[4px_4px_0px_0px_rgba(42,42,42,1)] active:shadow-none active:translate-x-[2px] active:translate-y-[2px]"
+                        >
+                          Facebookイベント
+                        </a>
+                      )}
+                      {heroEvent.youtubeUrl && (
+                        <a 
+                          href={heroEvent.youtubeUrl}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            trackAction('click_youtube', { eventId: heroEvent.id, title: heroEvent.title });
+                          }}
+                          className="bg-[#FF0000] text-white px-8 h-11 rounded-xl text-xs md:text-sm font-black border-2 border-artistic-text hover:bg-[#FF0000]/80 transition-all flex items-center gap-2 shadow-[4px_4px_0px_0px_rgba(42,42,42,1)] active:shadow-none active:translate-x-[2px] active:translate-y-[2px]"
+                        >
+                          動画を見る
+                        </a>
+                      )}
+                    </div>
                   </div>
                 </div>
-              </div>
+            </div>
             </div>
             
             <div className="lg:w-1/2 flex flex-col gap-6">
-              <div className="bg-[#FFFCEB] border-2 border-artistic-text p-8 md:p-14 rounded-[2.5rem] md:rounded-[3.5rem] relative overflow-hidden flex-1 shadow-[8px_8px_0px_0px_rgba(42,42,42,1)] md:shadow-[12px_12px_0px_0px_rgba(42,42,42,1)] flex flex-col justify-center text-artistic-text">
-                <div className="absolute -top-4 -right-4 w-24 h-24 bg-artistic-accent border-2 border-artistic-text rounded-full flex items-center justify-center rotate-12 shadow-sm z-10 hidden sm:flex">
+              <div className="bg-[#FFFCEB] border-2 border-artistic-text p-8 md:p-14 lg:p-20 rounded-[2.5rem] md:rounded-[3.5rem] relative overflow-hidden flex-1 shadow-[8px_8px_0px_0px_rgba(42,42,42,1)] md:shadow-[12px_12px_0px_0px_rgba(42,42,42,1)] flex flex-col justify-center text-artistic-text group/concept">
+                {/* Decorative background text */}
+                <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 text-[12rem] lg:text-[20rem] font-black opacity-[0.03] rotate-[-15deg] pointer-events-none select-none whitespace-nowrap">
+                  PHILOSOPHY
+                </div>
+
+                <div className="absolute -top-4 -right-4 w-24 h-24 bg-artistic-accent border-2 border-artistic-text rounded-full flex items-center justify-center rotate-12 shadow-sm z-10 hidden sm:flex group-hover/concept:rotate-[25deg] transition-transform duration-500">
                   <span className="text-[10px] font-black tracking-tighter text-center leading-none">JOIN<br/>OUR<br/>VIBE</span>
                 </div>
-                <h3 className="text-2xl md:text-3xl font-black mb-6 md:mb-8 flex items-center gap-3 tracking-tighter">🏠 Concept</h3>
-                <div className="text-lg md:text-xl leading-relaxed md:leading-[1.4] mb-8 md:mb-10 font-bold italic text-artistic-text/90">
-                  既存の枠（フォローやタイムライン）から抜け出し、<br className="hidden md:block" />
-                  <span className="font-black not-italic underline decoration-artistic-primary decoration-8 underline-offset-4 bg-white/50 px-1">50:50の関係</span>で交流する場所。<br />
+                <h3 className="text-2xl md:text-5xl font-black mb-8 md:mb-12 flex items-center gap-3 tracking-tighter">🏠 Concept</h3>
+                <div className="text-xl md:text-2xl lg:text-3xl leading-relaxed md:leading-[1.5] lg:leading-[1.6] mb-10 md:mb-14 font-bold italic text-artistic-text/90 relative z-10">
+                  既存の枠（フォローやタイムライン）から抜け出し、<br className="hidden lg:block" />
+                  <span className="font-black not-italic underline decoration-artistic-primary md:decoration-[12px] underline-offset-8 bg-white/50 px-2">50:50の関係</span>で交流する場所。<br />
                   「事前連絡なし・飛び入り参加・知り合いの同伴OK」😋<br />
                   初めての人でもワクワクできる空間です。
                 </div>
-                <div className="grid sm:grid-cols-2 gap-6 md:gap-8 pt-8 border-t-2 border-dashed border-artistic-text/10">
-                  <div className="flex flex-col gap-2">
-                    <h4 className="font-black text-artistic-primary flex items-center gap-2 text-sm">🍱 飲食の持ち寄り</h4>
-                    <p className="text-[11px] md:text-xs font-bold text-artistic-text/70 leading-relaxed">{SECTIONS.potluck.food}</p>
+                <div className="grid sm:grid-cols-2 gap-6 md:gap-10 pt-10 md:pt-14 border-t-2 border-dashed border-artistic-text/10 relative z-10">
+                  <div className="flex flex-col gap-3">
+                    <h4 className="font-black text-artistic-primary flex items-center gap-2 text-base md:text-lg">🍱 飲食の持ち寄り</h4>
+                    <p className="text-xs md:text-sm font-bold text-artistic-text/70 leading-relaxed">{SECTIONS.potluck.food}</p>
                   </div>
-                  <div className="flex flex-col gap-2">
-                    <h4 className="font-black text-artistic-pink flex items-center gap-2 text-sm">🎨 作品の持ち寄り</h4>
-                    <p className="text-[11px] md:text-xs font-bold text-artistic-text/70 leading-relaxed">{SECTIONS.potluck.works}</p>
+                  <div className="flex flex-col gap-3">
+                    <h4 className="font-black text-artistic-pink flex items-center gap-2 text-base md:text-lg">🎨 作品の持ち寄り</h4>
+                    <p className="text-xs md:text-sm font-bold text-artistic-text/70 leading-relaxed">{SECTIONS.potluck.works}</p>
                   </div>
                 </div>
               </div>
@@ -776,62 +1079,133 @@ function MainSite() {
           </div>
         )}
       </Section>
+
       {/* Upcoming Schedules */}
       {!loading && upcomingEvents.length > 0 && (
-        <Section className="py-12">
-          <h2 className="text-3xl font-black mb-12 flex items-center gap-3">
-            <Calendar className="text-artistic-pink" /> その先の開催予定
-          </h2>
-          <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
+        <Section className="py-12 md:py-24">
+          <motion.h2 
+            initial={{ opacity: 0, x: -20 }}
+            whileInView={{ opacity: 1, x: 0 }}
+            viewport={{ once: true }}
+            className="text-4xl md:text-5xl font-black mb-16 flex items-center gap-4 tracking-tighter"
+          >
+            <Calendar className="text-artistic-pink" size={40} /> その先の開催予定
+          </motion.h2>
+          <motion.div 
+            initial="hidden"
+            whileInView="show"
+            viewport={{ once: true }}
+            variants={{
+              hidden: { opacity: 0 },
+              show: {
+                opacity: 1,
+                transition: {
+                  staggerChildren: 0.1
+                }
+              }
+            }}
+            className="grid md:grid-cols-2 lg:grid-cols-3 gap-8 md:gap-10"
+          >
             {upcomingEvents.map((ev, i) => (
               <motion.div
                 key={ev.id || i}
-                initial={{ opacity: 0, y: 10 }}
-                whileInView={{ opacity: 1, y: 0 }}
-                viewport={{ once: true }}
-                className="bg-white border-2 border-artistic-text p-6 rounded-[2rem] shadow-[4px_4px_0px_0px_rgba(42,42,42,1)] hover:shadow-[6px_6px_0px_0px_rgba(42,42,42,1)] transition-shadow"
+                variants={{
+                  hidden: { opacity: 0, y: 30, rotateZ: i % 2 === 0 ? -1 : 1 },
+                  show: { opacity: 1, y: 0, rotateZ: 0 }
+                }}
+                whileHover={{ 
+                  y: -12, 
+                  rotateZ: i % 2 === 0 ? 1 : -1,
+                  transition: { type: "spring", stiffness: 300 }
+                }}
+                onClick={() => setSelectedEvent(ev)}
+                className="group relative bg-white border-2 border-artistic-text p-6 md:p-8 rounded-[2.5rem] shadow-[8px_8px_0px_0px_rgba(42,42,42,1)] hover:shadow-[12px_12px_0px_0px_rgba(255,107,107,0.3)] transition-all cursor-pointer flex flex-col h-full overflow-hidden"
               >
-                <div className="flex justify-between items-start mb-4">
-                   <div className="text-2xl font-black italic text-artistic-primary underline decoration-artistic-accent">
-                     {ev.date}
-                   </div>
-                   <div className="text-xs font-black uppercase opacity-40">{ev.time}</div>
-                </div>
-                {ev.title && (
-                  <p className="font-black text-lg mb-2">{ev.title}</p>
-                )}
-                <p className="font-bold mb-2">{ev.locationName}</p>
-                <p className="text-xs opacity-60 font-medium leading-relaxed mb-4">{ev.access}</p>
-                {ev.description && (
-                  <p className="text-xs mb-4 p-3 bg-stone-100 rounded-xl leading-relaxed whitespace-pre-wrap">
-                    {ev.description}
-                  </p>
-                )}
-                <div className="flex flex-wrap items-center justify-between gap-2 mt-4 pt-4 border-t-2 border-dashed border-gray-200">
-                  <div className="flex items-center gap-6">
-                    <div className="flex flex-col">
-                      <span className="text-[8px] font-black uppercase opacity-60">参加費</span>
-                      <p className="text-[11px] font-black text-gray-700 whitespace-nowrap">💰 {ev.fee}</p>
+                {/* Visual Accent */}
+                <div className="absolute top-0 right-0 w-32 h-32 bg-artistic-accent/10 rounded-full -mr-16 -mt-16 blur-2xl group-hover:bg-artistic-accent/20 transition-colors" />
+                
+                <div className="relative z-10 flex flex-col h-full">
+                  <div className="flex justify-between items-start mb-6">
+                    <div className="flex items-center gap-3">
+                       {(() => {
+                         const { year: evYear, monthDay: evMonthDay, dayOfWeek: evDay } = formatEventDate(ev.date);
+                         return (
+                           <>
+                             <div className="flex flex-col">
+                               <div className="text-4xl font-black tracking-tighter text-artistic-primary leading-none group-hover:text-artistic-pink transition-colors">
+                                 {evMonthDay}
+                               </div>
+                             </div>
+                             <div className="flex flex-col justify-center gap-0.5">
+                               {evYear && <span className="text-[11px] font-black opacity-40 leading-none">{evYear}</span>}
+                               <div className="text-[11px] font-black text-artistic-accent leading-none">
+                                 {evDay ? (evDay.includes('(') ? evDay : `(${evDay})`) : ''}
+                               </div>
+                             </div>
+                           </>
+                         );
+                       })()}
                     </div>
-                    <LikeButton eventId={ev.id!} count={ev.likesCount} compact />
+                    <div className="bg-white border-2 border-artistic-text px-3 py-1.5 rounded-xl text-[11px] font-black tracking-tight flex items-center gap-1.5 shadow-[2px_2px_0px_0px_rgba(42,42,42,1)]">
+                      <Music size={12} className="text-artistic-primary" strokeWidth={3} /> {ev.time}
+                    </div>
                   </div>
-                  {ev.youtubeUrl && (
-                    <a 
-                      href={ev.youtubeUrl}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="bg-[#FF0000] text-white px-3 py-1.5 rounded-lg text-[10px] font-bold hover:opacity-90 transition-opacity whitespace-nowrap"
-                    >
-                      動画を見る
-                    </a>
-                  )}
+
+                  <div className="flex-1 space-y-4">
+                    {ev.title && (
+                      <h3 className="font-black text-2xl md:text-3xl leading-snug tracking-tight group-hover:underline decoration-artistic-accent decoration-4 underline-offset-4 transition-all">
+                        {ev.title}
+                      </h3>
+                    )}
+                    
+                    <div className="space-y-3">
+                      <p className="font-black text-sm flex items-center gap-2">
+                        <MapPin size={14} className="text-artistic-pink" />
+                        {ev.locationName}
+                      </p>
+                      <p className="text-[11px] font-bold opacity-60 leading-relaxed pl-5 italic">
+                        {ev.access}
+                      </p>
+                    </div>
+
+                    {ev.description && (
+                      <p className="text-xs font-medium leading-relaxed italic opacity-80 line-clamp-3 p-4 bg-stone-50 rounded-2xl border-l-4 border-artistic-accent">
+                        {ev.description}
+                      </p>
+                    )}
+                  </div>
+
+                  <div className="mt-auto pt-8">
+                    <div className="w-full h-px bg-artistic-text/10 border-t border-dashed mb-6" />
+                    
+                    <div className="space-y-6">
+                      <div className="flex flex-col gap-2">
+                        <span className="text-[9px] font-black uppercase opacity-40 tracking-[0.2em]">ENTRY FEE</span>
+                        <p className="text-sm md:text-base font-black italic text-artistic-text leading-snug whitespace-nowrap overflow-hidden text-ellipsis">
+                          💰 {ev.fee}
+                        </p>
+                      </div>
+
+                      <div className="flex flex-wrap items-center justify-between gap-y-6 gap-x-4">
+                        <div className="flex flex-wrap items-center gap-3">
+                          <LikeButton eventId={ev.id!} count={ev.likesCount} compact />
+                          <AddToCalendar event={ev} compact />
+                          <SocialShare event={ev} compact />
+                        </div>
+                        
+                        <div className="flex items-center justify-center w-12 h-12 rounded-2xl border-2 border-artistic-text group-hover:bg-artistic-text group-hover:text-white transition-all shadow-[4px_4px_0px_0px_rgba(42,42,42,1)] group-hover:shadow-none group-hover:translate-x-[2px] group-hover:translate-y-[2px]">
+                          <ExternalLink size={20} />
+                        </div>
+                      </div>
+                    </div>
+                  </div>
                 </div>
               </motion.div>
             ))}
-          </div>
+          </motion.div>
         </Section>
       )}
-      
+
       {/* Archived / Past Events */}
       {!loading && archivedEvents.length > 0 && (
         <Section className="py-12 bg-stone-100/50">
@@ -1026,19 +1400,21 @@ function MainSite() {
                 >
                   {globalSettings.contactEmail || EVENT_INFO.contactEmail}
                 </a>
-                <button 
-                  onClick={() => {
-                    navigator.clipboard.writeText(globalSettings.contactEmail || EVENT_INFO.contactEmail);
-                    const btn = document.getElementById('copy-toast');
-                    if (btn) {
-                      btn.classList.remove('opacity-0');
-                      setTimeout(() => btn.classList.add('opacity-0'), 2000);
-                    }
-                  }}
-                  className="flex items-center gap-2 text-[10px] font-black uppercase tracking-[0.2em] text-artistic-primary hover:text-artistic-text transition-all mt-4 cursor-pointer group/copy"
-                >
-                  <Copy size={14} className="group-hover/copy:scale-110 transition-transform" /> Copy Email
-                </button>
+                <div className="mt-8 pt-6 border-t border-artistic-text/10 relative">
+                  <button 
+                    onClick={() => {
+                      navigator.clipboard.writeText(globalSettings.contactEmail || EVENT_INFO.contactEmail);
+                      const btn = document.getElementById('copy-toast');
+                      if (btn) {
+                        btn.classList.remove('opacity-0');
+                        setTimeout(() => btn.classList.add('opacity-0'), 2000);
+                      }
+                    }}
+                    className="flex items-center gap-2 text-[10px] font-black uppercase tracking-[0.2em] text-artistic-primary hover:text-artistic-text transition-all cursor-pointer group/copy"
+                  >
+                    <Copy size={14} className="group-hover/copy:scale-110 transition-transform" /> Copy Email
+                  </button>
+                </div>
               </div>
               <div id="copy-toast" className="absolute top-4 right-4 bg-artistic-text text-white px-4 py-2 rounded-xl text-xs font-black opacity-0 transition-opacity pointer-events-none">
                 Copied!
@@ -1051,6 +1427,7 @@ function MainSite() {
       {/* YouTube Promotion Section */}
       <Section className="py-12">
         <motion.div
+          id="youtube-registration"
           initial={{ opacity: 0, y: 20 }}
           whileInView={{ opacity: 1, y: 0 }}
           viewport={{ once: true }}
@@ -1274,6 +1651,14 @@ function MainSite() {
           </div>
         </div>
       </footer>
+
+      {/* Modal Overlay */}
+      {selectedEvent && (
+        <EventModal 
+          event={selectedEvent} 
+          onClose={() => setSelectedEvent(null)} 
+        />
+      )}
     </div>
   );
 }

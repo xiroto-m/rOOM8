@@ -96,7 +96,7 @@ const EventEditModal = ({ event, onSave, onClose, saving }: { event: EventItem, 
               />
             </div>
             <div className="space-y-2">
-              <label className="text-xs font-black uppercase opacity-60">参加費</label>
+              <label className="text-xs font-black uppercase opacity-60">ENTRY FEE</label>
               <input 
                 type="text" 
                 required
