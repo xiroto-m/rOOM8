@@ -1,4 +1,4 @@
-import React, { ReactNode, useState, useEffect } from "react";
+import React, { ReactNode, useState, useEffect, useMemo } from "react";
 import { HashRouter, Routes, Route, Link } from "react-router-dom";
 import { motion } from "motion/react";
 import { 
@@ -416,10 +416,25 @@ function MainSite() {
     );
   };
 
-  const effectiveEvents = events.length > 0 ? events : (loading ? [] : FALLBACK_EVENTS);
-  const activeEvents = effectiveEvents.filter(ev => !isPastEvent(ev.date));
-  const upcomingEvents = activeEvents.slice(1);
-  const archivedEvents = effectiveEvents.filter(ev => isPastEvent(ev.date)).sort((a, b) => b.date.localeCompare(a.date));
+  const effectiveEvents = useMemo(() => 
+    events.length > 0 ? events : (loading ? [] : FALLBACK_EVENTS),
+    [events, loading]
+  );
+  
+  const activeEvents = useMemo(() => 
+    effectiveEvents.filter(ev => !isPastEvent(ev.date)),
+    [effectiveEvents]
+  );
+  
+  const upcomingEvents = useMemo(() => 
+    activeEvents.slice(1),
+    [activeEvents]
+  );
+  
+  const archivedEvents = useMemo(() => 
+    effectiveEvents.filter(ev => isPastEvent(ev.date)).sort((a, b) => b.date.localeCompare(a.date)),
+    [effectiveEvents]
+  );
   
   const heroEvent = activeEvents[0] || null;
 
@@ -780,16 +795,16 @@ function MainSite() {
         <Section id="location" className="bg-stone-100 rounded-[3rem] my-12 border-2 border-artistic-text" innerClassName="p-8 md:p-12">
           <h2 className="text-4xl font-black mb-16 text-center underline decoration-artistic-accent">開催概要 🌟</h2>
           
-          <div className="rounded-[2.5rem] overflow-hidden border-2 border-artistic-text shadow-[12px_12px_0px_0px_rgba(42,42,42,1)] h-[400px] md:h-[500px] mb-16">
+          <div className="rounded-[2.5rem] overflow-hidden border-2 border-artistic-text shadow-[12px_12px_0px_0px_rgba(42,42,42,1)] h-[400px] md:h-[500px] mb-16 bg-stone-200">
             <iframe 
               src={heroEvent.googleMapEmbedUrl}
               width="100%" 
               height="100%" 
               title="Google Maps"
-              style={{ border: 0 }} 
-              allowFullScreen={false} 
+              style={{ border: 0, minHeight: '300px' }} 
+              allowFullScreen={true} 
               loading="lazy" 
-              referrerPolicy="no-referrer-when-downgrade"
+              referrerPolicy="no-referrer"
             />
           </div>
 
