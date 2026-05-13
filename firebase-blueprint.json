@@ -77,6 +77,17 @@
         "count": { "type": "number" }
       },
       "required": ["date", "count"]
+    },
+    "GalleryImage": {
+      "title": "Gallery Image",
+      "description": "An image uploaded to the privacy gallery",
+      "type": "object",
+      "properties": {
+        "url": { "type": "string" },
+        "createdAt": { "type": "number" },
+        "order": { "type": "number" }
+      },
+      "required": ["url", "createdAt", "order"]
     }
   },
   "firestore": {
@@ -103,6 +114,10 @@
     "/analytics_daily_stats/{date}": {
       "schema": "DailyStats",
       "description": "Aggregated stats by date"
+    },
+    "/gallery/{imageId}": {
+      "schema": "GalleryImage",
+      "description": "Gallery images"
     }
   }
 }

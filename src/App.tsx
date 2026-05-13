@@ -26,6 +26,7 @@ import {
 import { QRCodeSVG } from "qrcode.react";
 import { EVENT_INFO, SECTIONS, FALLBACK_EVENTS } from "./constants";
 import AdminDashboard from "./components/AdminDashboard";
+import PrivacyGallery from "./components/PrivacyGallery";
 import { db, EventItem, auth } from "./lib/firebase";
 import { formatEventDate, isPastEvent } from "./lib/dateUtils";
 import { generateGoogleCalendarUrl, downloadICS } from "./lib/calendarUtils";
@@ -1134,6 +1135,13 @@ function MainSite() {
                 About
               </a>
               <a 
+                href="#gallery" 
+                onClick={(e) => scrollToSection(e, 'gallery')}
+                className="text-[10px] font-black uppercase tracking-widest hover:text-artistic-primary transition-colors cursor-pointer"
+              >
+                Gallery
+              </a>
+              <a 
                 href="#location" 
                 onClick={(e) => scrollToSection(e, 'location')}
                 className="text-[10px] font-black uppercase tracking-widest hover:text-artistic-primary transition-colors cursor-pointer"
@@ -1726,6 +1734,11 @@ function MainSite() {
             </div>
           </div>
         </motion.div>
+      </Section>
+
+      {/* Collage Gallery Section */}
+      <Section className="py-12" id="gallery">
+        <PrivacyGallery />
       </Section>
 
       {/* Feedback Section */}
