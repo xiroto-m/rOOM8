@@ -28,15 +28,19 @@ async function startServer() {
 
     try {
       const handle = channelHandle.startsWith('@') ? channelHandle : `@${channelHandle}`;
-      console.log(`Fetching subscriber count for handle: ${handle}`);
+      console.log(`Fetching statistics for YouTube handle: ${handle}`);
       
-      const channelResponse = await fetch(
-        `https://www.googleapis.com/youtube/v3/channels?part=statistics&forHandle=${handle}&key=${apiKey}`
-      );
+      // Use forHandle parameter (supported since late 2023)
+      const channelUrl = new URL('https://www.googleapis.com/youtube/v3/channels');
+      channelUrl.searchParams.append('part', 'statistics');
+      channelUrl.searchParams.append('forHandle', handle);
+      channelUrl.searchParams.append('key', apiKey);
+
+      const channelResponse = await fetch(channelUrl.toString());
       
       if (!channelResponse.ok) {
-        const errorData = await channelResponse.json();
-        console.error("YouTube API Error Response:", errorData);
+        const errorData = await channelResponse.json().catch(() => ({}));
+        console.error("YouTube API Error:", channelResponse.status, errorData);
         throw new Error(`YouTube API returned ${channelResponse.status}`);
       }
 
@@ -44,35 +48,42 @@ async function startServer() {
 
       if (data.items && data.items.length > 0) {
         const subscriberCount = parseInt(data.items[0].statistics.subscriberCount);
-        console.log(`Success: Found ${subscriberCount} subscribers via forHandle`);
+        console.log(`Successfully fetched ${subscriberCount} subscribers for ${handle}`);
         return res.json({ subscriberCount });
       }
 
-      // Fallback: Try search to find channel ID
-      console.log(`Handle search failed, trying search.list fallback for: ${handle}`);
-      const searchResponse = await fetch(
-        `https://www.googleapis.com/youtube/v3/search?part=snippet&q=${encodeURIComponent(handle)}&type=channel&maxResults=1&key=${apiKey}`
-      );
-      
-      const searchData = await searchResponse.json();
+      // If forHandle fails or returns no items, try search as fallback
+      console.log(`Search fallback for handle: ${handle}`);
+      const searchUrl = new URL('https://www.googleapis.com/youtube/v3/search');
+      searchUrl.searchParams.append('part', 'snippet');
+      searchUrl.searchParams.append('q', handle);
+      searchUrl.searchParams.append('type', 'channel');
+      searchUrl.searchParams.append('maxResults', '1');
+      searchUrl.searchParams.append('key', apiKey);
+
+      const searchResponse = await fetch(searchUrl.toString());
+      const searchData = await searchResponse.json().catch(() => ({}));
       
       if (searchData.items && searchData.items.length > 0) {
         const channelId = searchData.items[0].snippet.channelId;
         console.log(`Found channelId via search: ${channelId}`);
         
-        const statsResponse = await fetch(
-          `https://www.googleapis.com/youtube/v3/channels?part=statistics&id=${channelId}&key=${apiKey}`
-        );
-        const statsData = await statsResponse.json();
+        const statsUrl = new URL('https://www.googleapis.com/youtube/v3/channels');
+        statsUrl.searchParams.append('part', 'statistics');
+        statsUrl.searchParams.append('id', channelId);
+        statsUrl.searchParams.append('key', apiKey);
+
+        const statsResponse = await fetch(statsUrl.toString());
+        const statsData = await statsResponse.json().catch(() => ({}));
         
         if (statsData.items && statsData.items.length > 0) {
           const subscriberCount = parseInt(statsData.items[0].statistics.subscriberCount);
-          console.log(`Success: Found ${subscriberCount} subscribers via search fallback`);
+          console.log(`Success via search fallback: ${subscriberCount} subscribers`);
           return res.json({ subscriberCount });
         }
       }
 
-      console.warn("Channel count not found via any method.");
+      console.warn(`Channel "${handle}" not found via forHandle or Search API.`);
       return res.status(404).json({ 
         error: "Channel not found.",
         subscriberCount: 10
