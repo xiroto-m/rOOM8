@@ -1,13 +1,9 @@
 import express from "express";
 import { createServer as createViteServer } from "vite";
 import path from "path";
-import { fileURLToPath } from "url";
 import dotenv from "dotenv";
 
 dotenv.config();
-
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = path.dirname(__filename);
 
 async function startServer() {
   const app = express();
@@ -15,14 +11,19 @@ async function startServer() {
 
   // API Route to fetch YouTube subscribers
   app.get("/api/youtube-subscribers", async (req, res) => {
-    const apiKey = process.env.YOUTUBE_API_KEY;
-    const channelHandle = "@tackyosya955";
+    // Check various common env var names for the API key
+    const apiKey = process.env.YOUTUBE_API_KEY || 
+                   process.env.VITE_YOUTUBE_API_KEY || 
+                   process.env.VITE_YOUTUBE_API_KE;
+    
+    // Get handle from query or default
+    const queryHandle = req.query.handle as string;
+    const channelHandle = queryHandle || "@tackyosya955";
 
     if (!apiKey) {
-      console.warn("YouTube API Key is missing in environment variables.");
+      console.warn("YouTube API Key is missing in environment variables. Checked: YOUTUBE_API_KEY, VITE_YOUTUBE_API_KEY, VITE_YOUTUBE_API_KE");
       return res.status(400).json({ 
-        error: "YouTube API Key is not configured.",
-        subscriberCount: 10
+        error: "YouTube API Key is not configured."
       });
     }
 
@@ -30,29 +31,32 @@ async function startServer() {
       const handle = channelHandle.startsWith('@') ? channelHandle : `@${channelHandle}`;
       console.log(`Fetching statistics for YouTube handle: ${handle}`);
       
-      // Use forHandle parameter (supported since late 2023)
+      const fetchHeaders = {
+        'User-Agent': 'Room8App/1.0 YouTube Subscriber Counter',
+        'Accept': 'application/json'
+      };
+
+      // 1. Try forHandle parameter (supported for handles like @tackyosya955)
       const channelUrl = new URL('https://www.googleapis.com/youtube/v3/channels');
-      channelUrl.searchParams.append('part', 'statistics');
+      channelUrl.searchParams.append('part', 'statistics,snippet');
       channelUrl.searchParams.append('forHandle', handle);
       channelUrl.searchParams.append('key', apiKey);
 
-      const channelResponse = await fetch(channelUrl.toString());
+      const channelResponse = await fetch(channelUrl.toString(), { headers: fetchHeaders });
       
-      if (!channelResponse.ok) {
+      if (channelResponse.ok) {
+        const data = await channelResponse.json();
+        if (data.items && data.items.length > 0) {
+          const subscriberCount = parseInt(data.items[0].statistics.subscriberCount);
+          console.log(`Successfully fetched ${subscriberCount} subscribers for ${handle} via forHandle`);
+          return res.json({ subscriberCount });
+        }
+      } else {
         const errorData = await channelResponse.json().catch(() => ({}));
-        console.error("YouTube API Error:", channelResponse.status, errorData);
-        throw new Error(`YouTube API returned ${channelResponse.status}`);
+        console.error("YouTube API (forHandle) Error:", channelResponse.status, errorData);
       }
 
-      const data = await channelResponse.json();
-
-      if (data.items && data.items.length > 0) {
-        const subscriberCount = parseInt(data.items[0].statistics.subscriberCount);
-        console.log(`Successfully fetched ${subscriberCount} subscribers for ${handle}`);
-        return res.json({ subscriberCount });
-      }
-
-      // If forHandle fails or returns no items, try search as fallback
+      // 2. Fallback: Search API to find channel ID
       console.log(`Search fallback for handle: ${handle}`);
       const searchUrl = new URL('https://www.googleapis.com/youtube/v3/search');
       searchUrl.searchParams.append('part', 'snippet');
@@ -61,8 +65,15 @@ async function startServer() {
       searchUrl.searchParams.append('maxResults', '1');
       searchUrl.searchParams.append('key', apiKey);
 
-      const searchResponse = await fetch(searchUrl.toString());
-      const searchData = await searchResponse.json().catch(() => ({}));
+      const searchResponse = await fetch(searchUrl.toString(), { headers: fetchHeaders });
+      
+      if (!searchResponse.ok) {
+        const searchError = await searchResponse.json().catch(() => ({}));
+        console.error("YouTube Search API Error:", searchResponse.status, searchError);
+        throw new Error(`YouTube API returned ${searchResponse.status}`);
+      }
+
+      const searchData = await searchResponse.json();
       
       if (searchData.items && searchData.items.length > 0) {
         const channelId = searchData.items[0].snippet.channelId;
@@ -73,26 +84,28 @@ async function startServer() {
         statsUrl.searchParams.append('id', channelId);
         statsUrl.searchParams.append('key', apiKey);
 
-        const statsResponse = await fetch(statsUrl.toString());
-        const statsData = await statsResponse.json().catch(() => ({}));
-        
-        if (statsData.items && statsData.items.length > 0) {
-          const subscriberCount = parseInt(statsData.items[0].statistics.subscriberCount);
-          console.log(`Success via search fallback: ${subscriberCount} subscribers`);
-          return res.json({ subscriberCount });
+        const statsResponse = await fetch(statsUrl.toString(), { headers: fetchHeaders });
+        if (statsResponse.ok) {
+          const statsData = await statsResponse.json();
+          if (statsData.items && statsData.items.length > 0) {
+            const subscriberCount = parseInt(statsData.items[0].statistics.subscriberCount);
+            console.log(`Success via search fallback: ${subscriberCount} subscribers`);
+            return res.json({ subscriberCount });
+          }
+        } else {
+          const statsError = await statsResponse.json().catch(() => ({}));
+          console.error("YouTube Stats API Error:", statsResponse.status, statsError);
         }
       }
 
       console.warn(`Channel "${handle}" not found via forHandle or Search API.`);
       return res.status(404).json({ 
-        error: "Channel not found.",
-        subscriberCount: 10
+        error: "Channel not found."
       });
     } catch (error) {
       console.error("Error fetching YouTube subscribers:", error);
       return res.status(500).json({ 
-        error: "Failed to fetch subscriber count.",
-        subscriberCount: 10
+        error: "Failed to fetch subscriber count."
       });
     }
   });

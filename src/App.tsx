@@ -174,39 +174,59 @@ function MainSite() {
   useEffect(() => {
     const fetchSubscribers = async () => {
       try {
+        // Extract handle from constants.ts
+        const youtubeUrl = EVENT_INFO.youtube;
+        let handle = "@tackyosya955"; // Default fallback
+        if (youtubeUrl) {
+          const match = youtubeUrl.match(/@([a-zA-Z0-9._-]+)/);
+          if (match && match[1]) {
+            handle = `@${match[1]}`;
+          }
+        }
+
         // Try internal API first (works in AI Studio / custom server)
-        const response = await fetch('/api/youtube-subscribers');
+        const response = await fetch(`/api/youtube-subscribers?handle=${encodeURIComponent(handle)}`);
         if (response.ok) {
           const data = await response.json();
           if (data.subscriberCount !== undefined) {
             setYoutubeSubCount(data.subscriberCount);
             return;
           }
+        } else {
+          const errorData = await response.json().catch(() => ({}));
+          console.warn("Backend YouTube API failed:", response.status, errorData);
         }
         
-        // Fallback or Direct fetch for GitHub Pages
-        const apiKey = import.meta.env.VITE_YOUTUBE_API_KEY;
+        // Fallback or Direct fetch for GitHub Pages / Deployed build if backend fails
+        const apiKey = import.meta.env.VITE_YOUTUBE_API_KEY || (import.meta.env as any).VITE_YOUTUBE_API_KE;
         if (apiKey) {
-          const handle = "@tackyosya955";
+          console.log(`Attempting direct client-side YouTube fetch fallback for handle: ${handle}`);
           const url = `https://www.googleapis.com/youtube/v3/channels?part=statistics&forHandle=${handle}&key=${apiKey}`;
           const directRes = await fetch(url);
-          const directData = await directRes.json();
           
-          if (directData.items && directData.items.length > 0) {
-            const count = parseInt(directData.items[0].statistics.subscriberCount);
-            setYoutubeSubCount(count);
-          } else {
-            // Further fallback: Try common handle search if forHandle fails on client side
-            const searchUrl = `https://www.googleapis.com/youtube/v3/search?part=snippet&q=${handle}&type=channel&maxResults=1&key=${apiKey}`;
-            const searchRes = await fetch(searchUrl);
+          if (directRes.ok) {
+            const directData = await directRes.json();
+            if (directData.items && directData.items.length > 0) {
+              const count = parseInt(directData.items[0].statistics.subscriberCount);
+              setYoutubeSubCount(count);
+              return;
+            }
+          }
+
+          // Further fallback: Search API if forHandle fails on client side
+          const searchUrl = `https://www.googleapis.com/youtube/v3/search?part=snippet&q=${handle}&type=channel&maxResults=1&key=${apiKey}`;
+          const searchRes = await fetch(searchUrl);
+          if (searchRes.ok) {
             const searchData = await searchRes.json();
             if (searchData.items && searchData.items.length > 0) {
               const channelId = searchData.items[0].snippet.channelId;
               const statsUrl = `https://www.googleapis.com/youtube/v3/channels?part=statistics&id=${channelId}&key=${apiKey}`;
               const statsRes = await fetch(statsUrl);
-              const statsData = await statsRes.json();
-              if (statsData.items && statsData.items.length > 0) {
-                setYoutubeSubCount(parseInt(statsData.items[0].statistics.subscriberCount));
+              if (statsRes.ok) {
+                const statsData = await statsRes.json();
+                if (statsData.items && statsData.items.length > 0) {
+                  setYoutubeSubCount(parseInt(statsData.items[0].statistics.subscriberCount));
+                }
               }
             }
           }
