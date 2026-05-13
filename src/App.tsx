@@ -1297,8 +1297,8 @@ function MainSite() {
                 </div>
                 <h3 className="text-2xl md:text-5xl font-black mb-8 md:mb-12 flex items-center gap-3 tracking-tighter">🏠 Concept</h3>
                 <div className="text-xl md:text-2xl lg:text-3xl leading-relaxed md:leading-[1.5] lg:leading-[1.6] mb-10 md:mb-14 font-bold italic text-artistic-text/90 relative z-10">
-                  既存の枠（フォローやタイムライン）から抜け出し、<br className="hidden lg:block" />
-                  <span className="font-black not-italic underline decoration-artistic-primary md:decoration-[12px] underline-offset-8 bg-white/50 px-2">50:50の関係</span>で交流する場所。<br />
+                  「クリエイターとファン」という垣根を超えて、<br className="hidden lg:block" />
+                  誰もが<span className="font-black not-italic underline decoration-artistic-primary md:decoration-[12px] underline-offset-8 bg-white/50 px-2">50:50の関係</span>で交流できる場所。<br />
                   「事前連絡なし・飛び入り参加・知り合いの同伴OK」😋<br />
                   初めての人でもワクワクできる空間です。
                 </div>
