@@ -174,10 +174,42 @@ function MainSite() {
   useEffect(() => {
     const fetchSubscribers = async () => {
       try {
+        // Try internal API first (works in AI Studio / custom server)
         const response = await fetch('/api/youtube-subscribers');
-        const data = await response.json();
-        if (data.subscriberCount !== undefined) {
-          setYoutubeSubCount(data.subscriberCount);
+        if (response.ok) {
+          const data = await response.json();
+          if (data.subscriberCount !== undefined) {
+            setYoutubeSubCount(data.subscriberCount);
+            return;
+          }
+        }
+        
+        // Fallback or Direct fetch for GitHub Pages
+        const apiKey = import.meta.env.VITE_YOUTUBE_API_KEY;
+        if (apiKey) {
+          const handle = "@tackyosya955";
+          const url = `https://www.googleapis.com/youtube/v3/channels?part=statistics&forHandle=${handle}&key=${apiKey}`;
+          const directRes = await fetch(url);
+          const directData = await directRes.json();
+          
+          if (directData.items && directData.items.length > 0) {
+            const count = parseInt(directData.items[0].statistics.subscriberCount);
+            setYoutubeSubCount(count);
+          } else {
+            // Further fallback: Try common handle search if forHandle fails on client side
+            const searchUrl = `https://www.googleapis.com/youtube/v3/search?part=snippet&q=${handle}&type=channel&maxResults=1&key=${apiKey}`;
+            const searchRes = await fetch(searchUrl);
+            const searchData = await searchRes.json();
+            if (searchData.items && searchData.items.length > 0) {
+              const channelId = searchData.items[0].snippet.channelId;
+              const statsUrl = `https://www.googleapis.com/youtube/v3/channels?part=statistics&id=${channelId}&key=${apiKey}`;
+              const statsRes = await fetch(statsUrl);
+              const statsData = await statsRes.json();
+              if (statsData.items && statsData.items.length > 0) {
+                setYoutubeSubCount(parseInt(statsData.items[0].statistics.subscriberCount));
+              }
+            }
+          }
         }
       } catch (error) {
         console.error("Failed to fetch YouTube subscribers:", error);
