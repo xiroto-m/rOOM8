@@ -66,8 +66,16 @@ service cloud.firestore {
         && data.timestamp is timestamp
         && (!data.keys().hasAny(['duration']) || data.duration is number)
         && (!data.keys().hasAny(['maxScrollDepth']) || data.maxScrollDepth is number)
+        && (!data.keys().hasAny(['sectionsReached']) || data.sectionsReached is list)
         && (!data.keys().hasAny(['referrer']) || data.referrer is string)
-        && (!data.keys().hasAny(['lastActive']) || data.lastActive is timestamp);
+        && (!data.keys().hasAny(['lastActive']) || data.lastActive is timestamp)
+        // Mobile detailed fields
+        && (!data.keys().hasAny(['language']) || data.language is string)
+        && (!data.keys().hasAny(['screenWidth']) || data.screenWidth is number)
+        && (!data.keys().hasAny(['screenHeight']) || data.screenHeight is number)
+        && (!data.keys().hasAny(['devicePixelRatio']) || data.devicePixelRatio is number)
+        && (!data.keys().hasAny(['orientation']) || data.orientation is string)
+        && (!data.keys().hasAny(['connectionType']) || data.connectionType is string);
     }
 
     function isValidAction(data) {
@@ -124,7 +132,8 @@ service cloud.firestore {
 
     match /analytics_visits/{visitId} {
       allow read: if isAdmin();
-      allow create: if isValidVisit(incoming()) && visitId == (incoming().date + '_' + incoming().deviceId);
+      // Relax visitId check to support sessionId-based format (date_deviceId_sessionId)
+      allow create: if isValidVisit(incoming()) && visitId.size() <= 128;
       // Allow updates to duration and scroll depth for non-admins
       allow update: if isAdmin() || (
         isValidVisit(incoming()) && 
@@ -143,11 +152,6 @@ service cloud.firestore {
       allow read: if isAdmin();
       allow create: if isValidFeedback(incoming());
       allow update, delete: if isAdmin();
-    }
-
-    match /analytics_daily_stats/{date} {
-      allow read: if isAdmin();
-      allow create, update, delete: if isAdmin();
     }
 
     match /gallery/{imageId} {

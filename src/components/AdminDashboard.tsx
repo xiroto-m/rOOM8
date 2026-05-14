@@ -31,7 +31,7 @@ import {
 import { EVENT_INFO } from '../constants';
 import { formatEventDate, isPastEvent } from '../lib/dateUtils';
 import { Link } from 'react-router-dom';
-import { LogIn, LogOut, Save, AlertCircle, CheckCircle, ArrowLeft, ArrowUp, ArrowDown, Plus, Trash2, Edit2, Calendar, Settings, Copy, Heart, BarChart3, Download, Upload, Monitor, Clock, Users } from 'lucide-react';
+import { LogIn, LogOut, Save, AlertCircle, CheckCircle, ArrowLeft, ArrowRight, ArrowUp, ArrowDown, Plus, Trash2, Edit2, Calendar, Settings, Copy, Heart, BarChart3, Download, Upload, Monitor, Clock, Users } from 'lucide-react';
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, PieChart, Pie, Cell, Legend, BarChart, Bar } from 'recharts';
 import Papa from 'papaparse';
 
@@ -213,6 +213,7 @@ const EventEditModal = ({ event, onSave, onClose, saving }: { event: EventItem, 
 export default function AdminDashboard() {
   const [user, setUser] = useState<User | null>(null);
   const [loading, setLoading] = useState(true);
+  const [isMobile, setIsMobile] = useState(false);
   const [events, setEvents] = useState<EventItem[]>([]);
   const [analyticsData, setAnalyticsData] = useState<{date: string, count: number}[]>([]);
   const [deviceData, setDeviceData] = useState<{name: string, value: number}[]>([]);
@@ -221,6 +222,7 @@ export default function AdminDashboard() {
   const [actionStats, setActionStats] = useState<{name: string, value: number}[]>([]);
   const [visitorStats, setVisitorStats] = useState({ new: 0, returning: 0 });
   const [totalPageViews, setTotalPageViews] = useState(0);
+  const [sectionReachData, setSectionReachData] = useState<{id: string, name: string, count: number, percentage: number}[]>([]);
   const [engagementStats, setEngagementStats] = useState({ avgDuration: 0, avgScroll: 0 });
   const [feedback, setFeedback] = useState<any[]>([]);
   const [analysisPeriod, setAnalysisPeriod] = useState<number>(14);
@@ -269,16 +271,39 @@ export default function AdminDashboard() {
       const counts: {[key: string]: number} = {};
       const deviceCounts: {[key: string]: number} = { mobile: 0, desktop: 0 };
       const referrerCounts: {[key: string]: number} = {};
-      const hours: {[key: string]: number} = {};
+      const sectionLabels: {[key: string]: string} = {
+        'home': 'ヒーロー',
+        'event-info': '開催予定',
+        'about': 'About',
+        'location': '地図・アクセス',
+        'youtube-registration': 'YouTube登録',
+        'gallery': 'ギャラリー',
+        'products': 'アプリ紹介',
+        'contact': 'フッター/SNS'
+      };
+      const sectionReachCounts: {[key: string]: number} = {
+        'home': 0,
+        'event-info': 0,
+        'about': 0,
+        'location': 0,
+        'youtube-registration': 0,
+        'gallery': 0,
+        'products': 0,
+        'contact': 0
+      };
+      const fourHourBlocks: {[key: string]: number} = {
+        '00-04': 0,
+        '04-08': 0,
+        '08-12': 0,
+        '12-16': 0,
+        '16-20': 0,
+        '20-24': 0
+      };
       const deviceVisitCounts: {[key: string]: number} = {};
       
       let totalDuration = 0;
       let totalScroll = 0;
       let durationCount = 0;
-
-      for (let i = 0; i < 24; i++) {
-        hours[i.toString().padStart(2, '0')] = 0;
-      }
 
       snapshot.docs.forEach(doc => {
         const data = doc.data();
@@ -309,19 +334,37 @@ export default function AdminDashboard() {
           totalScroll += data.maxScrollDepth;
         }
         
-        // Hour analysis in JST
+        // Hour analysis in JST (Group into 4-hour blocks)
         if (data.timestamp) {
           const date = data.timestamp.toDate();
-          // Force JST for hour analysis
-          const hour = date.toLocaleTimeString('ja-JP', { timeZone: 'Asia/Tokyo', hour: '2-digit', hour12: false }).split(':')[0];
-          hours[hour] = (hours[hour] || 0) + 1;
+          const hourStr = date.toLocaleTimeString('ja-JP', { timeZone: 'Asia/Tokyo', hour: '2-digit', hour12: false }).split(':')[0];
+          const hourNum = parseInt(hourStr);
+          const blockStart = Math.floor(hourNum / 4) * 4;
+          const blockLabel = `${blockStart.toString().padStart(2, '0')}-${(blockStart + 4).toString().padStart(2, '0')}`;
+          fourHourBlocks[blockLabel] = (fourHourBlocks[blockLabel] || 0) + 1;
         }
 
         // Repeat visitor analysis
         if (data.deviceId) {
           deviceVisitCounts[data.deviceId] = (deviceVisitCounts[data.deviceId] || 0) + 1;
         }
+
+        // Section reach analysis
+        if (data.sectionsReached && Array.isArray(data.sectionsReached)) {
+          data.sectionsReached.forEach((id: string) => {
+            if (sectionReachCounts[id] !== undefined) {
+              sectionReachCounts[id]++;
+            }
+          });
+        }
       });
+
+      setSectionReachData(Object.keys(sectionReachCounts).map(id => ({
+        id,
+        name: sectionLabels[id],
+        count: sectionReachCounts[id],
+        percentage: snapshot.size > 0 ? Math.round((sectionReachCounts[id] / snapshot.size) * 100) : 0
+      })));
 
       setEngagementStats({
         avgDuration: durationCount > 0 ? Math.round(totalDuration / durationCount) : 0,
@@ -340,16 +383,26 @@ export default function AdminDashboard() {
       const actionCounts: {[key: string]: number} = {};
       actionsSnapshot.forEach(doc => {
         const data = doc.data();
-        const label = data.actionType === 'click_facebook' ? 'Facebook' : 
-                      data.actionType === 'click_youtube' ? 'YouTube' : data.actionType;
+        let label = data.actionType;
+        if (data.actionType === 'click_facebook') label = `FB: ${data.title || 'イベント'}`;
+        else if (data.actionType === 'click_youtube') label = `YT: ${data.title || 'イベント'}`;
+        else if (data.actionType === 'copy_event_info') label = `基本情報Copy: ${data.title || 'イベント'}`;
+        else if (data.actionType === 'click_app_store') label = `App: ${data.name || 'ストア'}`;
+        else if (data.actionType === 'click_header_youtube') label = 'Header YouTube';
+        else if (data.actionType === 'click_header_youtube_mobile') label = 'Header YouTube (Mob)';
+        else if (data.actionType === 'click_footer_instagram') label = 'Footer Insta';
+        else if (data.actionType === 'click_footer_youtube') label = 'Footer YouTube';
+        else if (data.actionType === 'click_footer_contact') label = 'Footer Mail';
+        else if (data.actionType === 'click_youtube_promotion') label = 'Promo YouTube';
+        
         actionCounts[label] = (actionCounts[label] || 0) + 1;
       });
-      setActionStats(Object.keys(actionCounts).map(name => ({ name, value: actionCounts[name] })));
+      setActionStats(Object.keys(actionCounts).map(name => ({ name, value: actionCounts[name] })).sort((a, b) => b.value - a.value).slice(0, 10));
 
-      // Hour chart data
-      const hourlyChartData = Object.keys(hours).map(h => ({
-        hour: `${h}:00`,
-        count: hours[h]
+      // 4-Hour chart data
+      const hourlyChartData = Object.keys(fourHourBlocks).map(block => ({
+        hour: block,
+        count: fourHourBlocks[block]
       }));
       setHourlyData(hourlyChartData);
 
@@ -384,7 +437,7 @@ export default function AdminDashboard() {
         value: deviceCounts[type]
       })).filter(d => d.value > 0);
       setDeviceData(pieData);
-
+      
       // Fetch Feedback
       const feedbackRef = collection(db, 'feedback');
       const feedbackQ = query(feedbackRef, orderBy('timestamp', 'desc'), limit(50));
@@ -398,6 +451,12 @@ export default function AdminDashboard() {
   };
 
   useEffect(() => {
+    const checkMobile = () => {
+      setIsMobile(window.innerWidth < 768);
+    };
+    checkMobile();
+    window.addEventListener('resize', checkMobile);
+
     const unsub = onAuthStateChanged(auth, (u) => {
       setUser(u);
       setLoading(false);
@@ -408,7 +467,11 @@ export default function AdminDashboard() {
         fetchData();
       }
     });
-    return () => unsub();
+
+    return () => {
+      unsub();
+      window.removeEventListener('resize', checkMobile);
+    };
   }, []);
 
   const handleLogin = async () => {
@@ -749,10 +812,10 @@ export default function AdminDashboard() {
             <Link to="/" className="p-4 border-2 border-artistic-text rounded-full hover:bg-artistic-blue transition-all shadow-[4px_4px_0px_0px_rgba(42,42,42,1)] active:translate-x-[2px] active:translate-y-[2px] active:shadow-none hover:scale-105">
               <ArrowLeft size={28} />
             </Link>
-            <h1 className="text-5xl md:text-7xl font-black tracking-tighter italic">Dashboard</h1>
+            <h1 className="text-5xl md:text-7xl font-black tracking-tighter italic">ダッシュボード</h1>
           </div>
           <button onClick={handleLogout} className="flex items-center gap-3 px-6 py-3 border-2 border-artistic-text/10 rounded-2xl font-black text-artistic-text/50 hover:text-artistic-pink hover:border-artistic-pink/30 transition-all">
-            <LogOut size={22} /> Logout
+            <LogOut size={22} /> ログアウト
           </button>
         </div>
 
@@ -765,30 +828,30 @@ export default function AdminDashboard() {
         )}
 
         {/* Tab Navigation */}
-        <div className="flex flex-wrap gap-4 mb-20 overflow-x-auto pb-4 snap-x">
+        <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-20 overflow-x-auto pb-4 snap-x">
           <button 
             onClick={() => setActiveTab('events')}
-            className={`px-10 py-5 rounded-[1.5rem] font-black flex items-center gap-4 transition-all border-4 shadow-[6px_6px_0px_0px_rgba(42,42,42,1)] active:translate-x-[2px] active:translate-y-[2px] active:shadow-none snap-start whitespace-nowrap ${activeTab === 'events' ? 'bg-artistic-text text-white border-artistic-text' : 'bg-white text-artistic-text border-artistic-text/10 hover:border-artistic-text'}`}
+            className={`min-w-0 justify-center px-4 md:px-10 py-4 md:py-5 rounded-[1.5rem] font-black flex items-center gap-2 md:gap-4 transition-all border-4 shadow-[6px_6px_0px_0px_rgba(42,42,42,1)] active:translate-x-[2px] active:translate-y-[2px] active:shadow-none snap-start whitespace-nowrap text-sm md:text-base ${activeTab === 'events' ? 'bg-artistic-text text-white border-artistic-text' : 'bg-white text-artistic-text border-artistic-text/10 hover:border-artistic-text'}`}
           >
-            <Calendar size={24} /> イベント管理
+            <Calendar size={isMobile ? 18 : 24} /> イベント管理
           </button>
           <button 
             onClick={() => setActiveTab('analytics')}
-            className={`px-10 py-5 rounded-[1.5rem] font-black flex items-center gap-4 transition-all border-4 shadow-[6px_6px_0px_0px_rgba(42,42,42,1)] active:translate-x-[2px] active:translate-y-[2px] active:shadow-none snap-start whitespace-nowrap ${activeTab === 'analytics' ? 'bg-artistic-text text-white border-artistic-text' : 'bg-white text-artistic-text border-artistic-text/10 hover:border-artistic-text'}`}
+            className={`min-w-0 justify-center px-4 md:px-10 py-4 md:py-5 rounded-[1.5rem] font-black flex items-center gap-2 md:gap-4 transition-all border-4 shadow-[6px_6px_0px_0px_rgba(42,42,42,1)] active:translate-x-[2px] active:translate-y-[2px] active:shadow-none snap-start whitespace-nowrap text-sm md:text-base ${activeTab === 'analytics' ? 'bg-artistic-text text-white border-artistic-text' : 'bg-white text-artistic-text border-artistic-text/10 hover:border-artistic-text'}`}
           >
-            <BarChart3 size={24} /> アクセス分析
+            <BarChart3 size={isMobile ? 18 : 24} /> アクセス分析
           </button>
           <button 
             onClick={() => setActiveTab('feedback')}
-            className={`px-10 py-5 rounded-[1.5rem] font-black flex items-center gap-4 transition-all border-4 shadow-[6px_6px_0px_0px_rgba(42,42,42,1)] active:translate-x-[2px] active:translate-y-[2px] active:shadow-none snap-start whitespace-nowrap ${activeTab === 'feedback' ? 'bg-artistic-text text-white border-artistic-text' : 'bg-white text-artistic-text border-artistic-text/10 hover:border-artistic-text'}`}
+            className={`min-w-0 justify-center px-4 md:px-10 py-4 md:py-5 rounded-[1.5rem] font-black flex items-center gap-2 md:gap-4 transition-all border-4 shadow-[6px_6px_0px_0px_rgba(42,42,42,1)] active:translate-x-[2px] active:translate-y-[2px] active:shadow-none snap-start whitespace-nowrap text-sm md:text-base ${activeTab === 'feedback' ? 'bg-artistic-text text-white border-artistic-text' : 'bg-white text-artistic-text border-artistic-text/10 hover:border-artistic-text'}`}
           >
-            <Heart size={24} /> フィードバック
+            <Heart size={isMobile ? 18 : 24} /> フィードバック
           </button>
           <button 
             onClick={() => setActiveTab('settings')}
-            className={`px-10 py-5 rounded-[1.5rem] font-black flex items-center gap-4 transition-all border-4 shadow-[6px_6px_0px_0px_rgba(42,42,42,1)] active:translate-x-[2px] active:translate-y-[2px] active:shadow-none snap-start whitespace-nowrap ${activeTab === 'settings' ? 'bg-artistic-text text-white border-artistic-text' : 'bg-white text-artistic-text border-artistic-text/10 hover:border-artistic-text'}`}
+            className={`min-w-0 justify-center px-4 md:px-10 py-4 md:py-5 rounded-[1.5rem] font-black flex items-center gap-2 md:gap-4 transition-all border-4 shadow-[6px_6px_0px_0px_rgba(42,42,42,1)] active:translate-x-[2px] active:translate-y-[2px] active:shadow-none snap-start whitespace-nowrap text-sm md:text-base ${activeTab === 'settings' ? 'bg-artistic-text text-white border-artistic-text' : 'bg-white text-artistic-text border-artistic-text/10 hover:border-artistic-text'}`}
           >
-            <Settings size={24} /> 全般設定
+            <Settings size={isMobile ? 18 : 24} /> 全般設定
           </button>
         </div>
 
@@ -796,7 +859,7 @@ export default function AdminDashboard() {
         {activeTab === 'settings' && (
           <div className="animate-in fade-in slide-in-from-bottom-4">
             <h2 className="text-2xl font-black mb-6 flex items-center gap-2">
-              <Settings size={24} className="text-artistic-primary" /> Global Settings
+              <Settings size={24} className="text-artistic-primary" /> 全般設定
             </h2>
             <form onSubmit={handleSaveGlobal} className="bg-white border-4 border-artistic-text p-6 md:p-10 rounded-[2rem] shadow-[8px_8px_0px_0px_rgba(42,42,42,1)] space-y-6">
               <div className="grid md:grid-cols-2 gap-6">
@@ -845,14 +908,19 @@ export default function AdminDashboard() {
             {/* Analytics Header & Period selector */}
             <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-8">
                <div>
-                  <h2 className="text-4xl md:text-6xl font-black italic mb-2 tracking-tighter">Analytics Overview</h2>
-                  <p className="font-bold opacity-40 uppercase tracking-widest text-xs flex items-center gap-2">
-                    <span className="w-2 h-2 bg-artistic-green rounded-full animate-pulse" />
-                    Timezone: Asia/Tokyo (JST)
-                  </p>
-                  <p className="text-[10px] font-black opacity-30 mt-1">
-                    LAST UPDATED: {new Date().toLocaleString("ja-JP", {timeZone: "Asia/Tokyo"})} (JST)
-                  </p>
+                  <h2 className="text-4xl md:text-6xl font-black italic mb-2 tracking-tighter">アクセス分析</h2>
+                  <div className="flex flex-wrap gap-x-4 gap-y-1">
+                    <p className="font-bold opacity-40 uppercase tracking-widest text-[8px] flex items-center gap-2">
+                      <span className="w-1.5 h-1.5 bg-artistic-green rounded-full animate-pulse" />
+                      Timezone: Asia/Tokyo (JST)
+                    </p>
+                    <p className="font-bold opacity-40 uppercase tracking-widest text-[8px]">
+                      Session Logic: 10m Timeout
+                    </p>
+                    <p className="font-bold opacity-40 uppercase tracking-widest text-[8px]">
+                      Admin Excluded: ID Tracker
+                    </p>
+                  </div>
                </div>
                <div className="bg-white border-4 border-artistic-text p-2 rounded-2xl flex gap-1 shadow-[4px_4px_0px_0px_rgba(42,42,42,1)]">
                   {[7, 14, 30, 90].map((p) => (
@@ -901,6 +969,48 @@ export default function AdminDashboard() {
               <div className="bg-white border-4 border-artistic-text p-8 rounded-[2.5rem] shadow-[10px_10px_0px_0px_rgba(42,42,42,1)] flex flex-col justify-between">
                 <p className="text-[10px] font-black uppercase opacity-40 mb-4 tracking-[0.2em]">新規訪問者</p>
                 <p className="text-4xl lg:text-5xl font-black text-artistic-pink">{visitorStats.new}</p>
+              </div>
+            </div>
+
+            {/* Content Reach (Funnel) */}
+            <div className="bg-white border-4 border-artistic-text p-10 md:p-14 rounded-[3.5rem] shadow-[12px_12px_0px_0px_rgba(42,42,42,1)]">
+              <div className="flex items-center gap-4 mb-10">
+                <div className="w-12 h-12 bg-artistic-green/20 rounded-2xl flex items-center justify-center text-artistic-green">
+                  <Monitor size={24} />
+                </div>
+                <div>
+                  <h3 className="text-3xl font-black italic">コンテンツ到達率</h3>
+                  <p className="text-[10px] font-black opacity-30 mt-1 uppercase tracking-widest">Section Reach Rate (Funnel Analysis)</p>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-2 md:grid-cols-6 gap-6">
+                {sectionReachData.map((section, idx) => (
+                  <div key={section.id} className="relative flex flex-col items-center group">
+                    <div className="w-full aspect-square bg-artistic-bg rounded-[2rem] border-2 border-artistic-text/5 flex flex-col items-center justify-center p-4 transition-all hover:bg-white hover:border-artistic-text/20 hover:shadow-[4px_4px_0px_0px_rgba(42,42,42,1)]">
+                      <div className="text-3xl font-black text-artistic-text leading-none mb-1">{section.percentage}%</div>
+                      <div className="text-[10px] font-black opacity-30 uppercase text-center mb-4">{section.name}</div>
+                      <div className="w-full h-2 bg-white rounded-full overflow-hidden border border-artistic-text/5 max-w-[80%]">
+                        <div 
+                          className={`h-full rounded-full transition-all duration-1000 ${
+                            section.percentage > 80 ? 'bg-artistic-primary' : 
+                            section.percentage > 50 ? 'bg-artistic-green' : 
+                            section.percentage > 20 ? 'bg-artistic-pink' : 'bg-artistic-text/20'
+                          }`}
+                          style={{ width: `${section.percentage}%` }}
+                        />
+                      </div>
+                    </div>
+                    {idx < sectionReachData.length - 1 && (
+                      <div className="hidden md:block absolute top-1/2 -right-3 transform -translate-y-1/2 z-10 opacity-20 group-hover:opacity-40 transition-opacity">
+                        <ArrowRight size={20} />
+                      </div>
+                    )}
+                  </div>
+                ))}
+              </div>
+              <div className="mt-8 p-4 bg-artistic-bg/30 rounded-2xl border-2 border-dashed border-artistic-text/10 text-center">
+                <p className="text-[10px] font-bold opacity-40 italic">※ 各セクションが画面に20%以上表示されたことを検知して計測しています。</p>
               </div>
             </div>
 
@@ -1011,67 +1121,24 @@ export default function AdminDashboard() {
                 </div>
               </div>
 
-              <div className="bg-white border-4 border-artistic-text p-12 md:p-16 rounded-[3.5rem] shadow-[12px_12px_0px_0px_rgba(42,42,42,1)]">
-                <div className="flex items-center gap-4 mb-10">
-                  <div className="w-12 h-12 bg-artistic-green/20 rounded-2xl flex items-center justify-center text-artistic-green">
-                    <Monitor size={24} />
-                  </div>
-                  <h3 className="text-2xl font-black italic">流入元 TOP 5</h3>
-                </div>
-                <div className="h-[350px]">
-                  {referrerData.length > 0 ? (
-                    <ResponsiveContainer width="100%" height="100%">
-                      <PieChart margin={{ top: 20, right: 40, left: 40, bottom: 20 }}>
-                        <Pie
-                          data={referrerData}
-                          cx="50%"
-                          cy="45%"
-                          innerRadius={70}
-                          outerRadius={100}
-                          paddingAngle={10}
-                          dataKey="value"
-                        >
-                          {referrerData.map((_entry, index) => (
-                            <Cell key={`cell-${index}`} fill={['#3BCCFF', '#FF7EB3', '#50E3C2', '#FFD200', '#2a2a2a'][index % 5]} strokeWidth={0} />
-                          ))}
-                        </Pie>
-                        <Tooltip 
-                          contentStyle={{ 
-                            borderRadius: '16px', 
-                            border: '3px solid #2a2a2a',
-                            boxShadow: '6px 6px 0px 0px rgba(42,42,42,1)',
-                            fontWeight: 'bold',
-                            padding: '12px'
-                          }}
-                        />
-                        <Legend iconType="circle" wrapperStyle={{ fontWeight: '900', paddingTop: '20px' }} />
-                      </PieChart>
-                    </ResponsiveContainer>
-                  ) : (
-                    <div className="h-full flex items-center justify-center text-gray-400 font-bold italic">
-                      データがありません
-                    </div>
-                  )}
-                </div>
-              </div>
-
-              <div className="bg-white border-4 border-artistic-text p-12 md:p-16 rounded-[3.5rem] shadow-[12px_12px_0px_0px_rgba(42,42,42,1)]">
+            <div className="grid md:grid-cols-2 gap-12">
+              <div className="bg-white border-4 border-artistic-text p-10 md:p-14 rounded-[3.5rem] shadow-[12px_12px_0px_0px_rgba(42,42,42,1)]">
                 <div className="flex items-center gap-4 mb-10">
                   <div className="w-12 h-12 bg-artistic-accent/20 rounded-2xl flex items-center justify-center text-artistic-accent">
                     <Monitor size={24} />
                   </div>
-                  <h3 className="text-2xl font-black italic">デバイス内訳</h3>
+                  <h3 className="text-xl font-black italic">デバイス比率</h3>
                 </div>
-                <div className="h-[350px]">
+                <div className="h-[250px]">
                   {deviceData.length > 0 ? (
                     <ResponsiveContainer width="100%" height="100%">
-                      <PieChart margin={{ top: 20, right: 40, left: 40, bottom: 20 }}>
+                      <PieChart>
                         <Pie
                           data={deviceData}
                           cx="50%"
-                          cy="45%"
-                          innerRadius={70}
-                          outerRadius={100}
+                          cy="50%"
+                          innerRadius={50}
+                          outerRadius={80}
                           paddingAngle={10}
                           dataKey="value"
                         >
@@ -1081,63 +1148,133 @@ export default function AdminDashboard() {
                         </Pie>
                         <Tooltip 
                           contentStyle={{ 
-                            borderRadius: '16px', 
-                            border: '3px solid #2a2a2a',
-                            boxShadow: '6px 6px 0px 0px rgba(42,42,42,1)',
+                            borderRadius: '12px', 
+                            border: '2px solid #2a2a2a',
                             fontWeight: 'bold',
-                            padding: '12px'
+                            fontSize: '12px'
                           }}
                         />
-                        <Legend iconType="circle" wrapperStyle={{ fontWeight: '900', paddingTop: '20px' }} />
+                        <Legend iconType="circle" wrapperStyle={{ fontSize: '10px', fontWeight: '900' }} />
                       </PieChart>
                     </ResponsiveContainer>
                   ) : (
                     <div className="h-full flex items-center justify-center text-gray-400 font-bold italic">
-                      データがありません
+                      データなし
                     </div>
                   )}
                 </div>
               </div>
 
-              <div className="bg-white border-4 border-artistic-text p-12 md:p-16 rounded-[3.5rem] shadow-[12px_12px_0px_0px_rgba(42,42,42,1)]">
+              <div className="bg-white border-4 border-artistic-text p-10 md:p-14 rounded-[3.5rem] shadow-[12px_12px_0px_0px_rgba(42,42,42,1)]">
                 <div className="flex items-center gap-4 mb-10">
-                  <div className="w-12 h-12 bg-artistic-blue/20 rounded-2xl flex items-center justify-center text-artistic-blue">
-                    <Copy size={24} />
+                  <div className="w-12 h-12 bg-artistic-primary/20 rounded-2xl flex items-center justify-center text-artistic-primary">
+                    <Heart size={24} />
                   </div>
-                  <h3 className="text-2xl font-black italic">外部リンクのクリック数</h3>
+                  <h3 className="text-xl font-black italic">リピーター率</h3>
                 </div>
-                <div className="h-[350px]">
+                <div className="h-[250px]">
+                  <ResponsiveContainer width="100%" height="100%">
+                    <PieChart>
+                      <Pie
+                        data={[
+                          { name: '新規', value: visitorStats.new },
+                          { name: 'リピーター', value: visitorStats.returning }
+                        ]}
+                        cx="50%"
+                        cy="50%"
+                        innerRadius={50}
+                        outerRadius={80}
+                        paddingAngle={10}
+                        dataKey="value"
+                      >
+                        <Cell fill="#FF7EB3" strokeWidth={0} />
+                        <Cell fill="#3BCCFF" strokeWidth={0} />
+                      </Pie>
+                      <Tooltip 
+                        contentStyle={{ 
+                          borderRadius: '12px', 
+                          border: '2px solid #2a2a2a',
+                          fontWeight: 'bold',
+                          fontSize: '12px'
+                        }}
+                      />
+                      <Legend iconType="circle" wrapperStyle={{ fontSize: '10px', fontWeight: '900' }} />
+                    </PieChart>
+                  </ResponsiveContainer>
+                </div>
+              </div>
+            </div>
+
+              <div className="bg-white border-4 border-artistic-text p-10 md:p-14 rounded-[3.5rem] shadow-[12px_12px_0px_0px_rgba(42,42,42,1)] md:col-span-2">
+                <div className="flex flex-col md:flex-row md:items-center justify-between gap-6 mb-12">
+                  <div className="flex items-center gap-4">
+                    <div className="w-12 h-12 bg-artistic-accent/40 rounded-2xl flex items-center justify-center text-artistic-text">
+                      <BarChart3 size={24} />
+                    </div>
+                    <div>
+                      <h3 className="text-3xl font-black italic">人気コンテンツ</h3>
+                      <p className="text-[10px] font-black opacity-30 uppercase tracking-widest">External Link Clicks Rankings</p>
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-2 bg-artistic-bg px-4 py-2 rounded-xl border-2 border-artistic-text/5">
+                    <Users size={16} className="text-artistic-primary" />
+                    <span className="text-xs font-black">Total: {actionStats.reduce((acc, curr) => acc + curr.value, 0)} clicks</span>
+                  </div>
+                </div>
+
+                <div className="space-y-6">
                   {actionStats.length > 0 ? (
-                    <ResponsiveContainer width="100%" height="100%">
-                      <PieChart margin={{ top: 20, right: 40, left: 40, bottom: 20 }}>
-                        <Pie
-                          data={actionStats}
-                          cx="50%"
-                          cy="45%"
-                          innerRadius={70}
-                          outerRadius={100}
-                          paddingAngle={10}
-                          dataKey="value"
-                        >
-                          {actionStats.map((_entry, index) => (
-                            <Cell key={`cell-${index}`} fill={['#1877F2', '#FF0000', '#FFCC00'][index % 3]} strokeWidth={0} />
-                          ))}
-                        </Pie>
-                        <Tooltip 
-                          contentStyle={{ 
-                            borderRadius: '16px', 
-                            border: '3px solid #2a2a2a',
-                            boxShadow: '6px 6px 0px 0px rgba(42,42,42,1)',
-                            fontWeight: 'bold',
-                            padding: '12px'
-                          }}
-                        />
-                        <Legend iconType="circle" wrapperStyle={{ fontWeight: '900', paddingTop: '20px' }} />
-                      </PieChart>
-                    </ResponsiveContainer>
+                    actionStats.map((item, idx) => {
+                      const maxVal = actionStats[0].value;
+                      const percentage = (item.value / maxVal) * 100;
+                      const isTop3 = idx < 3;
+                      
+                      return (
+                        <div key={idx} className={`relative group p-5 rounded-[1.5rem] border-2 transition-all hover:scale-[1.01] ${isTop3 ? 'border-artistic-text bg-white shadow-[4px_4px_0px_0px_rgba(42,42,42,1)]' : 'border-artistic-text/10 bg-artistic-bg/30'}`}>
+                          <div className="flex items-center justify-between mb-3 relative z-10">
+                            <div className="flex items-center gap-4">
+                              <div className={`w-10 h-10 rounded-full flex items-center justify-center font-black text-lg border-2 ${
+                                idx === 0 ? 'bg-artistic-primary text-white border-artistic-text shadow-[2px_2px_0px_0px_rgba(42,42,42,1)]' : 
+                                idx === 1 ? 'bg-artistic-pink text-white border-artistic-text shadow-[2px_2px_0px_0px_rgba(42,42,42,1)]' : 
+                                idx === 2 ? 'bg-artistic-green text-white border-artistic-text shadow-[2px_2px_0px_0px_rgba(42,42,42,1)]' : 
+                                'bg-white text-artistic-text border-artistic-text/20'
+                              }`}>
+                                {idx + 1}
+                              </div>
+                              <div>
+                                <p className="font-black text-sm md:text-base leading-tight">{item.name}</p>
+                                <div className="flex items-center gap-2 mt-1">
+                                   {item.name.startsWith('FB:') && <span className="text-[9px] font-bold text-white bg-[#1877F2] px-1.5 py-0.5 rounded uppercase">Facebook</span>}
+                                   {item.name.startsWith('YT:') && <span className="text-[9px] font-bold text-white bg-[#FF0000] px-1.5 py-0.5 rounded uppercase">YouTube</span>}
+                                   {item.name.startsWith('App:') && <span className="text-[9px] font-bold text-white bg-artistic-text px-1.5 py-0.5 rounded uppercase">App Store</span>}
+                                   {item.name.includes('Footer') && <span className="text-[9px] font-bold text-artistic-text/40 border border-artistic-text/20 px-1.5 py-0.5 rounded uppercase">Static</span>}
+                                </div>
+                              </div>
+                            </div>
+                            <div className="text-right">
+                              <p className="text-2xl font-black leading-none">{item.value}</p>
+                              <p className="text-[9px] font-bold opacity-30 mt-1 uppercase">CLICKS</p>
+                            </div>
+                          </div>
+                          
+                          {/* Progress Bar */}
+                          <div className="h-3 bg-artistic-bg rounded-full overflow-hidden border border-artistic-text/5 relative">
+                            <div 
+                              className={`h-full rounded-full transition-all duration-1000 ease-out ${
+                                idx === 0 ? 'bg-artistic-primary' : 
+                                idx === 1 ? 'bg-artistic-pink' : 
+                                idx === 2 ? 'bg-artistic-green' : 
+                                'bg-artistic-text/10'
+                              }`} 
+                              style={{ width: `${percentage}%` }}
+                            />
+                          </div>
+                        </div>
+                      );
+                    })
                   ) : (
-                    <div className="h-full flex items-center justify-center text-gray-400 font-bold italic">
-                      データがありません
+                    <div className="py-20 text-center bg-artistic-bg/30 rounded-[2.5rem] border-4 border-dashed border-artistic-text/10">
+                      <p className="text-xl font-bold opacity-20 italic">集計データがまだありません</p>
                     </div>
                   )}
                 </div>
@@ -1170,43 +1307,39 @@ export default function AdminDashboard() {
 
             {/* Definitions and Notes Section */}
             <div className="bg-white border-4 border-artistic-text p-10 md:p-12 rounded-[3.5rem] shadow-[12px_12px_0px_0px_rgba(42,42,42,1)] animate-in fade-in slide-in-from-bottom-8 mt-12 mb-12">
-              <h3 className="text-2xl font-black italic mb-8 border-b-4 border-artistic-bg pb-4">📊 データ定義と前提事項</h3>
-              <div className="grid md:grid-cols-2 gap-10">
-                <div className="space-y-6">
-                  <div className="bg-artistic-bg/50 p-8 rounded-[2rem] border-2 border-artistic-text/10 shadow-sm">
-                    <h4 className="font-black text-artistic-primary mb-3 text-lg flex items-center gap-2">
-                      <div className="w-2 h-2 rounded-full bg-artistic-primary" /> 総アクセス数
-                    </h4>
-                    <p className="text-sm font-bold opacity-80 leading-relaxed">
-                      期間内の延べページビュー数です。同じ人が10回アクセスすれば10件としてカウントされます。
-                    </p>
-                  </div>
-                  <div className="bg-artistic-bg/50 p-8 rounded-[2rem] border-2 border-artistic-text/10 shadow-sm">
-                    <h4 className="font-black text-amber-600 mb-3 text-lg flex items-center gap-2">
-                      <div className="w-2 h-2 rounded-full bg-amber-600" /> リピーターの定義
-                    </h4>
-                    <p className="text-sm font-bold opacity-80 leading-relaxed">
-                      選択された集計期間内（例：14日間）において、<span className="text-amber-800 bg-amber-100 px-2 py-0.5 rounded-lg border border-amber-200">同じデバイス（ブラウザ）から2回以上アクセス</span>があった訪問者を指します。
-                    </p>
-                  </div>
+              <h3 className="text-2xl font-black italic mb-8 border-b-4 border-artistic-bg pb-4">📊 データ定義と計測の前提事項</h3>
+              <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-8">
+                <div className="bg-artistic-bg/30 p-6 rounded-[2rem] border-2 border-artistic-text/5">
+                  <h4 className="font-black text-artistic-primary mb-2 text-sm flex items-center gap-2">
+                    <div className="w-1.5 h-1.5 rounded-full bg-artistic-primary" /> 総アクセス数
+                  </h4>
+                  <p className="text-[10px] font-bold opacity-70 leading-relaxed">
+                    延べ訪問（セッション）数です。ブラウザを閉じた後や、10分以上の非アクティブ後の再アクセスは新しい訪問としてカウントされます。
+                  </p>
                 </div>
-                <div className="space-y-6">
-                  <div className="bg-artistic-bg/50 p-8 rounded-[2rem] border-2 border-artistic-text/10 shadow-sm">
-                    <h4 className="font-black text-artistic-pink mb-3 text-lg flex items-center gap-2">
-                      <div className="w-2 h-2 rounded-full bg-artistic-pink" /> 管理者アクセスの除外
-                    </h4>
-                    <p className="text-sm font-bold opacity-80 leading-relaxed">
-                      管理者はログイン中の計測を自動的に除外していますが、<span className="text-artistic-pink bg-rose-100 px-2 py-0.5 rounded-lg border border-rose-200">未ログイン状態やシークレットモードでのアクセス</span>は一般ユーザーとして集計に含まれます。
-                    </p>
-                  </div>
-                  <div className="bg-artistic-bg/50 p-8 rounded-[2rem] border-2 border-artistic-text/10 shadow-sm">
-                    <h4 className="font-black text-artistic-green mb-3 text-lg flex items-center gap-2">
-                      <div className="w-2 h-2 rounded-full bg-artistic-green" /> 地域・時間帯
-                    </h4>
-                    <p className="text-sm font-bold opacity-80 leading-relaxed">
-                      すべての時間データは日本標準時（JST / Asia/Tokyo）に基づいて集計されています。
-                    </p>
-                  </div>
+                <div className="bg-artistic-bg/30 p-6 rounded-[2rem] border-2 border-artistic-text/5">
+                  <h4 className="font-black text-artistic-accent mb-2 text-sm flex items-center gap-2">
+                    <div className="w-1.5 h-1.5 rounded-full bg-artistic-accent" /> リピーターの定義
+                  </h4>
+                  <p className="text-[10px] font-bold opacity-70 leading-relaxed">
+                    集計期間内に、同じブラウザ識別子（Device ID）から2回以上のセッションが発生したユーザーを指します。
+                  </p>
+                </div>
+                <div className="bg-artistic-bg/30 p-6 rounded-[2rem] border-2 border-artistic-text/5">
+                  <h4 className="font-black text-artistic-green mb-2 text-sm flex items-center gap-2">
+                    <div className="w-1.5 h-1.5 rounded-full bg-artistic-green" /> 滞在時間・スクロール
+                  </h4>
+                  <p className="text-[10px] font-bold opacity-70 leading-relaxed">
+                    滞在時間はページを離れるまでの実測（秒）、スクロールはページ全体の高さに対して表示された最大深度（%）の全セッション平均です。
+                  </p>
+                </div>
+                <div className="bg-artistic-bg/30 p-6 rounded-[2rem] border-2 border-artistic-text/5">
+                  <h4 className="font-black text-artistic-pink mb-2 text-sm flex items-center gap-2">
+                    <div className="w-1.5 h-1.5 rounded-full bg-artistic-pink" /> 管理者除外と時間帯
+                  </h4>
+                  <p className="text-[10px] font-bold opacity-70 leading-relaxed">
+                    ログイン済みの管理者は集計から除外されます。すべての時刻データは日本標準時（JST）で記録・表示されています。
+                  </p>
                 </div>
               </div>
             </div>
@@ -1218,7 +1351,7 @@ export default function AdminDashboard() {
           <div className="space-y-8 animate-in fade-in slide-in-from-bottom-4">
             <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-6">
               <h2 className="text-4xl md:text-6xl font-black italic tracking-tighter flex items-center gap-4">
-                <Heart size={48} className="text-artistic-pink" fill="currentColor" /> User Feedback
+                <Heart size={48} className="text-artistic-pink" fill="currentColor" /> フィードバック
               </h2>
               <button 
                 onClick={handleExportFeedbackCSV}

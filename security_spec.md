@@ -8,9 +8,10 @@
 - Timestamps must be valid server timestamps.
 
 ## Analytics Data Invariants
-- `analytics_visits` documents must be keyed by `YYYY-MM-DD_IP`.
-- Public users can create visits but not read, update, or delete them.
-- `analytics_daily_stats` can only be updated/read by admins or through atomic count increments (if implemented).
+- `analytics_visits` documents represent user sessions.
+- Visitors can create and update specifically allowed fields (`duration`, `maxScrollDepth`, `lastActive`) in their own session document.
+- `analytics_actions` logs every interaction (clicks, copies) and is create-only for visitors.
+- Admin access is required for all reading and bulk operations.
 
 ## 2. The "Dirty Dozen" Payloads
 

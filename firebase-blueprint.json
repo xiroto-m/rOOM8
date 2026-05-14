@@ -42,7 +42,7 @@
     },
     "Visit": {
       "title": "Visit",
-      "description": "A unique daily visit from a device",
+      "description": "A session visit from a device",
       "type": "object",
       "properties": {
         "deviceId": { "type": "string" },
@@ -50,7 +50,18 @@
         "date": { "type": "string" },
         "deviceType": { "type": "string", "enum": ["mobile", "desktop"] },
         "userAgent": { "type": "string" },
-        "timestamp": { "type": "string", "format": "date-time" }
+        "language": { "type": "string" },
+        "screenWidth": { "type": "number" },
+        "screenHeight": { "type": "number" },
+        "pixelRatio": { "type": "number" },
+        "orientation": { "type": "string" },
+        "isInAppBrowser": { "type": "boolean" },
+        "inAppType": { "type": "string" },
+        "connectionType": { "type": "string" },
+        "timestamp": { "type": "string", "format": "date-time" },
+        "duration": { "type": "number" },
+        "maxScrollDepth": { "type": "number" },
+        "sectionsReached": { "type": "array", "items": { "type": "string" } }
       },
       "required": ["deviceId", "date", "timestamp"]
     },
@@ -67,16 +78,6 @@
         "title": { "type": "string" }
       },
       "required": ["actionType", "deviceId", "date", "timestamp"]
-    },
-    "DailyStats": {
-      "title": "Daily Stats",
-      "description": "Aggregated daily stats",
-      "type": "object",
-      "properties": {
-        "date": { "type": "string" },
-        "count": { "type": "number" }
-      },
-      "required": ["date", "count"]
     },
     "GalleryImage": {
       "title": "Gallery Image",
@@ -105,15 +106,11 @@
     },
     "/analytics_visits/{visitId}": {
       "schema": "Visit",
-      "description": "Daily unique device visits"
+      "description": "User session logs (one document per browser session)"
     },
     "/analytics_actions/{actionId}": {
       "schema": "Action",
       "description": "User interaction logs"
-    },
-    "/analytics_daily_stats/{date}": {
-      "schema": "DailyStats",
-      "description": "Aggregated stats by date"
     },
     "/gallery/{imageId}": {
       "schema": "GalleryImage",

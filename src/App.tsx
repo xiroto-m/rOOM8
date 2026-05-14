@@ -389,19 +389,21 @@ function MainSite() {
     const isAdmin = localStorage.getItem('room8_is_admin') === 'true' || auth.currentUser;
     
     if (!isAdmin) {
-      fetch('https://api.ipify.org?format=json')
-        .then(res => res.json())
-        .then(data => {
-          const ip = data.ip;
-          setUserIP(ip);
-          
-          // Tracking visit with Session ID (DeviceID + Timestamp) 
-          // to count each session/refresh as a unique access but keep same device grouped
+      const recordVisitSession = async (ipAddr: string | null) => {
+        try {
           const jstNow = new Date(new Date().toLocaleString("en-US", {timeZone: "Asia/Tokyo"}));
           const today = `${jstNow.getFullYear()}-${String(jstNow.getMonth() + 1).padStart(2, '0')}-${String(jstNow.getDate()).padStart(2, '0')}`;
           
-          const isMobile = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
+          const ua = navigator.userAgent;
+          const isMobile = /iPhone|iPad|iPod|Android/i.test(ua);
           const deviceType = isMobile ? 'mobile' : 'desktop';
+          
+          // Detect In-App Browsers
+          const isInAppLINE = /Line/i.test(ua);
+          const isInAppInstagram = /Instagram/i.test(ua);
+          const isInAppFB = /FBAN|FBAV/i.test(ua);
+          const isInAppBrowser = isInAppLINE || isInAppInstagram || isInAppFB;
+          
           const sessionId = `${Date.now()}_${Math.random().toString(36).substring(2, 7)}`;
           const visitId = `${today}_${currentDeviceId}_${sessionId}`;
           const visitRef = doc(db, 'analytics_visits', visitId);
@@ -409,6 +411,27 @@ function MainSite() {
           
           let startTime = Date.now();
           let maxScroll = 0;
+          const reachedSections = new Set<string>(['home']);
+
+          // Initial record with enhanced mobile specs
+          await setDoc(visitRef, {
+            deviceId: currentDeviceId,
+            ip: ipAddr || 'unknown',
+            date: today,
+            referrer: referrer,
+            deviceType: deviceType,
+            userAgent: ua,
+            language: navigator.language,
+            screenWidth: window.screen.width,
+            screenHeight: window.screen.height,
+            pixelRatio: window.devicePixelRatio,
+            orientation: window.screen.orientation?.type || 'unknown',
+            connectionType: (navigator as any).connection?.effectiveType || 'unknown',
+            timestamp: serverTimestamp(),
+            duration: 0,
+            maxScrollDepth: 0,
+            sectionsReached: ['home']
+          });
 
           const updateActivity = () => {
             const scrollPos = window.scrollY + window.innerHeight;
@@ -421,57 +444,87 @@ function MainSite() {
 
           window.addEventListener('scroll', updateActivity);
 
-          const sendFinalActivity = async () => {
+          const sendTrackingUpdate = async () => {
             const duration = Math.round((Date.now() - startTime) / 1000);
             try {
               await setDoc(visitRef, {
                 duration: duration,
                 maxScrollDepth: maxScroll,
+                sectionsReached: Array.from(reachedSections),
                 lastActive: serverTimestamp()
               }, { merge: true });
             } catch (e) {}
           };
 
+          // Section reach observer
+          const observer = new IntersectionObserver((entries) => {
+            let changed = false;
+            entries.forEach(entry => {
+              if (entry.isIntersecting) {
+                const sectionId = entry.target.id;
+                if (sectionId && !reachedSections.has(sectionId)) {
+                  reachedSections.add(sectionId);
+                  changed = true;
+                }
+              }
+            });
+            if (changed) {
+              sendTrackingUpdate();
+            }
+          }, { threshold: 0.2 });
+
+          // Start observing sections
+          const observeSections = () => {
+             ['home', 'about', 'event-info', 'location', 'youtube-registration', 'gallery', 'products', 'contact'].forEach(id => {
+              const el = document.getElementById(id);
+              if (el) observer.observe(el);
+            });
+          };
+          
+          setTimeout(observeSections, 2000);
+
+          const sendFinalActivity = sendTrackingUpdate;
+
+          // Use multiple events for better reliability on mobile
           window.addEventListener('beforeunload', sendFinalActivity);
+          window.addEventListener('pagehide', sendFinalActivity);
+          
+          const handleVisibilityChange = () => {
+            if (document.visibilityState === 'hidden') {
+              sendFinalActivity();
+            }
+          };
+          window.addEventListener('visibilitychange', handleVisibilityChange);
 
           // Heartbeat or Periodic update to save duration/scroll
-          const activityInterval = setInterval(async () => {
-            const duration = Math.round((Date.now() - startTime) / 1000);
-            try {
-              await setDoc(visitRef, {
-                duration: duration,
-                maxScrollDepth: maxScroll,
-                lastActive: serverTimestamp()
-              }, { merge: true });
-            } catch (e) {}
-          }, 10000);
-
-          const recordVisit = async () => {
-            try {
-              await setDoc(visitRef, {
-                deviceId: currentDeviceId,
-                ip: ip,
-                date: today,
-                referrer: referrer,
-                deviceType: deviceType,
-                userAgent: navigator.userAgent,
-                timestamp: serverTimestamp(),
-                duration: 0,
-                maxScrollDepth: 0
-              });
-            } catch (err) {}
-          };
-
-          recordVisit();
+          const activityInterval = setInterval(sendFinalActivity, 10000);
 
           // Store cleanup function in ref
           analyticsCleanupRef.current = () => {
             clearInterval(activityInterval);
+            observer.disconnect();
             window.removeEventListener('scroll', updateActivity);
             window.removeEventListener('beforeunload', sendFinalActivity);
+            window.removeEventListener('pagehide', sendFinalActivity);
+            window.removeEventListener('visibilitychange', handleVisibilityChange);
           };
+        } catch (err) {
+          console.error("Failed to record visit:", err);
+        }
+      };
+
+      // Try to fetch IP, but proceed even if it fails
+      fetch('https://api.ipify.org?format=json')
+        .then(res => res.json())
+        .then(data => {
+          const ip = data.ip;
+          setUserIP(ip);
+          recordVisitSession(ip);
         })
-        .catch(err => console.error("Failed to fetch IP:", err));
+        .catch(err => {
+          console.warn("Failed to fetch IP (will record visit as unknown):", err);
+          recordVisitSession(null);
+        });
     } else {
       setLoading(false);
     }
@@ -536,6 +589,9 @@ function MainSite() {
     return () => {
       unsubEvents();
       unsubGlobal();
+      if (analyticsCleanupRef.current) {
+        analyticsCleanupRef.current();
+      }
     };
   }, []);
 
@@ -1198,7 +1254,10 @@ function MainSite() {
               <div className="hidden md:flex flex-col items-end">
                 <a 
                   href="#youtube-registration"
-                  onClick={(e) => scrollToSection(e, 'youtube-registration')}
+                  onClick={(e) => {
+                    scrollToSection(e, 'youtube-registration');
+                    trackAction('click_header_youtube');
+                  }}
                   className="flex items-center gap-1.5 px-3 py-1 bg-[#FF0000] text-white rounded-full text-[10px] font-black uppercase tracking-widest hover:scale-105 transition-all shadow-[2px_2px_0px_0px_rgba(42,42,42,1)]"
                 >
                   <Youtube size={12} /> YouTube
@@ -1206,7 +1265,10 @@ function MainSite() {
               </div>
               <a 
                 href="#youtube-registration"
-                onClick={(e) => scrollToSection(e, 'youtube-registration')}
+                onClick={(e) => {
+                  scrollToSection(e, 'youtube-registration');
+                  trackAction('click_header_youtube_mobile');
+                }}
                 className="md:hidden flex items-center gap-1.5 px-3 py-1 bg-[#FF0000] text-white rounded-full text-[10px] font-black uppercase tracking-widest hover:scale-105 transition-all shadow-[2px_2px_0px_0px_rgba(42,42,42,1)]"
               >
                 <Youtube size={12} />
@@ -1386,7 +1448,7 @@ function MainSite() {
 
       {/* Upcoming Schedules */}
       {!loading && upcomingEvents.length > 0 && (
-        <Section className="py-12 md:py-24">
+        <Section id="event-info" className="py-12 md:py-24">
           <motion.h2 
             initial={{ opacity: 0, x: -20 }}
             whileInView={{ opacity: 1, x: 0 }}
@@ -1816,7 +1878,7 @@ function MainSite() {
 
       {/* Apps from rOOM8 */}
       {EVENT_INFO.apps && EVENT_INFO.apps.length > 0 && (
-        <Section className="py-24">
+        <Section id="products" className="py-24">
           <div className="bg-artistic-text text-white p-8 md:p-16 rounded-[3rem] shadow-[12px_12px_0px_0px_rgba(255,107,107,1)] border-2 border-artistic-text overflow-hidden relative">
             <div className="absolute top-0 right-0 w-64 h-64 bg-artistic-primary/10 rounded-full blur-[100px] -mr-32 -mt-32" />
             
@@ -1868,6 +1930,7 @@ function MainSite() {
                             href={app.url}
                             target="_blank"
                             rel="noopener noreferrer"
+                            onClick={() => trackAction('click_app_store', { name: app.name })}
                             className="inline-flex items-center gap-2 bg-white text-artistic-text px-6 py-3 rounded-2xl font-black hover:bg-artistic-accent hover:scale-105 transition-all"
                           >
                             App Storeで見る <ExternalLink size={18} />
@@ -1950,7 +2013,7 @@ function MainSite() {
 
 
       {/* Footer */}
-      <footer className="bg-artistic-text text-white py-12 border-t-4 border-artistic-primary">
+      <footer id="contact" className="bg-artistic-text text-white py-12 border-t-4 border-artistic-primary">
         <div className="max-w-7xl mx-auto px-6 flex flex-col md:flex-row justify-between items-center gap-8">
           <div className="flex flex-col items-center md:items-start text-center md:text-left">
             <div className="h-16 md:h-24 mb-3 flex items-center justify-center md:justify-start">
@@ -1972,9 +2035,29 @@ function MainSite() {
           </div>
           
           <div className="flex gap-8 text-sm font-black uppercase tracking-[0.1em]">
-            <a href={globalSettings.instagram || EVENT_INFO.instagram} className="hover:text-artistic-accent">Instagram</a>
-            <a href={globalSettings.youtube || EVENT_INFO.youtube} className="hover:text-artistic-accent">YouTube</a>
-            <a href={`mailto:${globalSettings.contactEmail || EVENT_INFO.contactEmail}`} className="hover:text-artistic-accent">Contact</a>
+            <a 
+              href={globalSettings.instagram || EVENT_INFO.instagram} 
+              target="_blank"
+              onClick={() => trackAction('click_footer_instagram')}
+              className="hover:text-artistic-accent"
+            >
+              Instagram
+            </a>
+            <a 
+              href={globalSettings.youtube || EVENT_INFO.youtube} 
+              target="_blank"
+              onClick={() => trackAction('click_footer_youtube')}
+              className="hover:text-artistic-accent"
+            >
+              YouTube
+            </a>
+            <a 
+              href={`mailto:${globalSettings.contactEmail || EVENT_INFO.contactEmail}`} 
+              onClick={() => trackAction('click_footer_contact')}
+              className="hover:text-artistic-accent"
+            >
+              Contact
+            </a>
           </div>
 
           <div className="text-[10px] font-bold opacity-30 text-center md:text-right">
