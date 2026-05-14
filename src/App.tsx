@@ -1335,7 +1335,12 @@ function MainSite() {
                 <div className="absolute -top-4 -right-4 w-24 h-24 bg-artistic-accent border-2 border-artistic-text rounded-full flex items-center justify-center rotate-12 shadow-sm z-10 hidden sm:flex group-hover/concept:rotate-[25deg] transition-transform duration-500">
                   <span className="text-[10px] font-black tracking-tighter text-center leading-none">JOIN<br/>OUR<br/>VIBE</span>
                 </div>
-                <h3 className="text-2xl md:text-5xl font-black mb-8 md:mb-12 flex items-center gap-3 tracking-tighter">🏠 Concept</h3>
+                <h3 className="text-2xl md:text-5xl font-black mb-8 md:mb-12 flex items-center gap-4 tracking-tighter">
+                  <div className="w-10 h-10 md:w-16 md:h-16 bg-white rounded-2xl flex items-center justify-center p-2 shadow-[4px_4px_0px_0px_rgba(42,42,42,1)] hover:rotate-6 transition-transform">
+                    <img src="/logo-transparent.png" alt="rOOM8" className="w-full h-full object-contain" />
+                  </div>
+                  Concept
+                </h3>
                 <div className="text-xl md:text-2xl lg:text-3xl leading-relaxed md:leading-[1.5] lg:leading-[1.6] mb-10 md:mb-14 font-bold italic text-artistic-text/90 relative z-10">
                   「クリエイターとファン」という垣根を超えて、<br className="hidden lg:block" />
                   誰もが<span className="font-black not-italic underline decoration-artistic-primary md:decoration-[12px] underline-offset-8 bg-white/50 px-2">50:50の関係</span>で交流できる場所。<br />
@@ -1800,7 +1805,12 @@ function MainSite() {
             
             <div className="relative z-10 grid lg:grid-cols-12 gap-12 items-center">
               <div className="lg:col-span-7">
-                <span className="text-[10px] md:text-sm font-black tracking-[0.4em] text-artistic-accent mb-4 block">PRODUCT FROM rOOM8</span>
+                <div className="flex items-center gap-4 mb-6">
+                  <div className="w-12 h-12 md:w-16 md:h-16 bg-white rounded-2xl flex items-center justify-center p-2 shadow-[4px_4px_0px_0px_rgba(255,107,107,1)] hover:rotate-3 transition-transform">
+                    <img src="/logo-transparent.png" alt="rOOM8" className="w-full h-full object-contain" />
+                  </div>
+                  <span className="text-[10px] md:text-sm font-black tracking-[0.4em] text-artistic-accent">PRODUCT FROM rOOM8</span>
+                </div>
                 <h2 className="text-4xl md:text-6xl font-black mb-8 leading-tight tracking-[-0.04em]">
                   コミュニティから生まれた<br />
                   新しい体験。
