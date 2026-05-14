@@ -163,7 +163,7 @@ class ErrorBoundary extends React.Component<{ children: ReactNode }, { hasError:
 
 const LogoElement = ({ isScrolled }: { isScrolled: boolean }) => {
   const [imgError, setImgError] = useState(false);
-  const logoSrc = "https://lh3.googleusercontent.com/d/1Cu3IU4JHobvSpqDluVXYoPKaXgKnMiE6"; // Use direct Google Drive URL for production reliability
+  const logoSrc = "https://lh3.googleusercontent.com/d/13uUJp8IusBZmEpYpJlamALpv6vFwJ2lh"; // Use direct Google Drive URL for production reliability
 
   if (!imgError) {
     return (
@@ -171,7 +171,7 @@ const LogoElement = ({ isScrolled }: { isScrolled: boolean }) => {
         src={logoSrc}
         alt="rOOM8 Logo"
         onError={() => setImgError(true)}
-        className="h-full w-auto object-contain drop-shadow-md hover:scale-105 transition-transform origin-left"
+        className="h-full w-auto object-contain drop-shadow-md group-hover:scale-110 group-hover:-rotate-3 transition-all duration-300 origin-center"
       />
     );
   }
@@ -1042,18 +1042,23 @@ function MainSite() {
           className="relative z-10 w-full max-w-lg px-4"
         >
           <div className="bg-white border-4 border-artistic-text p-8 md:p-12 rounded-[2.5rem] shadow-[16px_16px_0px_0px_rgba(42,42,42,1)] md:shadow-[24px_24px_0px_0px_rgba(42,42,42,1)] relative overflow-hidden">
-            <div className="w-full flex justify-center mb-8 h-24 md:h-32 lg:h-40">
+            <div className="w-full flex justify-center mb-8 h-24 md:h-32 lg:h-40 relative">
               <img
-                src="https://lh3.googleusercontent.com/d/1Cu3IU4JHobvSpqDluVXYoPKaXgKnMiE6"
+                src="https://lh3.googleusercontent.com/d/13uUJp8IusBZmEpYpJlamALpv6vFwJ2lh"
                 alt="rOOM8 Logo"
-                className="h-full w-auto object-contain hover:scale-105 transition-transform drop-shadow-sm"
+                className="h-full w-auto object-contain transition-opacity duration-700 opacity-0"
+                onLoad={(e) => {
+                  e.currentTarget.classList.remove('opacity-0');
+                  const fallback = document.getElementById('loading-logo-fallback');
+                  if (fallback) fallback.classList.add('hidden');
+                }}
                 onError={(e) => {
                   e.currentTarget.style.display = 'none';
                   const fallback = document.getElementById('loading-logo-fallback');
                   if (fallback) fallback.classList.remove('hidden');
                 }}
               />
-              <h1 id="loading-logo-fallback" className="text-6xl font-black tracking-[-0.06em] leading-none hidden flex items-center justify-center">
+              <h1 id="loading-logo-fallback" className="text-6xl font-black tracking-[-0.06em] leading-none flex items-center justify-center absolute inset-0">
                 rOOM<span className="text-artistic-primary underline decoration-artistic-accent decoration-8 underline-offset-[8px]">8</span>
               </h1>
             </div>
@@ -1150,12 +1155,14 @@ function MainSite() {
         <nav className="px-6 md:px-12 max-w-7xl mx-auto flex flex-col md:flex-row justify-between items-start md:items-center w-full">
           <div className="flex flex-col">
             {!isScrolled && (
-              <span className="text-[8px] md:text-[10px] tracking-[0.3em] font-black uppercase opacity-40 mb-2 md:mb-3 ml-1 block">Yoyogi Community Gallery</span>
+              <span className="text-[8px] md:text-[10px] tracking-[0.3em] font-black uppercase opacity-40 mb-2 md:mb-3 ml-1 block animate-fade-in">Yoyogi Community Gallery</span>
             )}
-            <div className={`transition-all flex items-center ${
+            <div className={`transition-all flex items-center group ${
               isScrolled ? 'h-12 md:h-14' : 'h-20 md:h-28 lg:h-36'
             }`}>
-              <LogoElement isScrolled={isScrolled} />
+              <a href="#home" onClick={(e) => scrollToSection(e, 'home')} className="h-full block">
+                <LogoElement isScrolled={isScrolled} />
+              </a>
             </div>
           </div>
           <div className="flex flex-col md:items-end gap-1 mt-4 md:mt-0">
@@ -1223,7 +1230,17 @@ function MainSite() {
             onClick={() => setSelectedEvent(heroEvent)}
             className="lg:col-span-12 bg-artistic-primary text-white p-8 md:p-14 rounded-[2.5rem] md:rounded-[3.5rem] flex flex-col lg:flex-row gap-12 shadow-[12px_12px_0px_0px_rgba(42,42,42,1)] md:shadow-[20px_20px_0px_0px_rgba(42,42,42,1)] border-2 border-artistic-text relative z-10 cursor-pointer hover:scale-[1.005] transition-transform"
           >
-            <div className="lg:w-1/2 flex flex-col justify-between">
+            <div className="lg:w-1/2 flex flex-col justify-between relative">
+              {/* Decorative Logo Accent in Hero */}
+              <motion.div 
+                initial={{ opacity: 0, scale: 0.5, rotate: -20 }}
+                animate={{ opacity: 1, scale: 1, rotate: 12 }}
+                transition={{ delay: 0.5, duration: 0.8, type: "spring" }}
+                className="absolute -top-10 -right-6 md:-right-12 w-20 h-20 md:w-32 md:h-32 bg-white rounded-3xl p-3 md:p-5 shadow-[8px_8px_0px_0px_rgba(42,42,42,1)] z-20 hidden md:block group-hover:rotate-[20deg] transition-transform"
+              >
+                <img src="https://lh3.googleusercontent.com/d/13uUJp8IusBZmEpYpJlamALpv6vFwJ2lh" alt="" className="w-full h-full object-contain pointer-events-none" />
+              </motion.div>
+
               <div>
               <div className="flex items-center gap-3 mb-6">
                 <span className="text-[10px] md:text-xs font-black uppercase tracking-[0.4em] opacity-80 bg-white/20 px-3 py-1 rounded-full">Next Event</span>
@@ -1336,8 +1353,8 @@ function MainSite() {
                   <span className="text-[10px] font-black tracking-tighter text-center leading-none">JOIN<br/>OUR<br/>VIBE</span>
                 </div>
                 <h3 className="text-2xl md:text-5xl font-black mb-8 md:mb-12 flex items-center gap-4 tracking-tighter">
-                  <div className="w-10 h-10 md:w-16 md:h-16 bg-white rounded-2xl flex items-center justify-center p-2 shadow-[4px_4px_0px_0px_rgba(42,42,42,1)] hover:rotate-6 transition-transform">
-                    <img src="https://lh3.googleusercontent.com/d/1Cu3IU4JHobvSpqDluVXYoPKaXgKnMiE6" alt="rOOM8" className="w-full h-full object-contain" />
+                  <div className="w-12 h-12 md:w-20 md:h-20 bg-white rounded-3xl flex items-center justify-center p-3 shadow-[8px_8px_0px_0px_rgba(42,42,42,1)] -rotate-3 hover:rotate-6 transition-transform group-hover/concept:scale-110 duration-500">
+                    <img src="https://lh3.googleusercontent.com/d/13uUJp8IusBZmEpYpJlamALpv6vFwJ2lh" alt="rOOM8" className="w-full h-full object-contain" />
                   </div>
                   Concept
                 </h3>
@@ -1806,8 +1823,8 @@ function MainSite() {
             <div className="relative z-10 grid lg:grid-cols-12 gap-12 items-center">
               <div className="lg:col-span-7">
                 <div className="flex items-center gap-4 mb-6">
-                  <div className="w-12 h-12 md:w-16 md:h-16 bg-white rounded-2xl flex items-center justify-center p-2 shadow-[4px_4px_0px_0px_rgba(255,107,107,1)] hover:rotate-3 transition-transform">
-                    <img src="https://lh3.googleusercontent.com/d/1Cu3IU4JHobvSpqDluVXYoPKaXgKnMiE6" alt="rOOM8" className="w-full h-full object-contain" />
+                  <div className="w-14 h-14 md:w-20 md:h-20 bg-white rounded-3xl flex items-center justify-center p-3 shadow-[8px_8px_0px_0px_rgba(255,107,107,1)] rotate-3 hover:-rotate-6 transition-transform group-hover:scale-110 duration-500">
+                    <img src="https://lh3.googleusercontent.com/d/13uUJp8IusBZmEpYpJlamALpv6vFwJ2lh" alt="rOOM8" className="w-full h-full object-contain" />
                   </div>
                   <span className="text-[10px] md:text-sm font-black tracking-[0.4em] text-artistic-accent">PRODUCT FROM rOOM8</span>
                 </div>
@@ -1938,9 +1955,9 @@ function MainSite() {
           <div className="flex flex-col items-center md:items-start text-center md:text-left">
             <div className="h-16 md:h-24 mb-3 flex items-center justify-center md:justify-start">
               <img
-                src="https://lh3.googleusercontent.com/d/1Cu3IU4JHobvSpqDluVXYoPKaXgKnMiE6"
+                src="https://lh3.googleusercontent.com/d/13uUJp8IusBZmEpYpJlamALpv6vFwJ2lh"
                 alt="rOOM8 Logo"
-                className="h-full w-auto object-contain brightness-0 invert opacity-90 hover:scale-105 transition-transform"
+                className="h-full w-auto object-contain brightness-0 invert opacity-90 hover:scale-110 hover:-rotate-3 transition-all duration-300"
                 onError={(e) => {
                   e.currentTarget.style.display = 'none';
                   const fallback = document.getElementById('footer-logo-fallback');
