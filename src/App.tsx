@@ -1073,7 +1073,7 @@ function MainSite() {
               />
               <div className="absolute inset-0 flex items-center justify-center">
                  <div className="w-full h-full flex items-center justify-center opacity-10 font-black text-[8px] overflow-hidden whitespace-nowrap">
-                   LOADING ROOM8 LOADING ROOM8 LOADING ROOM8 LOADING ROOM8 LOADING ROOM8
+                   LOADING rOOM8 LOADING rOOM8 LOADING rOOM8 LOADING rOOM8 LOADING rOOM8
                  </div>
               </div>
             </div>
@@ -1800,7 +1800,7 @@ function MainSite() {
             
             <div className="relative z-10 grid lg:grid-cols-12 gap-12 items-center">
               <div className="lg:col-span-7">
-                <span className="text-[10px] md:text-sm font-black uppercase tracking-[0.4em] text-artistic-accent mb-4 block">Product from rOOM8</span>
+                <span className="text-[10px] md:text-sm font-black tracking-[0.4em] text-artistic-accent mb-4 block">PRODUCT FROM rOOM8</span>
                 <h2 className="text-4xl md:text-6xl font-black mb-8 leading-tight tracking-[-0.04em]">
                   コミュニティから生まれた<br />
                   新しい体験。
