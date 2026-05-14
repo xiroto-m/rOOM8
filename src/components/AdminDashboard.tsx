@@ -234,7 +234,7 @@ export default function AdminDashboard() {
   const [visitorStats, setVisitorStats] = useState({ new: 0, returning: 0 });
   const [totalPageViews, setTotalPageViews] = useState(0);
   const [sectionReachData, setSectionReachData] = useState<{id: string, name: string, count: number, percentage: number}[]>([]);
-  const [engagementStats, setEngagementStats] = useState({ avgDuration: 0, medianDuration: 0, avgScroll: 0, medianScroll: 0, completionRate: 0 });
+  const [engagementStats, setEngagementStats] = useState({ avgDuration: 0, medianDuration: 0, avgScroll: 0, medianScroll: 0, completionRate: 0, completionCount: 0 });
   const [feedback, setFeedback] = useState<any[]>([]);
   const [analysisPeriod, setAnalysisPeriod] = useState<number>(14);
   const [activeTab, setActiveTab] = useState<'events' | 'settings' | 'analytics' | 'feedback'>('events');
@@ -394,6 +394,7 @@ export default function AdminDashboard() {
       // Calculate median scroll
       let medianScroll = 0;
       let completionRate = 0;
+      let completionCount = 0;
       if (scrolls.length > 0) {
         const sortedScrolls = [...scrolls].sort((a, b) => a - b);
         const mid = Math.floor(sortedScrolls.length / 2);
@@ -401,8 +402,8 @@ export default function AdminDashboard() {
           ? sortedScrolls[mid] 
           : Math.round((sortedScrolls[mid - 1] + sortedScrolls[mid]) / 2);
         
-        const finishedCount = scrolls.filter(s => s >= 90).length;
-        completionRate = Math.round((finishedCount / scrolls.length) * 100);
+        completionCount = scrolls.filter(s => s >= 90).length;
+        completionRate = Math.round((completionCount / scrolls.length) * 100);
       }
 
       setEngagementStats({
@@ -410,7 +411,8 @@ export default function AdminDashboard() {
         medianDuration,
         avgScroll: scrolls.length > 0 ? Math.round(totalScroll / scrolls.length) : 0,
         medianScroll,
-        completionRate
+        completionRate,
+        completionCount
       });
 
       setTotalPageViews(snapshot.size);
@@ -1022,7 +1024,10 @@ export default function AdminDashboard() {
                   <p className="text-4xl lg:text-5xl font-black text-artistic-pink">{engagementStats.completionRate}</p>
                   <span className="text-xs font-black opacity-40">%</span>
                 </div>
-                <div className="mt-2 text-[8px] font-black opacity-30 uppercase">最後まで見た人の割合</div>
+                <div className="mt-2 pt-2 border-t border-artistic-text/5 flex items-center justify-between">
+                  <span className="text-[8px] font-black opacity-40 uppercase tracking-widest">読了数</span>
+                  <span className="text-sm font-black text-artistic-pink/60">{engagementStats.completionCount} 回</span>
+                </div>
               </div>
               <div className="bg-white border-4 border-artistic-text p-8 rounded-[2.5rem] shadow-[10px_10px_0px_0px_rgba(42,42,42,1)] flex flex-col justify-between">
                 <p className="text-[10px] font-black uppercase opacity-40 mb-4 tracking-[0.2em]">リピーター</p>
@@ -1051,7 +1056,8 @@ export default function AdminDashboard() {
                   <div key={section.id} className="relative flex flex-col items-center group">
                     <div className="w-full aspect-square bg-artistic-bg rounded-[2rem] border-2 border-artistic-text/5 flex flex-col items-center justify-center p-4 transition-all hover:bg-white hover:border-artistic-text/20 hover:shadow-[4px_4px_0px_0px_rgba(42,42,42,1)]">
                       <div className="text-3xl font-black text-artistic-text leading-none mb-1">{section.percentage}%</div>
-                      <div className="text-[10px] font-black opacity-30 uppercase text-center mb-4">{section.name}</div>
+                      <div className="text-[10px] font-black opacity-40 uppercase text-center mb-0.5">{section.name}</div>
+                      <div className="text-[9px] font-black opacity-20 uppercase text-center mb-4">{section.count} 回</div>
                       <div className="w-full h-2 bg-white rounded-full overflow-hidden border border-artistic-text/5 max-w-[80%]">
                         <div 
                           className={`h-full rounded-full transition-all duration-1000 ${
