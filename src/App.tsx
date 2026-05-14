@@ -161,6 +161,30 @@ class ErrorBoundary extends React.Component<{ children: ReactNode }, { hasError:
   }
 }
 
+const LogoElement = ({ isScrolled }: { isScrolled: boolean }) => {
+  const [imgError, setImgError] = useState(false);
+  const logoSrc = "/logo-transparent.png"; // We will tell the user to upload here
+
+  if (!imgError) {
+    return (
+      <img
+        src={logoSrc}
+        alt="rOOM8 Logo"
+        onError={() => setImgError(true)}
+        className="h-full w-auto object-contain drop-shadow-md hover:scale-105 transition-transform origin-left"
+      />
+    );
+  }
+
+  return (
+    <h1 className={`font-black tracking-[-0.06em] leading-none transition-all inline-block hover:scale-105 transform origin-left h-full flex items-center ${
+      isScrolled ? 'text-2xl md:text-3xl' : 'text-5xl md:text-7xl'
+    }`}>
+      rOOM<span className="text-artistic-primary underline decoration-artistic-accent decoration-4 md:decoration-8 underline-offset-[4px] md:underline-offset-[12px]">8</span>
+    </h1>
+  );
+};
+
 function MainSite() {
   const [events, setEvents] = useState<EventItem[]>([]);
   const [loading, setLoading] = useState(true);
@@ -1015,9 +1039,25 @@ function MainSite() {
         <motion.div 
           initial={{ opacity: 0, scale: 0.9 }}
           animate={{ opacity: 1, scale: 1 }}
-          className="relative z-10 w-full max-w-md"
+          className="relative z-10 w-full max-w-lg px-4"
         >
           <div className="bg-white border-4 border-artistic-text p-8 md:p-12 rounded-[2.5rem] shadow-[16px_16px_0px_0px_rgba(42,42,42,1)] md:shadow-[24px_24px_0px_0px_rgba(42,42,42,1)] relative overflow-hidden">
+            <div className="w-full flex justify-center mb-8 h-24 md:h-32 lg:h-40">
+              <img
+                src="/logo-transparent.png"
+                alt="rOOM8 Logo"
+                className="h-full w-auto object-contain hover:scale-105 transition-transform drop-shadow-sm"
+                onError={(e) => {
+                  e.currentTarget.style.display = 'none';
+                  const fallback = document.getElementById('loading-logo-fallback');
+                  if (fallback) fallback.classList.remove('hidden');
+                }}
+              />
+              <h1 id="loading-logo-fallback" className="text-6xl font-black tracking-[-0.06em] leading-none hidden flex items-center justify-center">
+                rOOM<span className="text-artistic-primary underline decoration-artistic-accent decoration-8 underline-offset-[8px]">8</span>
+              </h1>
+            </div>
+            
             <div className="text-[10px] font-black uppercase tracking-[0.5em] opacity-40 mb-4 block text-center">System Initializing...</div>
             
             <h1 className="text-6xl md:text-8xl font-black italic tracking-tighter text-center mb-8">
@@ -1112,11 +1152,11 @@ function MainSite() {
             {!isScrolled && (
               <span className="text-[8px] md:text-[10px] tracking-[0.3em] font-black uppercase opacity-40 mb-2 md:mb-3 ml-1 block">Yoyogi Community Gallery</span>
             )}
-            <h1 className={`font-black tracking-[-0.06em] leading-none transition-all ${
-              isScrolled ? 'text-2xl md:text-3xl' : 'text-5xl md:text-7xl'
+            <div className={`transition-all flex items-center ${
+              isScrolled ? 'h-12 md:h-14' : 'h-20 md:h-28 lg:h-36'
             }`}>
-              rOOM<span className="text-artistic-primary underline decoration-artistic-accent decoration-4 md:decoration-8 underline-offset-[4px] md:underline-offset-[12px]">8</span>
-            </h1>
+              <LogoElement isScrolled={isScrolled} />
+            </div>
           </div>
           <div className="flex flex-col md:items-end gap-1 mt-4 md:mt-0">
             {!isScrolled && (
@@ -1886,8 +1926,22 @@ function MainSite() {
       <footer className="bg-artistic-text text-white py-12 border-t-4 border-artistic-primary">
         <div className="max-w-7xl mx-auto px-6 flex flex-col md:flex-row justify-between items-center gap-8">
           <div className="flex flex-col items-center md:items-start text-center md:text-left">
-            <h2 className="text-3xl font-black tracking-tighter mb-2">rOOM<span className="text-artistic-primary">8</span></h2>
-            <p className="text-[10px] font-black uppercase tracking-[0.3em] opacity-40">Open your passion / Yoyogi Gallery</p>
+            <div className="h-16 md:h-24 mb-3 flex items-center justify-center md:justify-start">
+              <img
+                src="/logo-transparent.png"
+                alt="rOOM8 Logo"
+                className="h-full w-auto object-contain brightness-0 invert opacity-90 hover:scale-105 transition-transform"
+                onError={(e) => {
+                  e.currentTarget.style.display = 'none';
+                  const fallback = document.getElementById('footer-logo-fallback');
+                  if (fallback) fallback.classList.remove('hidden');
+                }}
+              />
+              <h2 id="footer-logo-fallback" className="text-3xl font-black tracking-tighter hidden">
+                rOOM<span className="text-artistic-primary">8</span>
+              </h2>
+            </div>
+            <p className="text-[10px] font-black uppercase tracking-[0.3em] opacity-50">Open your passion / Yoyogi Gallery</p>
           </div>
           
           <div className="flex gap-8 text-sm font-black uppercase tracking-[0.1em]">
