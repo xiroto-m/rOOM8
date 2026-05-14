@@ -223,7 +223,7 @@ export default function AdminDashboard() {
   const [visitorStats, setVisitorStats] = useState({ new: 0, returning: 0 });
   const [totalPageViews, setTotalPageViews] = useState(0);
   const [sectionReachData, setSectionReachData] = useState<{id: string, name: string, count: number, percentage: number}[]>([]);
-  const [engagementStats, setEngagementStats] = useState({ avgDuration: 0, avgScroll: 0 });
+  const [engagementStats, setEngagementStats] = useState({ avgDuration: 0, medianDuration: 0, avgScroll: 0, medianScroll: 0, completionRate: 0 });
   const [feedback, setFeedback] = useState<any[]>([]);
   const [analysisPeriod, setAnalysisPeriod] = useState<number>(14);
   const [activeTab, setActiveTab] = useState<'events' | 'settings' | 'analytics' | 'feedback'>('events');
@@ -304,6 +304,8 @@ export default function AdminDashboard() {
       let totalDuration = 0;
       let totalScroll = 0;
       let durationCount = 0;
+      const durations: number[] = [];
+      const scrolls: number[] = [];
 
       snapshot.docs.forEach(doc => {
         const data = doc.data();
@@ -329,9 +331,11 @@ export default function AdminDashboard() {
         if (typeof data.duration === 'number' && data.duration >= 0) {
           totalDuration += data.duration;
           durationCount++;
+          durations.push(data.duration);
         }
         if (typeof data.maxScrollDepth === 'number' && data.maxScrollDepth >= 0) {
           totalScroll += data.maxScrollDepth;
+          scrolls.push(data.maxScrollDepth);
         }
         
         // Hour analysis in JST (Group into 4-hour blocks)
@@ -366,9 +370,36 @@ export default function AdminDashboard() {
         percentage: snapshot.size > 0 ? Math.round((sectionReachCounts[id] / snapshot.size) * 100) : 0
       })));
 
+      // Calculate median duration
+      let medianDuration = 0;
+      if (durations.length > 0) {
+        const sortedDurations = [...durations].sort((a, b) => a - b);
+        const mid = Math.floor(sortedDurations.length / 2);
+        medianDuration = sortedDurations.length % 2 !== 0 
+          ? sortedDurations[mid] 
+          : Math.round((sortedDurations[mid - 1] + sortedDurations[mid]) / 2);
+      }
+
+      // Calculate median scroll
+      let medianScroll = 0;
+      let completionRate = 0;
+      if (scrolls.length > 0) {
+        const sortedScrolls = [...scrolls].sort((a, b) => a - b);
+        const mid = Math.floor(sortedScrolls.length / 2);
+        medianScroll = sortedScrolls.length % 2 !== 0 
+          ? sortedScrolls[mid] 
+          : Math.round((sortedScrolls[mid - 1] + sortedScrolls[mid]) / 2);
+        
+        const finishedCount = scrolls.filter(s => s >= 90).length;
+        completionRate = Math.round((finishedCount / scrolls.length) * 100);
+      }
+
       setEngagementStats({
-        avgDuration: durationCount > 0 ? Math.round(totalDuration / durationCount) : 0,
-        avgScroll: snapshot.size > 0 ? Math.round(totalScroll / snapshot.size) : 0
+        avgDuration: durations.length > 0 ? Math.round(totalDuration / durations.length) : 0,
+        medianDuration,
+        avgScroll: scrolls.length > 0 ? Math.round(totalScroll / scrolls.length) : 0,
+        medianScroll,
+        completionRate
       });
 
       setTotalPageViews(snapshot.size);
@@ -936,7 +967,7 @@ export default function AdminDashboard() {
              </div>
 
             {/* Overview Cards */}
-            <div className="grid grid-cols-2 md:grid-cols-5 gap-6">
+            <div className="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-6 gap-6">
               <div className="bg-white border-4 border-artistic-text p-8 rounded-[2.5rem] shadow-[10px_10px_0px_0px_rgba(42,42,42,1)] flex flex-col justify-between">
                 <p className="text-[10px] font-black uppercase opacity-40 mb-4 tracking-[0.2em]">総アクセス</p>
                 <p className="text-4xl lg:text-5xl font-black">{totalPageViews}</p>
@@ -954,6 +985,10 @@ export default function AdminDashboard() {
                   <p className="text-4xl lg:text-5xl font-black text-artistic-primary">{engagementStats.avgDuration}</p>
                   <span className="text-xs font-black opacity-40">s</span>
                 </div>
+                <div className="mt-2 pt-2 border-t border-artistic-text/5 flex items-center justify-between">
+                  <span className="text-[8px] font-black opacity-40 uppercase tracking-widest">中央値</span>
+                  <span className="text-sm font-black text-artistic-primary/60">{engagementStats.medianDuration}s</span>
+                </div>
               </div>
               <div className="bg-white border-4 border-artistic-text p-8 rounded-[2.5rem] shadow-[10px_10px_0px_0px_rgba(42,42,42,1)] flex flex-col justify-between">
                 <p className="text-[10px] font-black uppercase opacity-40 mb-4 tracking-[0.2em]">平均スクロール</p>
@@ -961,6 +996,18 @@ export default function AdminDashboard() {
                   <p className="text-4xl lg:text-5xl font-black text-artistic-green">{engagementStats.avgScroll}</p>
                   <span className="text-xs font-black opacity-40">%</span>
                 </div>
+                <div className="mt-2 pt-2 border-t border-artistic-text/5 flex items-center justify-between">
+                  <span className="text-[8px] font-black opacity-40 uppercase tracking-widest">中央値</span>
+                  <span className="text-sm font-black text-artistic-green/60">{engagementStats.medianScroll}%</span>
+                </div>
+              </div>
+              <div className="bg-white border-4 border-artistic-text p-8 rounded-[2.5rem] shadow-[10px_10px_0px_0px_rgba(42,42,42,1)] flex flex-col justify-between">
+                <p className="text-[10px] font-black uppercase opacity-40 mb-4 tracking-[0.2em]">読了率 (90%+)</p>
+                <div className="flex items-baseline gap-1">
+                  <p className="text-4xl lg:text-5xl font-black text-artistic-pink">{engagementStats.completionRate}</p>
+                  <span className="text-xs font-black opacity-40">%</span>
+                </div>
+                <div className="mt-2 text-[8px] font-black opacity-30 uppercase">最後まで見た人の割合</div>
               </div>
               <div className="bg-white border-4 border-artistic-text p-8 rounded-[2.5rem] shadow-[10px_10px_0px_0px_rgba(42,42,42,1)] flex flex-col justify-between">
                 <p className="text-[10px] font-black uppercase opacity-40 mb-4 tracking-[0.2em]">リピーター</p>
@@ -1330,7 +1377,7 @@ export default function AdminDashboard() {
                     <div className="w-1.5 h-1.5 rounded-full bg-artistic-green" /> 滞在時間・スクロール
                   </h4>
                   <p className="text-[10px] font-bold opacity-70 leading-relaxed">
-                    滞在時間はページを離れるまでの実測（秒）、スクロールはページ全体の高さに対して表示された最大深度（%）の全セッション平均です。
+                    滞在時間は実測値（秒）、スクロールはページ全体の高さに対して到達した最大深度（%）です。一部の極端な数値に惑わされないよう、平均値と併せて中央値（全体を並べた時の真ん中の人の値）を表示しています。
                   </p>
                 </div>
                 <div className="bg-artistic-bg/30 p-6 rounded-[2rem] border-2 border-artistic-text/5">
