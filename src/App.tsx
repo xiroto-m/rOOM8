@@ -413,6 +413,18 @@ function MainSite() {
           let maxScroll = 0;
           const reachedSections = new Set<string>(['home']);
 
+          const updateActivity = () => {
+            const scrollPos = window.scrollY + window.innerHeight;
+            const totalHeight = document.documentElement.scrollHeight;
+            if (totalHeight > 0) {
+              const scrollPercent = Math.round((scrollPos / totalHeight) * 100);
+              if (scrollPercent > maxScroll) maxScroll = Math.min(100, scrollPercent);
+            }
+          };
+
+          // Initial calculation for users who don't scroll
+          setTimeout(updateActivity, 1500);
+
           // Initial record with enhanced mobile specs
           await setDoc(visitRef, {
             deviceId: currentDeviceId,
@@ -433,14 +445,16 @@ function MainSite() {
             sectionsReached: ['home']
           });
 
-          const updateActivity = () => {
-            const scrollPos = window.scrollY + window.innerHeight;
-            const totalHeight = document.documentElement.scrollHeight;
-            if (totalHeight > 0) {
-              const scrollPercent = Math.round((scrollPos / totalHeight) * 100);
-              if (scrollPercent > maxScroll) maxScroll = Math.min(100, scrollPercent);
-            }
-          };
+          // Run one update quickly after initial set to capture landing state
+          setTimeout(async () => {
+            updateActivity();
+            try {
+              await setDoc(visitRef, {
+                maxScrollDepth: maxScroll,
+                lastActive: serverTimestamp()
+              }, { merge: true });
+            } catch (e) {}
+          }, 3000);
 
           window.addEventListener('scroll', updateActivity);
 
