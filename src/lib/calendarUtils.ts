@@ -5,14 +5,15 @@ export interface CalendarEvent {
   location: string;
   startDate: string; // YYYY.MM.DD
   startTime: string; // HH:mm
+  endTime?: string;  // HH:mm
   durationHours?: number;
 }
 
 /**
- * Parses date string like "2026.05.31 (Sun)" and time like "13:00〜"
+ * Parses date string like "2026.05.31 (Sun)" and time strings
  * to return Date objects.
  */
-export function getEventDates(dateStr: string, timeStr: string, durationHours: number = 3) {
+export function getEventDates(dateStr: string, startTimeStr: string, endTimeStr?: string, durationHours: number = 3) {
   // Clean dateStr: 2026.05.31 (Sun) -> 2026, 05, 31
   const cleanDate = dateStr.replace(/\(.*?\)/g, '').replace(/（.*?）/g, '').trim();
   const dateParts = cleanDate.split('.');
@@ -34,13 +35,29 @@ export function getEventDates(dateStr: string, timeStr: string, durationHours: n
   }
 
   // Clean timeStr: 13:00〜 -> 13, 00
-  const cleanTime = timeStr.replace(/[〜~-].*$/, '').trim();
-  const timeParts = cleanTime.split(':');
-  const hours = timeParts.length > 0 ? parseInt(timeParts[0]) : 13;
-  const minutes = timeParts.length > 1 ? parseInt(timeParts[1]) : 0;
+  const parseTime = (t: string) => {
+    const clean = t.replace(/[〜~-].*$/, '').trim();
+    const parts = clean.split(':');
+    return {
+      hours: parts.length > 0 ? parseInt(parts[0]) : 13,
+      minutes: parts.length > 1 ? parseInt(parts[1]) : 0
+    };
+  };
 
-  const start = new Date(year, month, day, hours, minutes);
-  const end = new Date(start.getTime() + durationHours * 60 * 60 * 1000);
+  const startInfo = parseTime(startTimeStr);
+  const start = new Date(year, month, day, startInfo.hours, startInfo.minutes);
+  
+  let end: Date;
+  if (endTimeStr) {
+    const endInfo = parseTime(endTimeStr);
+    end = new Date(year, month, day, endInfo.hours, endInfo.minutes);
+    // If end time is before start time, assume it's the next day
+    if (end.getTime() <= start.getTime()) {
+      end = new Date(end.getTime() + 24 * 60 * 60 * 1000);
+    }
+  } else {
+    end = new Date(start.getTime() + durationHours * 60 * 60 * 1000);
+  }
 
   return { start, end };
 }
@@ -53,7 +70,7 @@ function formatDateToICS(date: Date) {
  * Generates a Google Calendar URL
  */
 export function generateGoogleCalendarUrl(event: CalendarEvent) {
-  const dates = getEventDates(event.startDate, event.startTime, event.durationHours);
+  const dates = getEventDates(event.startDate, event.startTime, event.endTime, event.durationHours);
   if (!dates) return '';
 
   const format = (d: Date) => d.toISOString().replace(/[-:]/g, '').split('.')[0] + 'Z';
@@ -74,7 +91,7 @@ export function generateGoogleCalendarUrl(event: CalendarEvent) {
  * Generates and triggers a download of an .ics file
  */
 export function downloadICS(event: CalendarEvent) {
-  const dates = getEventDates(event.startDate, event.startTime, event.durationHours);
+  const dates = getEventDates(event.startDate, event.startTime, event.endTime, event.durationHours);
   if (!dates) return;
 
   const formatDate = (date: Date) => {

@@ -78,13 +78,24 @@ const EventEditModal = ({ event, onSave, onClose, saving }: { event: EventItem, 
               />
             </div>
             <div className="space-y-2">
-              <label className="text-xs font-black uppercase opacity-60">開催時間 (例: 13:00〜)</label>
+              <label className="text-xs font-black uppercase opacity-60">開始時間 (例: 13:00)</label>
               <input 
                 type="text" 
                 required
                 value={formData.time} 
                 onChange={e => setFormData({...formData, time: e.target.value})}
                 className="w-full border-2 border-artistic-text p-3 rounded-xl font-bold outline-none"
+                placeholder="13:00"
+              />
+            </div>
+            <div className="space-y-2">
+              <label className="text-xs font-black uppercase opacity-60">終了時間 (任意 - 例: 16:00)</label>
+              <input 
+                type="text" 
+                value={formData.endTime || ''} 
+                onChange={e => setFormData({...formData, endTime: e.target.value})}
+                className="w-full border-2 border-artistic-text p-3 rounded-xl font-bold outline-none"
+                placeholder="16:00"
               />
             </div>
             <div className="space-y-2">
@@ -626,6 +637,7 @@ export default function AdminDashboard() {
       title: ev.title || '',
       date: ev.date,
       time: ev.time,
+      endTime: ev.endTime || '',
       locationName: ev.locationName,
       address: ev.address,
       access: ev.access,
@@ -665,6 +677,7 @@ export default function AdminDashboard() {
               title: row.title || '',
               date: row.date || '',
               time: row.time || '',
+              endTime: row.endTime || '',
               locationName: row.locationName || '',
               address: row.address || '',
               access: row.access || '',
@@ -774,6 +787,7 @@ export default function AdminDashboard() {
     setEditingEvent({
       date: event.date + ' (コピー)',
       time: event.time,
+      endTime: event.endTime || '',
       locationName: event.locationName,
       title: event.title || '',
       address: event.address,
@@ -791,7 +805,8 @@ export default function AdminDashboard() {
     const nextOrder = events.length > 0 ? Math.max(...events.map(e => e.order || 0)) + 1 : 1;
     setEditingEvent({
       date: '',
-      time: '13:00〜',
+      time: '13:00',
+      endTime: '16:00',
       locationName: EVENT_INFO.locationName,
       title: '',
       address: EVENT_INFO.address,
@@ -1540,7 +1555,7 @@ export default function AdminDashboard() {
                                );
                             })()}
                           </div>
-                          <span className="bg-artistic-accent/40 px-2 py-0.5 rounded-lg text-xs font-black uppercase">{event.time}</span>
+                          <span className="bg-artistic-accent/40 px-2 py-0.5 rounded-lg text-xs font-black uppercase">{event.time}{event.endTime ? ` 〜 ${event.endTime}` : ''}</span>
                           {event.isPublished === false ? (
                             <span className="bg-stone-300 text-stone-700 px-2 py-0.5 rounded-lg text-xs font-black uppercase">非公開</span>
                           ) : (

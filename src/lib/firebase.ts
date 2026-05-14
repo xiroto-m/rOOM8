@@ -12,6 +12,7 @@ export interface EventItem {
   id?: string;
   date: string;
   time: string;
+  endTime?: string;
   locationName: string;
   address: string;
   access: string;

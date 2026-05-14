@@ -705,6 +705,7 @@ function MainSite() {
       location: event.locationName + (event.address ? `, ${event.address}` : ''),
       startDate: event.date,
       startTime: event.time,
+      endTime: event.endTime,
     };
 
     const googleUrl = generateGoogleCalendarUrl(calendarEvent);
@@ -985,7 +986,7 @@ function MainSite() {
                     <span className="text-[10px] font-black uppercase opacity-40 tracking-wider">Time</span>
                     <div className="flex items-center gap-2">
                        <Music size={16} className="text-artistic-primary" strokeWidth={3} />
-                       <p className="font-black italic text-lg leading-none">{event.time}</p>
+                       <p className="font-black italic text-lg leading-none">{event.time}{event.endTime ? ` 〜 ${event.endTime}` : (event.time.includes('〜') || event.time.includes('~') ? '' : ' 〜')}</p>
                     </div>
                   </div>
                   <div className="bg-stone-50 border-2 border-artistic-text p-5 rounded-2xl flex flex-col gap-1 shadow-[4px_4px_0px_0px_rgba(42,42,42,1)]">
@@ -1347,7 +1348,7 @@ function MainSite() {
                         <div className="inline-flex items-center gap-2 bg-white text-artistic-text border-2 border-artistic-text px-4 py-2 rounded-xl shadow-[4px_4px_0px_0px_rgba(42,42,42,1)] mt-4">
                           <Music size={18} className="text-artistic-primary" strokeWidth={3} />
                           <span className="text-xl md:text-2xl font-black tracking-tight leading-none">
-                            {heroEvent.time}
+                            {heroEvent.time}{heroEvent.endTime ? ` 〜 ${heroEvent.endTime}` : (heroEvent.time.includes('〜') || heroEvent.time.includes('~') ? '' : ' 〜')}
                           </span>
                         </div>
                       </>
@@ -1527,7 +1528,7 @@ function MainSite() {
                        })()}
                     </div>
                     <div className="bg-white border-2 border-artistic-text px-3 py-1.5 rounded-xl text-[11px] font-black tracking-tight flex items-center gap-1.5 shadow-[2px_2px_0px_0px_rgba(42,42,42,1)]">
-                      <Music size={12} className="text-artistic-primary" strokeWidth={3} /> {ev.time}
+                      <Music size={12} className="text-artistic-primary" strokeWidth={3} /> {ev.time}{ev.endTime ? ` 〜 ${ev.endTime}` : (ev.time.includes('〜') || ev.time.includes('~') ? '' : ' 〜')}
                     </div>
                   </div>
 

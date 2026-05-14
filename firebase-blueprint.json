@@ -7,6 +7,7 @@
       "properties": {
         "date": { "type": "string" },
         "time": { "type": "string" },
+        "endTime": { "type": "string" },
         "locationName": { "type": "string" },
         "address": { "type": "string" },
         "access": { "type": "string" },
