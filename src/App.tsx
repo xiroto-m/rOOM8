@@ -163,7 +163,7 @@ class ErrorBoundary extends React.Component<{ children: ReactNode }, { hasError:
 
 const LogoElement = ({ isScrolled }: { isScrolled: boolean }) => {
   const [imgError, setImgError] = useState(false);
-  const logoSrc = "/logo-transparent.png"; // We will tell the user to upload here
+  const logoSrc = "https://lh3.googleusercontent.com/d/1Cu3IU4JHobvSpqDluVXYoPKaXgKnMiE6"; // Use direct Google Drive URL for production reliability
 
   if (!imgError) {
     return (
@@ -1044,7 +1044,7 @@ function MainSite() {
           <div className="bg-white border-4 border-artistic-text p-8 md:p-12 rounded-[2.5rem] shadow-[16px_16px_0px_0px_rgba(42,42,42,1)] md:shadow-[24px_24px_0px_0px_rgba(42,42,42,1)] relative overflow-hidden">
             <div className="w-full flex justify-center mb-8 h-24 md:h-32 lg:h-40">
               <img
-                src="/logo-transparent.png"
+                src="https://lh3.googleusercontent.com/d/1Cu3IU4JHobvSpqDluVXYoPKaXgKnMiE6"
                 alt="rOOM8 Logo"
                 className="h-full w-auto object-contain hover:scale-105 transition-transform drop-shadow-sm"
                 onError={(e) => {
@@ -1337,7 +1337,7 @@ function MainSite() {
                 </div>
                 <h3 className="text-2xl md:text-5xl font-black mb-8 md:mb-12 flex items-center gap-4 tracking-tighter">
                   <div className="w-10 h-10 md:w-16 md:h-16 bg-white rounded-2xl flex items-center justify-center p-2 shadow-[4px_4px_0px_0px_rgba(42,42,42,1)] hover:rotate-6 transition-transform">
-                    <img src="/logo-transparent.png" alt="rOOM8" className="w-full h-full object-contain" />
+                    <img src="https://lh3.googleusercontent.com/d/1Cu3IU4JHobvSpqDluVXYoPKaXgKnMiE6" alt="rOOM8" className="w-full h-full object-contain" />
                   </div>
                   Concept
                 </h3>
@@ -1807,7 +1807,7 @@ function MainSite() {
               <div className="lg:col-span-7">
                 <div className="flex items-center gap-4 mb-6">
                   <div className="w-12 h-12 md:w-16 md:h-16 bg-white rounded-2xl flex items-center justify-center p-2 shadow-[4px_4px_0px_0px_rgba(255,107,107,1)] hover:rotate-3 transition-transform">
-                    <img src="/logo-transparent.png" alt="rOOM8" className="w-full h-full object-contain" />
+                    <img src="https://lh3.googleusercontent.com/d/1Cu3IU4JHobvSpqDluVXYoPKaXgKnMiE6" alt="rOOM8" className="w-full h-full object-contain" />
                   </div>
                   <span className="text-[10px] md:text-sm font-black tracking-[0.4em] text-artistic-accent">PRODUCT FROM rOOM8</span>
                 </div>
@@ -1938,7 +1938,7 @@ function MainSite() {
           <div className="flex flex-col items-center md:items-start text-center md:text-left">
             <div className="h-16 md:h-24 mb-3 flex items-center justify-center md:justify-start">
               <img
-                src="/logo-transparent.png"
+                src="https://lh3.googleusercontent.com/d/1Cu3IU4JHobvSpqDluVXYoPKaXgKnMiE6"
                 alt="rOOM8 Logo"
                 className="h-full w-auto object-contain brightness-0 invert opacity-90 hover:scale-105 transition-transform"
                 onError={(e) => {
