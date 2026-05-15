@@ -300,7 +300,8 @@ function MainSite() {
 
   const trackAction = async (actionType: string, metadata: any = {}) => {
     // Skip tracking for admin devices/users to avoid bias
-    if (localStorage.getItem('room8_is_admin') === 'true' || auth.currentUser) {
+    // Also skip if accessing from AI Studio editor
+    if (localStorage.getItem('room8_is_admin') === 'true' || auth.currentUser || document.referrer.includes('aistudio.google.com')) {
       return;
     }
     try {
@@ -386,7 +387,8 @@ function MainSite() {
     }
 
     // Skip tracking for admin devices/users to avoid bias
-    const isAdmin = localStorage.getItem('room8_is_admin') === 'true' || auth.currentUser;
+    // Also skip if accessing from AI Studio editor
+    const isAdmin = localStorage.getItem('room8_is_admin') === 'true' || auth.currentUser || document.referrer.includes('aistudio.google.com');
     
     if (!isAdmin) {
       const recordVisitSession = async (ipAddr: string | null) => {
@@ -409,21 +411,35 @@ function MainSite() {
           const visitRef = doc(db, 'analytics_visits', visitId);
           const referrer = document.referrer || 'direct';
           
-          let startTime = Date.now();
+          let lastInteractionTime = Date.now();
+          const idleThreshold = 60000; // 60 seconds idle timeout
+          
+          let activeStartTime = Date.now();
+          let totalActiveDuration = 0;
           let maxScroll = 0;
           const reachedSections = new Set<string>(['home']);
 
           const updateActivity = () => {
             const scrollPos = window.scrollY + window.innerHeight;
             const totalHeight = document.documentElement.scrollHeight;
-            if (totalHeight > 0) {
+            
+            // Only calculate if page has content and height is realistic
+            if (totalHeight > 500) {
               const scrollPercent = Math.round((scrollPos / totalHeight) * 100);
               if (scrollPercent > maxScroll) maxScroll = Math.min(100, scrollPercent);
             }
+            lastInteractionTime = Date.now();
           };
 
-          // Initial calculation for users who don't scroll
-          setTimeout(updateActivity, 1500);
+          // Interaction listeners to reset idle timer
+          const resetIdle = () => { lastInteractionTime = Date.now(); };
+          window.addEventListener('mousemove', resetIdle);
+          window.addEventListener('keydown', resetIdle);
+          window.addEventListener('click', resetIdle);
+          window.addEventListener('touchstart', resetIdle);
+
+          // Initial calculation for users who don't scroll - Wait longer for layout stability
+          setTimeout(updateActivity, 3000);
 
           // Initial record with enhanced mobile specs
           await setDoc(visitRef, {
@@ -459,10 +475,27 @@ function MainSite() {
           window.addEventListener('scroll', updateActivity);
 
           const sendTrackingUpdate = async () => {
-            const duration = Math.round((Date.now() - startTime) / 1000);
+            const now = Date.now();
+            const isIdle = (now - lastInteractionTime) > idleThreshold;
+            
+            // Only update duration if tab is visible AND user is not idle
+            if (document.visibilityState === 'visible' && !isIdle) {
+              const sessionStep = Math.round((now - activeStartTime) / 1000);
+              if (sessionStep > 0 && sessionStep < 65) { // Sanity check for large jumps
+                totalActiveDuration += sessionStep;
+              }
+              activeStartTime = now;
+            } else if (document.visibilityState === 'visible' && isIdle) {
+              // If idle but visible, don't increment duration, but keep activeStartTime fresh
+              activeStartTime = now;
+            }
+            
+            // Limit duration to something reasonable (e.g. 1 hour) to avoid runaway numbers from open tabs
+            const cappedDuration = Math.min(totalActiveDuration, 3600);
+
             try {
               await setDoc(visitRef, {
-                duration: duration,
+                duration: cappedDuration,
                 maxScrollDepth: maxScroll,
                 sectionsReached: Array.from(reachedSections),
                 lastActive: serverTimestamp()
@@ -470,7 +503,7 @@ function MainSite() {
             } catch (e) {}
           };
 
-          // Section reach observer
+          // Section reach observer - lower threshold to 0.1 to be more sensitive
           const observer = new IntersectionObserver((entries) => {
             let changed = false;
             entries.forEach(entry => {
@@ -485,17 +518,18 @@ function MainSite() {
             if (changed) {
               sendTrackingUpdate();
             }
-          }, { threshold: 0.2 });
+          }, { threshold: 0.1 });
 
-          // Start observing sections
+          // Start observing sections - periodically check for new elements (e.g. after data load)
           const observeSections = () => {
-             ['home', 'about', 'event-info', 'location', 'youtube-registration', 'gallery', 'products', 'contact'].forEach(id => {
+             ['home', 'about', 'event-info', 'archive', 'location', 'youtube-registration', 'gallery', 'feedback', 'products', 'contact'].forEach(id => {
               const el = document.getElementById(id);
               if (el) observer.observe(el);
             });
           };
           
-          setTimeout(observeSections, 2000);
+          observeSections();
+          const observeInterval = setInterval(observeSections, 3000); // Check every 3s for new sections (like archive)
 
           const sendFinalActivity = sendTrackingUpdate;
 
@@ -504,8 +538,20 @@ function MainSite() {
           window.addEventListener('pagehide', sendFinalActivity);
           
           const handleVisibilityChange = () => {
+            const now = Date.now();
+            const isIdle = (now - lastInteractionTime) > idleThreshold;
+
             if (document.visibilityState === 'hidden') {
+              if (!isIdle) {
+                const sessionStep = Math.round((now - activeStartTime) / 1000);
+                if (sessionStep > 0 && sessionStep < 3600) {
+                  totalActiveDuration += sessionStep;
+                }
+              }
               sendFinalActivity();
+            } else {
+              activeStartTime = now;
+              lastInteractionTime = now; // Reactivated
             }
           };
           window.addEventListener('visibilitychange', handleVisibilityChange);
@@ -516,8 +562,13 @@ function MainSite() {
           // Store cleanup function in ref
           analyticsCleanupRef.current = () => {
             clearInterval(activityInterval);
+            clearInterval(observeInterval);
             observer.disconnect();
             window.removeEventListener('scroll', updateActivity);
+            window.removeEventListener('mousemove', resetIdle);
+            window.removeEventListener('keydown', resetIdle);
+            window.removeEventListener('click', resetIdle);
+            window.removeEventListener('touchstart', resetIdle);
             window.removeEventListener('beforeunload', sendFinalActivity);
             window.removeEventListener('pagehide', sendFinalActivity);
             window.removeEventListener('visibilitychange', handleVisibilityChange);
@@ -1589,7 +1640,7 @@ function MainSite() {
 
       {/* Archived / Past Events */}
       {!loading && archivedEvents.length > 0 && (
-        <Section className="py-12 bg-stone-100/50">
+        <Section id="archive" className="py-12 bg-stone-100/50">
           <h2 className="text-2xl font-black mb-10 flex items-center gap-3 opacity-60">
             <Calendar className="text-gray-400" size={20} /> 過去イベント (アーカイブ)
           </h2>
@@ -1881,7 +1932,7 @@ function MainSite() {
       </Section>
 
       {/* Feedback Section */}
-      <Section className="py-12">
+      <Section id="feedback" className="py-12">
         <FeedbackForm />
       </Section>
 

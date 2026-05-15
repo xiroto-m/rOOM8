@@ -231,8 +231,9 @@ export default function AdminDashboard() {
   const [referrerData, setReferrerData] = useState<{name: string, value: number}[]>([]);
   const [hourlyData, setHourlyData] = useState<{hour: string, count: number}[]>([]);
   const [actionStats, setActionStats] = useState<{name: string, value: number}[]>([]);
-  const [visitorStats, setVisitorStats] = useState({ new: 0, returning: 0 });
+  const [visitorStats, setVisitorStats] = useState({ new: 0, returning: 0, repeatVisits: 0, anonymousSessions: 0 });
   const [totalPageViews, setTotalPageViews] = useState(0);
+  const [rawVisits, setRawVisits] = useState<any[]>([]);
   const [sectionReachData, setSectionReachData] = useState<{id: string, name: string, count: number, percentage: number}[]>([]);
   const [engagementStats, setEngagementStats] = useState({ avgDuration: 0, medianDuration: 0, avgScroll: 0, medianScroll: 0, completionRate: 0, completionCount: 0 });
   const [feedback, setFeedback] = useState<any[]>([]);
@@ -285,20 +286,24 @@ export default function AdminDashboard() {
       const sectionLabels: {[key: string]: string} = {
         'home': 'ヒーロー',
         'event-info': '開催予定',
+        'archive': 'アーカイブ',
         'about': 'About',
         'location': '地図・アクセス',
         'youtube-registration': 'YouTube登録',
         'gallery': 'ギャラリー',
+        'feedback': '評価用フォーム',
         'products': 'アプリ紹介',
         'contact': 'フッター/SNS'
       };
       const sectionReachCounts: {[key: string]: number} = {
         'home': 0,
         'event-info': 0,
+        'archive': 0,
         'about': 0,
         'location': 0,
         'youtube-registration': 0,
         'gallery': 0,
+        'feedback': 0,
         'products': 0,
         'contact': 0
       };
@@ -311,15 +316,25 @@ export default function AdminDashboard() {
         '20-24': 0
       };
       const deviceVisitCounts: {[key: string]: number} = {};
+      let anonymousCount = 0;
       
+      let totalValidVisits = 0;
       let totalDuration = 0;
       let totalScroll = 0;
-      let durationCount = 0;
       const durations: number[] = [];
       const scrolls: number[] = [];
+      const visits: any[] = [];
 
       snapshot.docs.forEach(doc => {
         const data = doc.data();
+        
+        // Exclude access from AI Studio editor
+        if (data.referrer && data.referrer.includes('aistudio.google.com')) {
+          return;
+        }
+
+        totalValidVisits++;
+        visits.push({ id: doc.id, ...data });
         // Use data.date if exists, otherwise fallback to date from timestamp as fallback
         const docDate = data.date || (data.timestamp ? new Date(data.timestamp.toDate().toLocaleString("en-US", {timeZone: "Asia/Tokyo"})).toISOString().split('T')[0] : null);
         
@@ -338,16 +353,14 @@ export default function AdminDashboard() {
                                    new URL(data.referrer).hostname) : '直接入力';
         referrerCounts[ref] = (referrerCounts[ref] || 0) + 1;
 
-        // Engagement metrics - fix 0 checking
-        if (typeof data.duration === 'number' && data.duration >= 0) {
-          totalDuration += data.duration;
-          durationCount++;
-          durations.push(data.duration);
-        }
-        if (typeof data.maxScrollDepth === 'number' && data.maxScrollDepth >= 0) {
-          totalScroll += data.maxScrollDepth;
-          scrolls.push(data.maxScrollDepth);
-        }
+        // Engagement metrics - Include all valid visits in the denominator to be logically consistent
+        const duration = (typeof data.duration === 'number' && data.duration >= 0) ? data.duration : 0;
+        totalDuration += duration;
+        durations.push(duration);
+
+        const scroll = (typeof data.maxScrollDepth === 'number' && data.maxScrollDepth >= 0) ? data.maxScrollDepth : 0;
+        totalScroll += scroll;
+        scrolls.push(scroll);
         
         // Hour analysis in JST (Group into 4-hour blocks)
         if (data.timestamp) {
@@ -362,6 +375,8 @@ export default function AdminDashboard() {
         // Repeat visitor analysis
         if (data.deviceId) {
           deviceVisitCounts[data.deviceId] = (deviceVisitCounts[data.deviceId] || 0) + 1;
+        } else {
+          anonymousCount++;
         }
 
         // Section reach analysis
@@ -378,20 +393,23 @@ export default function AdminDashboard() {
         id,
         name: sectionLabels[id],
         count: sectionReachCounts[id],
-        percentage: snapshot.size > 0 ? Math.round((sectionReachCounts[id] / snapshot.size) * 100) : 0
+        percentage: totalValidVisits > 0 ? Math.round((sectionReachCounts[id] / totalValidVisits) * 100) : 0
       })));
 
-      // Calculate median duration
+      setRawVisits(visits);
+
+      // Calculate duration statistics excluding outliers (> 30 mins)
+      const validDurations = durations.filter(d => d > 0 && d <= 1800);
       let medianDuration = 0;
-      if (durations.length > 0) {
-        const sortedDurations = [...durations].sort((a, b) => a - b);
-        const mid = Math.floor(sortedDurations.length / 2);
-        medianDuration = sortedDurations.length % 2 !== 0 
-          ? sortedDurations[mid] 
-          : Math.round((sortedDurations[mid - 1] + sortedDurations[mid]) / 2);
+      if (validDurations.length > 0) {
+        const sortedValid = [...validDurations].sort((a, b) => a - b);
+        const mid = Math.floor(sortedValid.length / 2);
+        medianDuration = sortedValid.length % 2 !== 0 
+          ? sortedValid[mid] 
+          : Math.round((sortedValid[mid - 1] + sortedValid[mid]) / 2);
       }
 
-      // Calculate median scroll
+      // Calculate median scroll using ALL valid visits as denominator
       let medianScroll = 0;
       let completionRate = 0;
       let completionCount = 0;
@@ -407,15 +425,15 @@ export default function AdminDashboard() {
       }
 
       setEngagementStats({
-        avgDuration: durations.length > 0 ? Math.round(totalDuration / durations.length) : 0,
+        avgDuration: validDurations.length > 0 ? Math.round(validDurations.reduce((a, b) => a + b, 0) / validDurations.length) : 0,
         medianDuration,
-        avgScroll: scrolls.length > 0 ? Math.round(totalScroll / scrolls.length) : 0,
+        avgScroll: totalValidVisits > 0 ? Math.round(totalScroll / totalValidVisits) : 0,
         medianScroll,
         completionRate,
         completionCount
       });
 
-      setTotalPageViews(snapshot.size);
+      setTotalPageViews(totalValidVisits);
 
       setReferrerData(Object.keys(referrerCounts).map(name => ({ name, value: referrerCounts[name] })).sort((a, b) => b.value - a.value).slice(0, 5));
 
@@ -454,7 +472,20 @@ export default function AdminDashboard() {
       const deviceIds = Object.keys(deviceVisitCounts);
       const returning = deviceIds.filter(id => deviceVisitCounts[id] > 1).length;
       const newVisitors = deviceIds.length - returning;
-      setVisitorStats({ new: newVisitors, returning });
+      
+      // Calculate repeat visit count (Total identified visits - Number of identified people)
+      let identifiedPageViews = 0;
+      deviceIds.forEach(id => {
+        identifiedPageViews += deviceVisitCounts[id];
+      });
+      const repeatIdentified = identifiedPageViews - deviceIds.length;
+      
+      setVisitorStats({ 
+        new: newVisitors, 
+        returning, 
+        repeatVisits: repeatIdentified, 
+        anonymousSessions: anonymousCount 
+      });
 
       // Fill missing dates in analyticsData to ensure the chart shows the full period (zero-fill)
       const filledChartData = [];
@@ -612,6 +643,36 @@ export default function AdminDashboard() {
     const url = URL.createObjectURL(blob);
     link.setAttribute("href", url);
     link.setAttribute("download", `feedback_export_${new Date().toISOString().split('T')[0]}.csv`);
+    link.style.visibility = 'hidden';
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+  };
+
+  const handleExportVisitsCSV = () => {
+    if (rawVisits.length === 0) {
+      setStatus({ type: 'error', message: '出力するデータがありません。' });
+      return;
+    }
+
+    const dataToExport = rawVisits.map(v => ({
+      timestamp: v.timestamp?.toDate().toLocaleString("ja-JP", {timeZone: "Asia/Tokyo"}),
+      duration_seconds: v.duration || 0,
+      max_scroll_percent: v.maxScrollDepth || 0,
+      deviceId: v.deviceId || '',
+      deviceType: v.deviceType || '',
+      userAgent: v.userAgent || '',
+      referrer: v.referrer || 'direct',
+      isInApp: v.isInAppBrowser ? 'YES' : 'NO',
+      sectionsReached: (v.sectionsReached || []).join(', ')
+    })).sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime());
+
+    const csv = Papa.unparse(dataToExport);
+    const blob = new Blob(["\uFEFF" + csv], { type: 'text/csv;charset=utf-8;' });
+    const link = document.createElement("a");
+    const url = URL.createObjectURL(blob);
+    link.setAttribute("href", url);
+    link.setAttribute("download", `visits_raw_data_${new Date().toISOString().split('T')[0]}.csv`);
     link.style.visibility = 'hidden';
     document.body.appendChild(link);
     link.click();
@@ -986,8 +1047,12 @@ export default function AdminDashboard() {
             {/* Overview Cards */}
             <div className="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-6 gap-6">
               <div className="bg-white border-4 border-artistic-text p-8 rounded-[2.5rem] shadow-[10px_10px_0px_0px_rgba(42,42,42,1)] flex flex-col justify-between">
-                <p className="text-[10px] font-black uppercase opacity-40 mb-4 tracking-[0.2em]">総アクセス</p>
+                <p className="text-[10px] font-black uppercase opacity-40 mb-4 tracking-[0.2em]">総訪問数 (セッション)</p>
                 <p className="text-4xl lg:text-5xl font-black">{totalPageViews}</p>
+                <div className="mt-2 pt-2 border-t border-artistic-text/5 flex items-center justify-between">
+                  <span className="text-[8px] font-black opacity-40 uppercase tracking-widest">リピート分 (再訪)</span>
+                  <span className="text-sm font-black text-artistic-text/30">+{visitorStats.repeatVisits} 回</span>
+                </div>
                 <button 
                   onClick={() => fetchAnalytics()} 
                   disabled={fetchingAnalytics}
@@ -1002,10 +1067,18 @@ export default function AdminDashboard() {
                   <p className="text-4xl lg:text-5xl font-black text-artistic-primary">{engagementStats.avgDuration}</p>
                   <span className="text-xs font-black opacity-40">s</span>
                 </div>
-                <div className="mt-2 pt-2 border-t border-artistic-text/5 flex items-center justify-between">
-                  <span className="text-[8px] font-black opacity-40 uppercase tracking-widest">中央値</span>
-                  <span className="text-sm font-black text-artistic-primary/60">{engagementStats.medianDuration}s</span>
+                <div className="mt-2 pt-2 border-t border-artistic-text/5 space-y-1">
+                  <div className="flex items-center justify-between">
+                    <span className="text-[8px] font-black opacity-40 uppercase tracking-widest">中央値</span>
+                    <span className="text-sm font-black text-artistic-primary/60">{engagementStats.medianDuration}s</span>
+                  </div>
                 </div>
+                <button 
+                  onClick={handleExportVisitsCSV}
+                  className="mt-4 w-full py-2 bg-artistic-bg hover:bg-artistic-text hover:text-white transition-all rounded-xl border-2 border-artistic-text text-[10px] font-black uppercase flex items-center justify-center gap-2"
+                >
+                  <Download size={12} /> 詳細データをDL
+                </button>
               </div>
               <div className="bg-white border-4 border-artistic-text p-8 rounded-[2.5rem] shadow-[10px_10px_0px_0px_rgba(42,42,42,1)] flex flex-col justify-between">
                 <p className="text-[10px] font-black uppercase opacity-40 mb-4 tracking-[0.2em]">平均スクロール</p>
@@ -1013,9 +1086,11 @@ export default function AdminDashboard() {
                   <p className="text-4xl lg:text-5xl font-black text-artistic-green">{engagementStats.avgScroll}</p>
                   <span className="text-xs font-black opacity-40">%</span>
                 </div>
-                <div className="mt-2 pt-2 border-t border-artistic-text/5 flex items-center justify-between">
-                  <span className="text-[8px] font-black opacity-40 uppercase tracking-widest">中央値</span>
-                  <span className="text-sm font-black text-artistic-green/60">{engagementStats.medianScroll}%</span>
+                <div className="mt-2 pt-2 border-t border-artistic-text/5 space-y-1">
+                  <div className="flex items-center justify-between">
+                    <span className="text-[8px] font-black opacity-40 uppercase tracking-widest">中央値</span>
+                    <span className="text-sm font-black text-artistic-green/60">{engagementStats.medianScroll}%</span>
+                  </div>
                 </div>
               </div>
               <div className="bg-white border-4 border-artistic-text p-8 rounded-[2.5rem] shadow-[10px_10px_0px_0px_rgba(42,42,42,1)] flex flex-col justify-between">
@@ -1030,13 +1105,50 @@ export default function AdminDashboard() {
                 </div>
               </div>
               <div className="bg-white border-4 border-artistic-text p-8 rounded-[2.5rem] shadow-[10px_10px_0px_0px_rgba(42,42,42,1)] flex flex-col justify-between">
-                <p className="text-[10px] font-black uppercase opacity-40 mb-4 tracking-[0.2em]">リピーター</p>
-                <p className="text-4xl lg:text-5xl font-black text-artistic-accent">{visitorStats.returning}</p>
+                <p className="text-[10px] font-black uppercase opacity-40 mb-4 tracking-[0.2em]">リピーター数 (人)</p>
+                <div className="flex items-baseline gap-1">
+                  <p className="text-4xl lg:text-5xl font-black text-artistic-accent">{visitorStats.returning}</p>
+                  <span className="text-xs font-black opacity-40">名</span>
+                </div>
+                <p className="text-[7px] font-bold opacity-30 italic mt-2">※ 2回以上訪問した人数</p>
               </div>
               <div className="bg-white border-4 border-artistic-text p-8 rounded-[2.5rem] shadow-[10px_10px_0px_0px_rgba(42,42,42,1)] flex flex-col justify-between">
-                <p className="text-[10px] font-black uppercase opacity-40 mb-4 tracking-[0.2em]">新規訪問者</p>
-                <p className="text-4xl lg:text-5xl font-black text-artistic-pink">{visitorStats.new}</p>
+                <p className="text-[10px] font-black uppercase opacity-40 mb-4 tracking-[0.2em]">新規訪問者数 (人)</p>
+                <div className="flex items-baseline gap-1">
+                  <p className="text-4xl lg:text-5xl font-black text-artistic-pink">{visitorStats.new}</p>
+                  <span className="text-xs font-black opacity-40">名</span>
+                </div>
+                <p className="text-[7px] font-bold opacity-30 italic mt-2">※ 初めて訪問した人数</p>
               </div>
+              <div className="bg-white border-4 border-artistic-text p-8 rounded-[2.5rem] shadow-[10px_10px_0px_0px_rgba(42,42,42,1)] flex flex-col justify-between">
+                <p className="text-[10px] font-black uppercase opacity-40 mb-4 tracking-[0.2em]">リピート訪問数 (増分計)</p>
+                <div className="flex items-baseline gap-1">
+                  <p className="text-4xl lg:text-5xl font-black text-artistic-primary/60">{visitorStats.repeatVisits}</p>
+                  <span className="text-xs font-black opacity-40">回</span>
+                </div>
+                <div className="mt-2 pt-2 border-t border-artistic-text/5 flex items-center justify-between">
+                  <span className="text-[8px] font-black opacity-40 uppercase tracking-widest">計算式</span>
+                  <span className="text-[9px] font-black text-artistic-text/30">総訪問 - ユニーク人数</span>
+                </div>
+              </div>
+
+              {/* Conditional Alert for Anonymous Sessions (> 5%) */}
+              {totalPageViews > 0 && (visitorStats.anonymousSessions / totalPageViews) > 0.05 && (
+                <div className="bg-artistic-pink/5 border-4 border-artistic-pink p-8 rounded-[2.5rem] shadow-[10px_10px_0px_0px_rgba(251,107,107,0.3)] flex flex-col justify-between">
+                  <div className="flex items-center gap-2 mb-4">
+                    <AlertCircle className="text-artistic-pink" size={16} />
+                    <p className="text-[10px] font-black uppercase text-artistic-pink tracking-[0.2em]">匿名セッション警告</p>
+                  </div>
+                  <div className="flex items-baseline gap-1">
+                    <p className="text-4xl lg:text-5xl font-black text-artistic-pink">{visitorStats.anonymousSessions}</p>
+                    <span className="text-xs font-black text-artistic-pink/40">回</span>
+                  </div>
+                  <p className="text-[8px] font-bold text-artistic-pink/60 mt-4 leading-tight italic">
+                    ※ 総アクセスの {Math.round((visitorStats.anonymousSessions / totalPageViews) * 100)}% が識別不可です。
+                    広告ブロックやプライベートモードの影響が考えられます。
+                  </p>
+                </div>
+              )}
             </div>
 
             {/* Content Reach (Funnel) */}
@@ -1078,7 +1190,7 @@ export default function AdminDashboard() {
                 ))}
               </div>
               <div className="mt-8 p-4 bg-artistic-bg/30 rounded-2xl border-2 border-dashed border-artistic-text/10 text-center">
-                <p className="text-[10px] font-bold opacity-40 italic">※ 各セクションが画面に20%以上表示されたことを検知して計測しています。</p>
+                <p className="text-[10px] font-bold opacity-40 italic">※ 各セクションが画面に10%以上表示されたことを検知して計測しています。ページ長の変化（アーカイブ増など）により、読了数と個別の到達率に乖離が出ることがあります。</p>
               </div>
             </div>
 
