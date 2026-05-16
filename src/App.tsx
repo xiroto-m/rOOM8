@@ -982,6 +982,14 @@ function MainSite() {
     );
   };
 
+  const getMapEmbedUrl = (event: EventItem) => {
+    if (!event.address && !event.locationName && event.googleMapEmbedUrl) {
+      return event.googleMapEmbedUrl;
+    }
+    const query = encodeURIComponent(event.address || event.locationName || '');
+    return `https://maps.google.com/maps?q=${query}&t=&z=16&ie=UTF8&iwloc=&output=embed`;
+  };
+
   const EventModal = ({ event, onClose }: { event: EventItem, onClose: () => void }) => {
     return (
       <motion.div 
@@ -1071,9 +1079,9 @@ function MainSite() {
               <div className="space-y-6">
                 <span className="text-xs font-black uppercase tracking-[0.3em] opacity-40 block">Map</span>
                 <div className="aspect-square bg-stone-100 border-2 border-artistic-text rounded-[2rem] overflow-hidden shadow-inner relative">
-                  {event.googleMapEmbedUrl ? (
+                  {event.address || event.locationName || event.googleMapEmbedUrl ? (
                     <iframe 
-                      src={event.googleMapEmbedUrl}
+                      src={getMapEmbedUrl(event)}
                       width="100%" 
                       height="100%" 
                       style={{ border: 0 }} 
@@ -1736,9 +1744,9 @@ function MainSite() {
             className="rounded-[2.5rem] overflow-hidden border-2 border-artistic-text shadow-[12px_12px_0px_0px_rgba(42,42,42,1)] h-[350px] md:h-[500px] mb-8 bg-stone-200 relative group"
             style={{ isolation: 'isolate', transform: 'translate3d(0, 0, 0)' }}
           >
-            {heroEvent.googleMapEmbedUrl ? (
+            {(heroEvent.address || heroEvent.locationName || heroEvent.googleMapEmbedUrl) ? (
               <iframe 
-                src={heroEvent.googleMapEmbedUrl}
+                src={getMapEmbedUrl(heroEvent)}
                 width="100%" 
                 height="100%" 
                 title="Google Maps"
