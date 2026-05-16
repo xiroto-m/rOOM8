@@ -424,8 +424,10 @@ export default function AdminDashboard() {
           ? sortedScrolls[mid] 
           : Math.round((sortedScrolls[mid - 1] + sortedScrolls[mid]) / 2);
         
-        completionCount = scrolls.filter(s => s >= 90).length;
-        completionRate = Math.round((completionCount / scrolls.length) * 100);
+        // Calculate completion count based on the last significant section (contact)
+        // to maintain consistency with the section reach funnel analysis
+        completionCount = sectionReachCounts['contact'] || 0;
+        completionRate = totalValidVisits > 0 ? Math.round((completionCount / totalValidVisits) * 100) : 0;
       }
 
       setEngagementStats({
@@ -1452,6 +1454,7 @@ export default function AdminDashboard() {
                       <p className="text-xl font-bold opacity-20 italic">集計データがまだありません</p>
                     </div>
                   )}
+                  <p className="text-[10px] font-bold opacity-40 italic mt-6">※ 「クリック数（CLICKS）」は延べ回数です。同一ユーザーが複数回クリックした場合もすべて加算されるため、訪問者ベースの「セクション到達数」より多くなることがあります。</p>
                 </div>
               </div>
             </div>

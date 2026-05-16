@@ -420,11 +420,14 @@ function MainSite() {
           const reachedSections = new Set<string>(['home']);
 
           const updateActivity = () => {
+            const isLoading = document.querySelector('.animate-pulse') !== null;
+            if (isLoading) return; // Skip calculation while page is in skeleton loading state
+
             const scrollPos = window.scrollY + window.innerHeight;
             const totalHeight = document.documentElement.scrollHeight;
             
             // Only calculate if page has content and height is realistic
-            if (totalHeight > 500) {
+            if (totalHeight > 1000) {
               const scrollPercent = Math.round((scrollPos / totalHeight) * 100);
               if (scrollPercent > maxScroll) maxScroll = Math.min(100, scrollPercent);
             }
@@ -987,7 +990,7 @@ function MainSite() {
       return event.googleMapEmbedUrl;
     }
     const query = encodeURIComponent(event.address || event.locationName || '');
-    return `https://maps.google.com/maps?q=${query}&t=&z=16&ie=UTF8&iwloc=&output=embed`;
+    return `https://maps.google.com/maps?q=${query}&output=embed`;
   };
 
   const EventModal = ({ event, onClose }: { event: EventItem, onClose: () => void }) => {
