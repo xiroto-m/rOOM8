@@ -295,16 +295,20 @@ export default function AdminDashboard() {
         'products': 'アプリ紹介',
         'contact': 'フッター/SNS'
       };
+      
+      const hasArchive = events.some(e => isPastEvent(e.date));
+      const hasProducts = EVENT_INFO.apps && EVENT_INFO.apps.length > 0;
+      
       const sectionReachCounts: {[key: string]: number} = {
         'home': 0,
         'event-info': 0,
-        'archive': 0,
+        ...(hasArchive ? { 'archive': 0 } : {}),
         'about': 0,
         'location': 0,
         'youtube-registration': 0,
         'gallery': 0,
         'feedback': 0,
-        'products': 0,
+        ...(hasProducts ? { 'products': 0 } : {}),
         'contact': 0
       };
       const fourHourBlocks: {[key: string]: number} = {
@@ -1120,17 +1124,6 @@ export default function AdminDashboard() {
                 </div>
                 <p className="text-[7px] font-bold opacity-30 italic mt-2">※ 初めて訪問した人数</p>
               </div>
-              <div className="bg-white border-4 border-artistic-text p-8 rounded-[2.5rem] shadow-[10px_10px_0px_0px_rgba(42,42,42,1)] flex flex-col justify-between">
-                <p className="text-[10px] font-black uppercase opacity-40 mb-4 tracking-[0.2em]">リピート訪問数 (増分計)</p>
-                <div className="flex items-baseline gap-1">
-                  <p className="text-4xl lg:text-5xl font-black text-artistic-primary/60">{visitorStats.repeatVisits}</p>
-                  <span className="text-xs font-black opacity-40">回</span>
-                </div>
-                <div className="mt-2 pt-2 border-t border-artistic-text/5 flex items-center justify-between">
-                  <span className="text-[8px] font-black opacity-40 uppercase tracking-widest">計算式</span>
-                  <span className="text-[9px] font-black text-artistic-text/30">総訪問 - ユニーク人数</span>
-                </div>
-              </div>
 
               {/* Conditional Alert for Anonymous Sessions (> 5%) */}
               {totalPageViews > 0 && (visitorStats.anonymousSessions / totalPageViews) > 0.05 && (
@@ -1301,15 +1294,15 @@ export default function AdminDashboard() {
                 </div>
               </div>
 
-            <div className="grid md:grid-cols-2 gap-12">
-              <div className="bg-white border-4 border-artistic-text p-10 md:p-14 rounded-[3.5rem] shadow-[12px_12px_0px_0px_rgba(42,42,42,1)]">
-                <div className="flex items-center gap-4 mb-10">
-                  <div className="w-12 h-12 bg-artistic-accent/20 rounded-2xl flex items-center justify-center text-artistic-accent">
+            <div className="grid lg:grid-cols-2 gap-8 md:gap-12">
+              <div className="bg-white border-4 border-artistic-text p-8 lg:p-12 rounded-[3.5rem] shadow-[12px_12px_0px_0px_rgba(42,42,42,1)] min-w-0">
+                <div className="flex items-center gap-4 mb-10 w-full overflow-hidden">
+                  <div className="w-12 h-12 shrink-0 bg-artistic-accent/20 rounded-2xl flex items-center justify-center text-artistic-accent">
                     <Monitor size={24} />
                   </div>
-                  <h3 className="text-xl font-black italic">デバイス比率</h3>
+                  <h3 className="text-xl font-black italic truncate">デバイス比率</h3>
                 </div>
-                <div className="h-[250px]">
+                <div className="h-[250px] w-full">
                   {deviceData.length > 0 ? (
                     <ResponsiveContainer width="100%" height="100%">
                       <PieChart>
@@ -1317,8 +1310,9 @@ export default function AdminDashboard() {
                           data={deviceData}
                           cx="50%"
                           cy="50%"
-                          innerRadius={50}
-                          outerRadius={80}
+                          labelLine={false}
+                          innerRadius="50%"
+                          outerRadius="80%"
                           paddingAngle={10}
                           dataKey="value"
                         >
@@ -1334,7 +1328,7 @@ export default function AdminDashboard() {
                             fontSize: '12px'
                           }}
                         />
-                        <Legend iconType="circle" wrapperStyle={{ fontSize: '10px', fontWeight: '900' }} />
+                        <Legend iconType="circle" wrapperStyle={{ fontSize: '10px', fontWeight: '900', whiteSpace: 'nowrap' }} />
                       </PieChart>
                     </ResponsiveContainer>
                   ) : (
@@ -1345,14 +1339,14 @@ export default function AdminDashboard() {
                 </div>
               </div>
 
-              <div className="bg-white border-4 border-artistic-text p-10 md:p-14 rounded-[3.5rem] shadow-[12px_12px_0px_0px_rgba(42,42,42,1)]">
-                <div className="flex items-center gap-4 mb-10">
-                  <div className="w-12 h-12 bg-artistic-primary/20 rounded-2xl flex items-center justify-center text-artistic-primary">
+              <div className="bg-white border-4 border-artistic-text p-8 lg:p-12 rounded-[3.5rem] shadow-[12px_12px_0px_0px_rgba(42,42,42,1)] min-w-0">
+                <div className="flex items-center gap-4 mb-10 w-full overflow-hidden">
+                  <div className="w-12 h-12 shrink-0 bg-artistic-primary/20 rounded-2xl flex items-center justify-center text-artistic-primary">
                     <Heart size={24} />
                   </div>
-                  <h3 className="text-xl font-black italic">リピーター率</h3>
+                  <h3 className="text-xl font-black italic truncate">リピーター率</h3>
                 </div>
-                <div className="h-[250px]">
+                <div className="h-[250px] w-full">
                   <ResponsiveContainer width="100%" height="100%">
                     <PieChart>
                       <Pie
@@ -1362,8 +1356,9 @@ export default function AdminDashboard() {
                         ]}
                         cx="50%"
                         cy="50%"
-                        innerRadius={50}
-                        outerRadius={80}
+                        labelLine={false}
+                        innerRadius="50%"
+                        outerRadius="80%"
                         paddingAngle={10}
                         dataKey="value"
                       >
@@ -1378,7 +1373,7 @@ export default function AdminDashboard() {
                           fontSize: '12px'
                         }}
                       />
-                      <Legend iconType="circle" wrapperStyle={{ fontSize: '10px', fontWeight: '900' }} />
+                      <Legend iconType="circle" wrapperStyle={{ fontSize: '10px', fontWeight: '900', whiteSpace: 'nowrap' }} />
                     </PieChart>
                   </ResponsiveContainer>
                 </div>

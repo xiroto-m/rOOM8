@@ -1359,16 +1359,6 @@ function MainSite() {
             className="lg:col-span-12 bg-artistic-primary text-white p-8 md:p-14 rounded-[2.5rem] md:rounded-[3.5rem] flex flex-col lg:flex-row gap-12 shadow-[12px_12px_0px_0px_rgba(42,42,42,1)] md:shadow-[20px_20px_0px_0px_rgba(42,42,42,1)] border-2 border-artistic-text relative z-10 cursor-pointer hover:scale-[1.005] transition-transform"
           >
             <div className="lg:w-1/2 flex flex-col justify-between relative">
-              {/* Decorative Logo Accent in Hero */}
-              <motion.div 
-                initial={{ opacity: 0, scale: 0.5, rotate: -20 }}
-                animate={{ opacity: 1, scale: 1, rotate: 12 }}
-                transition={{ delay: 0.5, duration: 0.8, type: "spring" }}
-                className="absolute -top-10 -right-6 md:-right-12 w-20 h-20 md:w-32 md:h-32 bg-white rounded-3xl p-3 md:p-5 shadow-[8px_8px_0px_0px_rgba(42,42,42,1)] z-20 hidden md:block group-hover:rotate-[20deg] transition-transform"
-              >
-                <img src="https://lh3.googleusercontent.com/d/13uUJp8IusBZmEpYpJlamALpv6vFwJ2lh" alt="" className="w-full h-full object-contain pointer-events-none" />
-              </motion.div>
-
               <div>
               <div className="flex items-center gap-3 mb-6">
                 <span className="text-[10px] md:text-xs font-black uppercase tracking-[0.4em] opacity-80 bg-white/20 px-3 py-1 rounded-full">Next Event</span>
