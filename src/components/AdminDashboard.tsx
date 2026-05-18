@@ -656,7 +656,25 @@ export default function AdminDashboard() {
         totalDuration += duration;
         durations.push(duration);
 
-        const scroll = (typeof data.maxScrollDepth === 'number' && data.maxScrollDepth >= 0) ? data.maxScrollDepth : 0;
+        let scroll = (typeof data.maxScrollDepth === 'number' && data.maxScrollDepth >= 0) ? data.maxScrollDepth : 0;
+        
+        // Sync scroll with content reach to maintain consistency
+        if (data.sectionsReached && Array.isArray(data.sectionsReached)) {
+          const sectionKeys = Object.keys(sectionReachCounts);
+          const reachedIndices = data.sectionsReached
+            .map((id: string) => sectionKeys.indexOf(id))
+            .filter((idx: number) => idx !== -1);
+            
+          if (reachedIndices.length > 0) {
+            const maxSectionIndex = Math.max(...reachedIndices);
+            // Calculate minimum consistent scroll percentage based on furthest section reached
+            const minScrollFromSections = Math.round(((maxSectionIndex + 1) / sectionKeys.length) * 100);
+            if (minScrollFromSections > scroll) {
+              scroll = minScrollFromSections;
+            }
+          }
+        }
+
         totalScroll += scroll;
         scrolls.push(scroll);
         
@@ -707,16 +725,10 @@ export default function AdminDashboard() {
           : Math.round((sortedValid[mid - 1] + sortedValid[mid]) / 2);
       }
 
-      // Calculate median scroll using ALL valid visits as denominator
-      let medianScroll = 0;
+      // Calculate completion rate based on ALL valid visits as denominator
       let completionRate = 0;
       let completionCount = 0;
       if (scrolls.length > 0) {
-        const sortedScrolls = [...scrolls].sort((a, b) => a - b);
-        const mid = Math.floor(sortedScrolls.length / 2);
-        medianScroll = sortedScrolls.length % 2 !== 0 
-          ? sortedScrolls[mid] 
-          : Math.round((sortedScrolls[mid - 1] + sortedScrolls[mid]) / 2);
         
         // Calculate completion count based on the last significant section (contact)
         // to maintain consistency with the section reach funnel analysis
@@ -728,7 +740,7 @@ export default function AdminDashboard() {
         avgDuration: validDurations.length > 0 ? Math.round(validDurations.reduce((a, b) => a + b, 0) / validDurations.length) : 0,
         medianDuration,
         avgScroll: totalValidVisits > 0 ? Math.round(totalScroll / totalValidVisits) : 0,
-        medianScroll,
+        medianScroll: 0,
         completionRate,
         completionCount
       });
@@ -1512,12 +1524,6 @@ export default function AdminDashboard() {
                   <p className="text-4xl lg:text-5xl font-black text-artistic-green">{engagementStats.avgScroll}</p>
                   <span className="text-xs font-black opacity-40">%</span>
                 </div>
-                <div className="mt-2 pt-2 border-t border-artistic-text/5 space-y-1">
-                  <div className="flex items-center justify-between">
-                    <span className="text-[8px] font-black opacity-40 uppercase tracking-widest">中央値</span>
-                    <span className="text-sm font-black text-artistic-green/60">{engagementStats.medianScroll}%</span>
-                  </div>
-                </div>
               </div>
               <div className="bg-white border-4 border-artistic-text p-8 rounded-[2.5rem] shadow-[10px_10px_0px_0px_rgba(42,42,42,1)] flex flex-col justify-between">
                 <p className="text-[10px] font-black uppercase opacity-40 mb-4 tracking-[0.2em]">読了率 (90%+)</p>
@@ -1928,7 +1934,7 @@ export default function AdminDashboard() {
                     <div className="w-1.5 h-1.5 rounded-full bg-artistic-green" /> 滞在時間・スクロール
                   </h4>
                   <p className="text-[10px] font-bold opacity-70 leading-relaxed">
-                    滞在時間は実測値（秒）、スクロールはページ全体の高さに対して到達した最大深度（%）です。一部の極端な数値に惑わされないよう、平均値と併せて中央値（全体を並べた時の真ん中の人の値）を表示しています。
+                    滞在時間は実測値（秒）、スクロールはページ全体の高さに対して到達した最大深度（%）です。滞在時間は一部の極端な数値に惑わされないよう、平均値と併せて中央値（全体を並べた時の真ん中の人の値）も表示しています。
                   </p>
                 </div>
                 <div className="bg-artistic-bg/30 p-6 rounded-[2rem] border-2 border-artistic-text/5">
