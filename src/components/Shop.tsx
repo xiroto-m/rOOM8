@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from "react";
+import { Link } from "react-router-dom";
 import { motion } from "motion/react";
 import { ShoppingBag, ArrowLeft, Heart, Check, Loader2, AlertCircle } from "lucide-react";
 import { collection, onSnapshot, query, orderBy, where } from "firebase/firestore";
@@ -119,12 +120,12 @@ export default function Shop() {
               SH<span className="text-artistic-primary underline decoration-artistic-accent underline-offset-8">OP</span>
             </h1>
           </div>
-          <a
-            href="/"
+          <Link
+            to="/"
             className="flex items-center gap-2 px-6 py-3 bg-white border-2 border-artistic-text rounded-2xl font-black shadow-[4px_4px_0px_0px_rgba(42,42,42,1)] hover:shadow-none hover:translate-x-[2px] hover:translate-y-[2px] transition-all"
           >
             <ArrowLeft size={18} /> ギャラリーへ戻る
-          </a>
+          </Link>
         </div>
 
         {products.length === 0 ? (
