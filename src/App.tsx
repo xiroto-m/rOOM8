@@ -27,6 +27,7 @@ import { QRCodeSVG } from "qrcode.react";
 import { EVENT_INFO, SECTIONS, FALLBACK_EVENTS } from "./constants";
 import AdminDashboard from "./components/AdminDashboard";
 import PrivacyGallery from "./components/PrivacyGallery";
+import Shop from "./components/Shop";
 import { db, EventItem, auth } from "./lib/firebase";
 import { formatEventDate, isPastEvent } from "./lib/dateUtils";
 import { generateGoogleCalendarUrl, downloadICS } from "./lib/calendarUtils";
@@ -374,6 +375,28 @@ function MainSite() {
 
   const analyticsCleanupRef = React.useRef<(() => void) | null>(null);
 
+  const [isAdmin, setIsAdmin] = useState(false);
+
+  useEffect(() => {
+    const checkAdmin = (user: any) => {
+      const isStudio = document.referrer.includes('aistudio.google.com') || 
+                      window.location.hostname.includes('run.app') ||
+                      window.location.hostname.includes('localhost');
+      
+      const adminSecret = localStorage.getItem('room8_is_admin') === 'true';
+      setIsAdmin(!!user || adminSecret || isStudio);
+    };
+
+    const unsubscribe = auth.onAuthStateChanged((user) => {
+      checkAdmin(user);
+    });
+    
+    // Initial check
+    checkAdmin(auth.currentUser);
+
+    return () => unsubscribe();
+  }, []);
+
   useEffect(() => {
     // Generate or retrieve persistent device ID
     let currentDeviceId = deviceId;
@@ -386,10 +409,6 @@ function MainSite() {
       setDeviceId(currentDeviceId);
     }
 
-    // Skip tracking for admin devices/users to avoid bias
-    // Also skip if accessing from AI Studio editor
-    const isAdmin = localStorage.getItem('room8_is_admin') === 'true' || auth.currentUser || document.referrer.includes('aistudio.google.com');
-    
     if (!isAdmin) {
       const recordVisitSession = async (ipAddr: string | null) => {
         try {
@@ -399,12 +418,6 @@ function MainSite() {
           const ua = navigator.userAgent;
           const isMobile = /iPhone|iPad|iPod|Android/i.test(ua);
           const deviceType = isMobile ? 'mobile' : 'desktop';
-          
-          // Detect In-App Browsers
-          const isInAppLINE = /Line/i.test(ua);
-          const isInAppInstagram = /Instagram/i.test(ua);
-          const isInAppFB = /FBAN|FBAV/i.test(ua);
-          const isInAppBrowser = isInAppLINE || isInAppInstagram || isInAppFB;
           
           const sessionId = `${Date.now()}_${Math.random().toString(36).substring(2, 7)}`;
           const visitId = `${today}_${currentDeviceId}_${sessionId}`;
@@ -661,7 +674,7 @@ function MainSite() {
         analyticsCleanupRef.current();
       }
     };
-  }, []);
+  }, [isAdmin]);
 
   const handleLike = async (eventId: string) => {
     if (!userIP || !eventId) return;
@@ -1034,6 +1047,11 @@ function MainSite() {
 
           {/* Content */}
           <div className="flex-1 overflow-y-auto p-6 md:p-10 space-y-8">
+            {event.imageUrl && (
+              <div className="w-full aspect-video rounded-[2rem] overflow-hidden border-4 border-artistic-text shadow-[8px_8px_0px_0px_rgba(42,42,42,1)] mb-8">
+                <img src={event.imageUrl} alt={event.title} className="w-full h-full object-cover" referrerPolicy="no-referrer" />
+              </div>
+            )}
             <div className="grid md:grid-cols-2 gap-8">
               <div className="space-y-6">
                 <div>
@@ -1154,13 +1172,27 @@ function MainSite() {
 
   const [showLoadingScreen, setShowLoadingScreen] = useState(true);
 
-  // Transition from progress to content
+  // Transition from progress to content with safety timeout
   useEffect(() => {
     if (loadingProgress === 100) {
       const timer = setTimeout(() => setShowLoadingScreen(false), 800);
       return () => clearTimeout(timer);
     }
   }, [loadingProgress]);
+
+  // Safety timeout: if loading takes too long, force it to finish
+  useEffect(() => {
+    if (loading) {
+      const timer = setTimeout(() => {
+        if (loading) {
+          console.warn("Loading reached safety timeout - forcing load state to false");
+          setLoading(false);
+          setLoadingMessage("時間を要しているため、仮データで表示します。");
+        }
+      }, 8000); // 8 seconds timeout
+      return () => clearTimeout(timer);
+    }
+  }, [loading]);
 
   if (showLoadingScreen) {
     return (
@@ -1216,7 +1248,7 @@ function MainSite() {
               </div>
             </div>
             
-            <div className="flex items-center gap-3 justify-center">
+            <div className="flex items-center gap-3 justify-center mb-4">
               <motion.div
                 animate={{ rotate: 360 }}
                 transition={{ repeat: Infinity, duration: 2, ease: "linear" }}
@@ -1226,6 +1258,18 @@ function MainSite() {
               </motion.div>
               <p className="font-black text-sm md:text-base animate-pulse">{loadingMessage}</p>
             </div>
+
+            {error && (
+              <div className="bg-red-50 border-2 border-red-200 p-4 rounded-xl text-center">
+                <p className="text-red-500 font-black text-xs">{error}</p>
+                <button 
+                  onClick={() => window.location.reload()}
+                  className="mt-2 text-[10px] font-black underline opacity-50 hover:opacity-100"
+                >
+                  再読み込み
+                </button>
+              </div>
+            )}
           </div>
           
           <div className="mt-12 flex justify-center gap-4 opacity-20">
@@ -1328,6 +1372,13 @@ function MainSite() {
               >
                 Location
               </a>
+              <Link
+                to="/shop"
+                onClick={() => trackAction('click_header_shop')}
+                className="text-[10px] font-black uppercase tracking-widest text-artistic-pink hover:text-artistic-primary transition-colors flex items-center gap-1"
+              >
+                <ShoppingBag size={12} /> Shop
+              </Link>
               <div className="hidden md:flex flex-col items-end">
                 <a 
                   href="#youtube-registration"
@@ -1471,8 +1522,17 @@ function MainSite() {
             </div>
             </div>
             
-            <div className="lg:w-1/2 flex flex-col gap-6">
-              <div className="bg-[#FFFCEB] border-2 border-artistic-text p-8 md:p-14 lg:p-20 rounded-[2.5rem] md:rounded-[3.5rem] relative overflow-hidden flex-1 shadow-[8px_8px_0px_0px_rgba(42,42,42,1)] md:shadow-[12px_12px_0px_0px_rgba(42,42,42,1)] flex flex-col justify-center text-artistic-text group/concept">
+                  <div className="lg:w-1/2 flex flex-col gap-6">
+                    {heroEvent.imageUrl && (
+                      <motion.div 
+                        initial={{ opacity: 0, scale: 0.95 }}
+                        animate={{ opacity: 1, scale: 1 }}
+                        className="w-full aspect-video rounded-[3.5rem] overflow-hidden border-4 border-artistic-text shadow-[12px_12px_0px_0px_rgba(42,42,42,1)]"
+                      >
+                        <img src={heroEvent.imageUrl} alt={heroEvent.title} className="w-full h-full object-cover" referrerPolicy="no-referrer" />
+                      </motion.div>
+                    )}
+                    <div className="bg-[#FFFCEB] border-2 border-artistic-text p-8 md:p-14 lg:p-20 rounded-[2.5rem] md:rounded-[3.5rem] relative overflow-hidden flex-1 shadow-[8px_8px_0px_0px_rgba(42,42,42,1)] md:shadow-[12px_12px_0px_0px_rgba(42,42,42,1)] flex flex-col justify-center text-artistic-text group/concept">
                 {/* Decorative background text */}
                 <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 text-[12rem] lg:text-[20rem] font-black opacity-[0.03] rotate-[-15deg] pointer-events-none select-none whitespace-nowrap">
                   PHILOSOPHY
@@ -1552,12 +1612,18 @@ function MainSite() {
                   transition: { type: "spring", stiffness: 300 }
                 }}
                 onClick={() => setSelectedEvent(ev)}
-                className="group relative bg-white border-2 border-artistic-text p-6 md:p-8 rounded-[2.5rem] shadow-[8px_8px_0px_0px_rgba(42,42,42,1)] hover:shadow-[12px_12px_0px_0px_rgba(255,107,107,0.3)] transition-all cursor-pointer flex flex-col h-full overflow-hidden"
+                className="group relative bg-white border-2 border-artistic-text rounded-[2.5rem] shadow-[8px_8px_0px_0px_rgba(42,42,42,1)] hover:shadow-[12px_12px_0px_0px_rgba(255,107,107,0.3)] transition-all cursor-pointer flex flex-col h-full overflow-hidden"
               >
+                {ev.imageUrl && (
+                  <div className="w-full h-48 border-b-2 border-artistic-text overflow-hidden">
+                    <img src={ev.imageUrl} alt={ev.title} className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-110" referrerPolicy="no-referrer" />
+                  </div>
+                )}
+                
                 {/* Visual Accent */}
                 <div className="absolute top-0 right-0 w-32 h-32 bg-artistic-accent/10 rounded-full -mr-16 -mt-16 blur-2xl group-hover:bg-artistic-accent/20 transition-colors" />
                 
-                <div className="relative z-10 flex flex-col h-full">
+                <div className="p-6 md:p-8 relative z-10 flex flex-col h-full">
                   <div className="flex justify-between items-start mb-6">
                     <div className="flex items-center gap-3">
                        {(() => {
@@ -2154,6 +2220,7 @@ export default function App() {
       <HashRouter>
         <Routes>
           <Route path="/" element={<MainSite />} />
+          <Route path="/shop" element={<Shop />} />
           <Route path="/admin" element={<AdminDashboard />} />
           <Route path="*" element={<MainSite />} />
         </Routes>

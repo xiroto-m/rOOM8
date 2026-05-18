@@ -1,11 +1,13 @@
 import { initializeApp } from 'firebase/app';
 import { getAuth, GoogleAuthProvider, signInWithPopup, onAuthStateChanged, User } from 'firebase/auth';
 import { getFirestore, doc, getDoc, setDoc, onSnapshot, serverTimestamp, Timestamp } from 'firebase/firestore';
+import { getStorage } from 'firebase/storage';
 import firebaseConfig from '../../firebase-applet-config.json';
 
 const app = initializeApp(firebaseConfig);
 export const db = getFirestore(app, firebaseConfig.firestoreDatabaseId);
 export const auth = getAuth(app);
+export const storage = getStorage(app);
 export const googleProvider = new GoogleAuthProvider();
 
 export interface EventItem {
@@ -20,6 +22,7 @@ export interface EventItem {
   googleMapEmbedUrl: string;
   youtubeUrl?: string; // Add YouTube URL
   facebookEventUrl?: string; // Restore Facebook URL for backward compatibility
+  imageUrl?: string;        // Add Image URL
   description?: string;      // Add Description
   title?: string;            // Add Title
   order: number;

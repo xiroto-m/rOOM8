@@ -90,6 +90,23 @@
         "order": { "type": "number" }
       },
       "required": ["url", "createdAt", "order"]
+    },
+    "Product": {
+      "title": "Product",
+      "description": "Artwork or goods for sale",
+      "type": "object",
+      "properties": {
+        "name": { "type": "string" },
+        "description": { "type": "string" },
+        "price": { "type": "number" },
+        "currency": { "type": "string" },
+        "imageUrl": { "type": "string" },
+        "status": { "type": "string", "enum": ["active", "sold_out", "hidden"] },
+        "stripePriceId": { "type": "string" },
+        "order": { "type": "number" },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["name", "price", "currency", "status", "createdAt"]
     }
   },
   "firestore": {
@@ -116,6 +133,10 @@
     "/gallery/{imageId}": {
       "schema": "GalleryImage",
       "description": "Gallery images"
+    },
+    "/products/{productId}": {
+      "schema": "Product",
+      "description": "Products available in the shop"
     }
   }
 }

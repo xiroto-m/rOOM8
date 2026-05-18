@@ -2,12 +2,67 @@ import express from "express";
 import { createServer as createViteServer } from "vite";
 import path from "path";
 import dotenv from "dotenv";
+import Stripe from "stripe";
 
 dotenv.config();
+
+let stripe: Stripe | null = null;
+function getStripe() {
+  if (!stripe) {
+    const key = process.env.STRIPE_SECRET_KEY;
+    if (!key) {
+      console.warn("STRIPE_SECRET_KEY is missing in environment variables.");
+    }
+    stripe = new Stripe(key || "", {
+      apiVersion: "2025-01-27.acacia" as any,
+    });
+  }
+  return stripe;
+}
 
 async function startServer() {
   const app = express();
   const PORT = 3000;
+
+  app.use(express.json());
+
+  // Health Check
+  app.get("/api/health", (req, res) => {
+    res.json({ status: "ok", time: new Date().toISOString() });
+  });
+
+  // Stripe Checkout Session Endpoint
+  app.post("/api/create-checkout-session", async (req, res) => {
+    const { priceId, productId } = req.body;
+    const appUrl = process.env.APP_URL || `http://localhost:${PORT}`;
+
+    if (!priceId) {
+      return res.status(400).json({ error: "priceId is required" });
+    }
+
+    try {
+      const stripeClient = getStripe();
+      const session = await stripeClient.checkout.sessions.create({
+        line_items: [
+          {
+            price: priceId,
+            quantity: 1,
+          },
+        ],
+        mode: "payment",
+        success_url: `${appUrl}/#/shop?success=true&session_id={CHECKOUT_SESSION_ID}`,
+        cancel_url: `${appUrl}/#/shop?canceled=true`,
+        metadata: {
+          productId,
+        },
+      });
+
+      res.json({ id: session.id });
+    } catch (error: any) {
+      console.error("Stripe Session Error:", error);
+      res.status(500).json({ error: error.message });
+    }
+  });
 
   // API Route to fetch YouTube subscribers
   app.get("/api/youtube-subscribers", async (req, res) => {
@@ -115,6 +170,7 @@ async function startServer() {
     const vite = await createViteServer({
       server: { middlewareMode: true },
       appType: "spa",
+      root: process.cwd(),
     });
     app.use(vite.middlewares);
   } else {

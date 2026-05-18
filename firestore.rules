@@ -101,6 +101,20 @@ service cloud.firestore {
         && data.order is number;
     }
 
+    function isValidProduct(data) {
+      return data.keys().hasAll(['name', 'price', 'currency', 'status', 'createdAt', 'order', 'updatedAt'])
+        && data.name is string && data.name.size() <= 200
+        && data.price is number
+        && data.currency is string && data.currency.size() <= 10
+        && data.status in ['active', 'sold_out', 'hidden']
+        && data.createdAt is string
+        && data.order is number
+        && data.updatedAt is timestamp
+        && (!data.keys().hasAny(['description']) || (data.description is string && data.description.size() <= 2000))
+        && (!data.keys().hasAny(['imageUrl']) || (data.imageUrl is string && data.imageUrl.size() <= 2000000))
+        && (!data.keys().hasAny(['stripePriceId']) || (data.stripePriceId is string && data.stripePriceId.size() <= 200));
+    }
+
     // --- COLLECTION RULES ---
     match /settings/{docId} {
       allow read: if true;
@@ -158,6 +172,12 @@ service cloud.firestore {
       allow read: if true;
       allow create, update: if isAdmin() && isValidId(imageId) && isValidGalleryImage(incoming());
       allow delete: if isAdmin() && isValidId(imageId);
+    }
+
+    match /products/{productId} {
+      allow read: if true;
+      allow create, update: if isAdmin() && isValidId(productId) && isValidProduct(incoming());
+      allow delete: if isAdmin() && isValidId(productId);
     }
   }
 }

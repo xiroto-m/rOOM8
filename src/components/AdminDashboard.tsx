@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { 
   auth, 
   db, 
+  storage,
   googleProvider, 
   EventConfigData, 
   EventItem,
@@ -14,6 +15,12 @@ import {
   onAuthStateChanged, 
   User 
 } from 'firebase/auth';
+import { 
+  ref, 
+  uploadBytes, 
+  getDownloadURL 
+} from 'firebase/storage';
+import { useDropzone } from 'react-dropzone';
 import { 
   doc, 
   getDoc, 
@@ -31,9 +38,21 @@ import {
 import { EVENT_INFO } from '../constants';
 import { formatEventDate, isPastEvent } from '../lib/dateUtils';
 import { Link } from 'react-router-dom';
-import { LogIn, LogOut, Save, AlertCircle, CheckCircle, ArrowLeft, ArrowRight, ArrowUp, ArrowDown, Plus, Trash2, Edit2, Calendar, Settings, Copy, Heart, BarChart3, Download, Upload, Monitor, Clock, Users } from 'lucide-react';
+import { LogIn, LogOut, Save, AlertCircle, CheckCircle, ArrowLeft, ArrowRight, ArrowUp, ArrowDown, Plus, Trash2, Edit2, Calendar, Settings, Copy, Heart, BarChart3, Download, Upload, Monitor, Clock, Users, ShoppingBag } from 'lucide-react';
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, PieChart, Pie, Cell, Legend, BarChart, Bar } from 'recharts';
 import Papa from 'papaparse';
+
+interface Product {
+  id?: string;
+  name: string;
+  description: string;
+  price: number;
+  currency: string;
+  imageUrl: string;
+  status: "active" | "sold_out" | "hidden";
+  stripePriceId?: string;
+  order: number;
+}
 
 const ADMIN_EMAILS = ["hiroto.mizutani@gmail.com", "taku448@gmail.com"];
 const ANALYTICS_START_DATE = new Date('2026-05-13T00:00:00+09:00');
@@ -175,6 +194,14 @@ const EventEditModal = ({ event, onSave, onClose, saving }: { event: EventItem, 
             />
           </div>
 
+          <div className="space-y-4">
+            <ImageUpload 
+              currentUrl={formData.imageUrl || ''} 
+              onUpload={(url) => setFormData({...formData, imageUrl: url})} 
+              label="イベント画像 (任意)"
+            />
+          </div>
+
           <div className="space-y-2">
             <label className="text-xs font-black uppercase opacity-60">イベント概要 (任意)</label>
             <textarea 
@@ -221,11 +248,276 @@ const EventEditModal = ({ event, onSave, onClose, saving }: { event: EventItem, 
   );
 };
 
+const ImageUpload = ({ onUpload, currentUrl, label = "画像" }: { onUpload: (url: string) => void, currentUrl: string, label?: string }) => {
+  const [uploading, setUploading] = useState(false);
+  const [preview, setPreview] = useState(currentUrl);
+  const [error, setError] = useState<string | null>(null);
+
+  const onDrop = async (acceptedFiles: File[]) => {
+    const file = acceptedFiles[0];
+    if (!file) {
+      console.log("No file accepted");
+      return;
+    }
+
+    console.log("Starting processing for:", file.name, file.type);
+    setUploading(true);
+    setError(null);
+    try {
+      // Create a function to convert and resize image to base64
+      const processImage = (file: File): Promise<string> => {
+        return new Promise((resolve, reject) => {
+          const reader = new FileReader();
+          reader.readAsDataURL(file);
+          reader.onload = (event) => {
+            const img = new Image();
+            img.src = event.target?.result as string;
+            img.onload = () => {
+              const canvas = document.createElement('canvas');
+              let width = img.width;
+              let height = img.height;
+              const maxDim = 800; // max width or height
+
+              if (width > height) {
+                if (width > maxDim) {
+                  height *= maxDim / width;
+                  width = maxDim;
+                }
+              } else {
+                if (height > maxDim) {
+                  width *= maxDim / height;
+                  height = maxDim;
+                }
+              }
+
+              canvas.width = width;
+              canvas.height = height;
+              const ctx = canvas.getContext('2d');
+              ctx?.drawImage(img, 0, 0, width, height);
+              
+              // Compress with JPEG, adjust quality to 0.7
+              const dataUrl = canvas.toDataURL('image/jpeg', 0.7);
+              resolve(dataUrl);
+            };
+            img.onerror = (err) => reject(err);
+          };
+          reader.onerror = (err) => reject(err);
+        });
+      };
+
+      const base64Url = await processImage(file);
+      console.log("Image processed successfully (Base64)");
+      
+      setPreview(base64Url);
+      onUpload(base64Url);
+      
+    } catch (err: any) {
+      console.error("Upload/Processing error detail:", err);
+      setError(`画像の処理に失敗しました。`);
+    } finally {
+      setUploading(false);
+    }
+  };
+
+  const { getRootProps, getInputProps, isDragActive, fileRejections } = useDropzone({ 
+    onDrop, 
+    accept: {
+      'image/png': ['.png'],
+      'image/jpeg': ['.jpg', '.jpeg'],
+      'image/gif': ['.gif'],
+      'image/webp': ['.webp']
+    },
+    multiple: false,
+    onDropRejected: (rejections) => {
+      console.log("Files rejected:", rejections);
+      const reason = rejections[0]?.errors[0]?.message || "非対応のファイル形式です。";
+      setError(`ファイルが拒否されました: ${reason}`);
+    }
+  } as any);
+
+  useEffect(() => {
+    if (fileRejections.length > 0) {
+      const reason = fileRejections[0].errors[0].message;
+      setError(`ファイルが拒否されました: ${reason}`);
+    }
+  }, [fileRejections]);
+
+  return (
+    <div className="space-y-2">
+      <label className="text-xs font-black uppercase opacity-60">{label}</label>
+      <div 
+        {...getRootProps()} 
+        className={`border-4 border-dashed rounded-2xl p-8 flex flex-col items-center justify-center cursor-pointer transition-all ${isDragActive ? 'border-artistic-primary bg-artistic-primary/5 scale-102' : 'border-artistic-text/10 hover:border-artistic-text/30'} ${error ? 'border-red-400' : ''}`}
+      >
+        <input {...getInputProps()} />
+        {preview ? (
+          <div className="relative group w-full aspect-video rounded-xl overflow-hidden border-2 border-artistic-text">
+            <img src={preview} alt="Preview" className="w-full h-full object-cover" referrerPolicy="no-referrer" />
+            <div className="absolute inset-0 bg-artistic-text/60 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
+              <p className="text-white font-black text-sm">クリックして画像を変更</p>
+            </div>
+          </div>
+        ) : (
+          <div className="text-center py-4">
+            <Upload className="mx-auto mb-2 opacity-40" size={32} />
+            <p className="font-bold text-sm opacity-60">画像をドラッグ＆ドロップ<br/>またはクリックして選択</p>
+          </div>
+        )}
+        {uploading && (
+          <div className="absolute inset-0 bg-white/80 flex flex-col items-center justify-center rounded-2xl z-10">
+            <div className="w-8 h-8 border-4 border-artistic-primary border-t-transparent rounded-full animate-spin mb-2"></div>
+            <p className="text-xs font-black text-artistic-primary uppercase tracking-widest">Uploading...</p>
+          </div>
+        )}
+      </div>
+      {error && (
+        <p className="text-[10px] font-bold text-red-500 bg-red-50 p-2 rounded-lg border border-red-100">{error}</p>
+      )}
+      {preview && (
+        <div className="flex gap-2 items-center">
+          <input 
+            type="url" 
+            value={preview} 
+            onChange={e => {
+              setPreview(e.target.value);
+              onUpload(e.target.value);
+            }}
+            className="flex-1 border-2 border-artistic-text/10 p-2 rounded-lg text-[10px] font-mono outline-none focus:border-artistic-primary"
+            placeholder="または画像の直リンクを入力"
+          />
+        </div>
+      )}
+    </div>
+  );
+};
+
+const ProductEditModal = ({ product, onSave, onClose, saving }: { product: Product, onSave: (product: Product) => void, onClose: () => void, saving: boolean }) => {
+  const [formData, setFormData] = useState<Product>(product);
+
+  const handleSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    onSave(formData);
+  };
+
+  return (
+    <div className="fixed inset-0 bg-artistic-text/80 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+      <div className="bg-white border-4 border-artistic-text w-full max-w-2xl rounded-[2.5rem] shadow-[12px_12px_0px_0px_rgba(42,42,42,1)] overflow-hidden flex flex-col max-h-[90vh]">
+        <div className="p-8 border-b-4 border-artistic-text flex justify-between items-center bg-artistic-pink/20">
+          <h3 className="text-2xl font-black">{formData.id ? '商品を編集' : '新規商品登録'}</h3>
+          <button onClick={onClose} className="font-black text-2xl">×</button>
+        </div>
+        
+        <form onSubmit={handleSubmit} className="p-8 space-y-6 overflow-y-auto">
+          <div className="space-y-2">
+            <label className="text-xs font-black uppercase opacity-60">商品名</label>
+            <input 
+              type="text" 
+              required
+              value={formData.name} 
+              onChange={e => setFormData({...formData, name: e.target.value})}
+              className="w-full border-2 border-artistic-text p-3 rounded-xl font-bold outline-none"
+              placeholder="Tシャツ / アートプリント"
+            />
+          </div>
+
+          <div className="grid md:grid-cols-2 gap-6">
+            <div className="space-y-2">
+              <label className="text-xs font-black uppercase opacity-60">価格 (税込 ¥)</label>
+              <input 
+                type="number" 
+                required
+                value={formData.price || ''} 
+                onChange={e => setFormData({...formData, price: e.target.value === '' ? 0 : Number(e.target.value)})}
+                className="w-full border-2 border-artistic-text p-3 rounded-xl font-bold outline-none"
+                placeholder="3000"
+              />
+            </div>
+            <div className="space-y-2">
+              <label className="text-xs font-black uppercase opacity-60">通貨</label>
+              <input 
+                type="text" 
+                required
+                value={formData.currency} 
+                onChange={e => setFormData({...formData, currency: e.target.value})}
+                className="w-full border-2 border-artistic-text p-3 rounded-xl font-bold outline-none"
+                placeholder="JPY"
+              />
+            </div>
+          </div>
+
+          <div className="space-y-2">
+            <label className="text-xs font-black uppercase opacity-60">Stripe Price ID</label>
+            <input 
+              type="text" 
+              value={formData.stripePriceId || ''} 
+              onChange={e => setFormData({...formData, stripePriceId: e.target.value})}
+              className="w-full border-2 border-artistic-text p-3 rounded-xl font-mono text-sm outline-none"
+              placeholder="price_H5n8..."
+            />
+            <p className="text-[10px] opacity-40 font-bold">Stripeダッシュボードから取得したPrice IDを入力してください。</p>
+          </div>
+
+          <div className="space-y-4">
+            <ImageUpload 
+              currentUrl={formData.imageUrl} 
+              onUpload={(url) => setFormData({...formData, imageUrl: url})} 
+              label="商品画像"
+            />
+          </div>
+
+          <div className="space-y-2">
+            <label className="text-xs font-black uppercase opacity-60">商品説明</label>
+            <textarea 
+              rows={3}
+              value={formData.description} 
+              onChange={e => setFormData({...formData, description: e.target.value})}
+              className="w-full border-2 border-artistic-text p-3 rounded-xl font-bold outline-none"
+              placeholder="商品の詳細説明を入力してください"
+            />
+          </div>
+
+          <div className="space-y-2">
+            <label className="text-xs font-black uppercase opacity-60">ステータス</label>
+            <select 
+              value={formData.status} 
+              onChange={e => setFormData({...formData, status: e.target.value as any})}
+              className="w-full border-2 border-artistic-text p-3 rounded-xl font-bold outline-none bg-white"
+            >
+              <option value="active">販売中</option>
+              <option value="sold_out">売り切れ</option>
+              <option value="hidden">非公開</option>
+            </select>
+          </div>
+
+          <div className="pt-4 flex gap-4">
+            <button 
+              type="submit" 
+              disabled={saving}
+              className="flex-1 bg-artistic-text text-white font-black py-4 rounded-xl flex items-center justify-center gap-3 hover:bg-neutral-800 disabled:opacity-50"
+            >
+              <Save size={20} />
+              {saving ? '保存中...' : '保存する'}
+            </button>
+            <button 
+              type="button" 
+              onClick={onClose}
+              className="px-8 border-2 border-artistic-text font-black rounded-xl hover:bg-neutral-100"
+            >
+              キャンセル
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
+  );
+};
+
 export default function AdminDashboard() {
   const [user, setUser] = useState<User | null>(null);
   const [loading, setLoading] = useState(true);
   const [isMobile, setIsMobile] = useState(false);
   const [events, setEvents] = useState<EventItem[]>([]);
+  const [products, setProducts] = useState<Product[]>([]);
   const [analyticsData, setAnalyticsData] = useState<{date: string, count: number}[]>([]);
   const [deviceData, setDeviceData] = useState<{name: string, value: number}[]>([]);
   const [referrerData, setReferrerData] = useState<{name: string, value: number}[]>([]);
@@ -238,7 +530,7 @@ export default function AdminDashboard() {
   const [engagementStats, setEngagementStats] = useState({ avgDuration: 0, medianDuration: 0, avgScroll: 0, medianScroll: 0, completionRate: 0, completionCount: 0 });
   const [feedback, setFeedback] = useState<any[]>([]);
   const [analysisPeriod, setAnalysisPeriod] = useState<number>(14);
-  const [activeTab, setActiveTab] = useState<'events' | 'settings' | 'analytics' | 'feedback'>('events');
+  const [activeTab, setActiveTab] = useState<'events' | 'shop' | 'settings' | 'analytics' | 'feedback'>('events');
   const [globalSettings, setGlobalSettings] = useState({
     instagram: EVENT_INFO.instagram,
     youtube: EVENT_INFO.youtube,
@@ -246,7 +538,9 @@ export default function AdminDashboard() {
     contactEmail: EVENT_INFO.contactEmail
   });
   const [editingEvent, setEditingEvent] = useState<EventItem | null>(null);
+  const [editingProduct, setEditingProduct] = useState<Product | null>(null);
   const [deletingEventId, setDeletingEventId] = useState<string | null>(null);
+  const [deletingProductId, setDeletingProductId] = useState<string | null>(null);
   const [deletingFeedbackId, setDeletingFeedbackId] = useState<string | null>(null);
   const [status, setStatus] = useState<{ type: 'success' | 'error' | null, message: string }>({ type: null, message: '' });
   const [saving, setSaving] = useState(false);
@@ -556,10 +850,18 @@ export default function AdminDashboard() {
   }, []);
 
   const handleLogin = async () => {
+    setStatus({ type: null, message: '' });
     try {
+      googleProvider.setCustomParameters({ prompt: 'select_account' });
       await signInWithPopup(auth, googleProvider);
-    } catch (err) {
-      setStatus({ type: 'error', message: 'ログインに失敗しました。' });
+    } catch (err: any) {
+      console.error("Login Error:", err);
+      // Handle blocked popups explicitly if possible, or show generic error
+      if (err.code === 'auth/popup-blocked') {
+        setStatus({ type: 'error', message: 'ポップアップがブロックされました。ブラウザの設定で許可するか、新しいタブでアプリを開いてください。' });
+      } else {
+        setStatus({ type: 'error', message: `ログインに失敗しました: ${err.message}` });
+      }
     }
   };
 
@@ -603,6 +905,15 @@ export default function AdminDashboard() {
       // Sort by order asc
       const sortedEvents = eventsList.sort((a, b) => (Number(a.order) || 0) - (Number(b.order) || 0));
       setEvents(sortedEvents);
+
+      // Fetch products
+      const productsRef = collection(db, 'products');
+      const productsSnapshot = await getDocs(productsRef);
+      const productsList = productsSnapshot.docs.map(doc => ({
+        id: doc.id,
+        ...doc.data()
+      })) as Product[];
+      setProducts(productsList.sort((a, b) => (a.order || 0) - (b.order || 0)));
 
       // Fetch global settings
       const settingsRef = doc(db, 'settings', 'global');
@@ -796,6 +1107,7 @@ export default function AdminDashboard() {
       setStatus({ type: 'success', message: 'イベントが保存されました！' });
       setEditingEvent(null);
       fetchData();
+      setTimeout(() => setStatus({ type: null, message: '' }), 3000);
     } catch (err) {
       handleLocalFirestoreError(err, OperationType.WRITE, 'events');
       setStatus({ type: 'error', message: '保存に失敗しました。' });
@@ -821,6 +1133,91 @@ export default function AdminDashboard() {
     } finally {
       setSaving(false);
     }
+  };
+
+  const handleSaveProduct = async (productData: Product) => {
+    setSaving(true);
+    setStatus({ type: null, message: '' });
+
+    try {
+      const currentOrder = productData.order || (products.length > 0 ? Math.max(...products.map(p => p.order || 0)) + 1 : 1);
+      const data = {
+        ...productData,
+        order: currentOrder,
+        createdAt: new Date().toISOString(),
+        updatedAt: serverTimestamp()
+      };
+      delete (data as any).id;
+
+      if (productData.id) {
+        await setDoc(doc(db, 'products', productData.id), data);
+      } else {
+        await addDoc(collection(db, 'products'), data);
+      }
+      
+      setStatus({ type: 'success', message: '商品が保存されました！' });
+      setEditingProduct(null);
+      fetchData();
+      setTimeout(() => setStatus({ type: null, message: '' }), 3000);
+    } catch (err) {
+      handleLocalFirestoreError(err, OperationType.WRITE, 'products');
+      setStatus({ type: 'error', message: '保存に失敗しました。' });
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const handleDeleteProduct = async (id: string) => {
+    setSaving(true);
+    setStatus({ type: null, message: '' });
+    try {
+      await deleteDoc(doc(db, 'products', id));
+      await fetchData();
+      setStatus({ type: 'success', message: '商品を削除しました。' });
+      setTimeout(() => setStatus({ type: null, message: '' }), 3000);
+    } catch (err) {
+      console.error(err);
+      setStatus({ type: 'error', message: '削除に失敗しました。' });
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const moveProductOrder = async (index: number, direction: 'up' | 'down') => {
+    if (direction === 'up' && index === 0) return;
+    if (direction === 'down' && index === products.length - 1) return;
+
+    const newProducts = [...products];
+    const targetIndex = direction === 'up' ? index - 1 : index + 1;
+    [newProducts[index], newProducts[targetIndex]] = [newProducts[targetIndex], newProducts[index]];
+
+    setSaving(true);
+    try {
+      await Promise.all(newProducts.map((p, i) => {
+        if (p.id) {
+          return setDoc(doc(db, 'products', p.id), { ...p, order: i + 1, updatedAt: serverTimestamp() });
+        }
+        return Promise.resolve();
+      }));
+      fetchData();
+    } catch (err) {
+      handleLocalFirestoreError(err, OperationType.WRITE, 'products');
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const startNewProduct = () => {
+    const nextOrder = products.length > 0 ? Math.max(...products.map(p => p.order || 0)) + 1 : 1;
+    setEditingProduct({
+      name: '',
+      description: '',
+      price: 0,
+      currency: 'JPY',
+      imageUrl: '',
+      status: 'active',
+      order: nextOrder
+    });
   };
 
   const moveEventOrder = async (index: number, direction: 'up' | 'down') => {
@@ -909,11 +1306,28 @@ export default function AdminDashboard() {
   if (user.email?.toLowerCase() && !ADMIN_EMAILS.includes(user.email.toLowerCase())) {
     return (
       <div className="min-h-screen bg-artistic-bg flex items-center justify-center p-6">
-        <div className="bg-white border-4 border-artistic-text p-8 rounded-[2rem] shadow-[12px_12px_0px_0px_rgba(42,42,42,1)] text-center">
-          <AlertCircle className="mx-auto text-artistic-pink mb-4" size={48} />
-          <h1 className="text-2xl font-black mb-4">アクセス権限がありません</h1>
-          <p className="font-bold mb-6">{user.email} は管理者ではありません。</p>
-          <button onClick={handleLogout} className="text-artistic-primary font-black underline">ログアウト</button>
+        <div className="bg-white border-4 border-artistic-text p-10 rounded-[2.5rem] shadow-[12px_12px_0px_0px_rgba(42,42,42,1)] text-center max-w-xl">
+          <AlertCircle className="mx-auto text-artistic-pink mb-6" size={64} />
+          <h1 className="text-3xl font-black mb-4 italic">アクセス権限がありません</h1>
+          <div className="bg-stone-100 p-6 rounded-2xl mb-8 border-2 border-stone-200">
+            <p className="text-sm font-black opacity-40 uppercase tracking-widest mb-2">ログイン中のメールアドレス</p>
+            <p className="text-xl font-mono font-black text-artistic-text">{user.email}</p>
+          </div>
+          <p className="font-bold text-lg mb-8 leading-relaxed">
+            このアカウントは管理リストに登録されていません。<br/>
+            正しい管理者アカウントでログインし直してください。
+          </p>
+          <div className="flex flex-col gap-4">
+            <button 
+              onClick={handleLogout} 
+              className="bg-artistic-primary text-white font-black py-4 rounded-xl shadow-[4px_4px_0px_0px_rgba(42,42,42,1)] hover:scale-105 active:scale-95 transition-all"
+            >
+              ログアウトして別のアカウントで試す
+            </button>
+            <Link to="/" className="text-artistic-text/40 font-black hover:text-artistic-text transition-colors">
+              メインサイトへ戻る
+            </Link>
+          </div>
         </div>
       </div>
     );
@@ -949,6 +1363,12 @@ export default function AdminDashboard() {
             className={`min-w-0 justify-center px-4 md:px-10 py-4 md:py-5 rounded-[1.5rem] font-black flex items-center gap-2 md:gap-4 transition-all border-4 shadow-[6px_6px_0px_0px_rgba(42,42,42,1)] active:translate-x-[2px] active:translate-y-[2px] active:shadow-none snap-start whitespace-nowrap text-sm md:text-base ${activeTab === 'events' ? 'bg-artistic-text text-white border-artistic-text' : 'bg-white text-artistic-text border-artistic-text/10 hover:border-artistic-text'}`}
           >
             <Calendar size={isMobile ? 18 : 24} /> イベント管理
+          </button>
+          <button 
+            onClick={() => setActiveTab('shop')}
+            className={`min-w-0 justify-center px-4 md:px-10 py-4 md:py-5 rounded-[1.5rem] font-black flex items-center gap-2 md:gap-4 transition-all border-4 shadow-[6px_6px_0px_0px_rgba(42,42,42,1)] active:translate-x-[2px] active:translate-y-[2px] active:shadow-none snap-start whitespace-nowrap text-sm md:text-base ${activeTab === 'shop' ? 'bg-artistic-text text-white border-artistic-text' : 'bg-white text-artistic-text border-artistic-text/10 hover:border-artistic-text'}`}
+          >
+            <ShoppingBag size={isMobile ? 18 : 24} /> ショップ管理
           </button>
           <button 
             onClick={() => setActiveTab('analytics')}
@@ -1732,6 +2152,92 @@ export default function AdminDashboard() {
         </div>
         )}
 
+        {/* Shop Management Section */}
+        {activeTab === 'shop' && (
+          <div className="animate-in fade-in slide-in-from-bottom-4 space-y-12">
+            <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-6">
+              <h2 className="text-3xl font-black flex items-center gap-3 italic">
+                <ShoppingBag size={32} className="text-artistic-primary" /> ショップ管理
+              </h2>
+              <button 
+                onClick={startNewProduct}
+                className="bg-artistic-primary text-white h-14 px-8 rounded-2xl flex items-center justify-center gap-3 border-4 border-artistic-text shadow-[6px_6px_0px_0px_rgba(42,42,42,1)] hover:scale-105 active:scale-95 transition-all font-black text-lg"
+              >
+                <Plus size={24} /> 商品を追加
+              </button>
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
+              {products.map((product, index) => (
+                <div key={product.id} className="bg-white border-4 border-artistic-text rounded-[2.5rem] overflow-hidden shadow-[8px_8px_0px_0px_rgba(42,42,42,1)] group">
+                  <div className="aspect-square relative bg-stone-100 border-b-4 border-artistic-text">
+                    <img 
+                      src={product.imageUrl || "https://images.unsplash.com/photo-1579783902614-a3fb3927b6a5?q=80&w=800&auto=format&fit=crop"} 
+                      alt={product.name}
+                      className="w-full h-full object-cover"
+                    />
+                    <div className="absolute top-4 left-4 flex flex-col gap-2">
+                       <div className="bg-white border-2 border-artistic-text px-3 py-1 rounded-full text-xs font-black shadow-sm">
+                         ORDER: {product.order}
+                       </div>
+                       <div className={`px-3 py-1 rounded-full text-xs font-black shadow-sm border-2 border-artistic-text ${
+                         product.status === 'active' ? 'bg-artistic-green text-white' : 
+                         product.status === 'sold_out' ? 'bg-artistic-pink text-white' : 'bg-stone-200 text-stone-500'
+                       }`}>
+                         {product.status.toUpperCase()}
+                       </div>
+                    </div>
+                  </div>
+                  <div className="p-8">
+                    <div className="flex justify-between items-start mb-2">
+                      <h3 className="text-xl font-black">{product.name}</h3>
+                      <p className="text-lg font-black text-artistic-primary">¥{product.price.toLocaleString()}<span className="text-[10px] ml-1 opacity-60 font-bold">(税込)</span></p>
+                    </div>
+                    <p className="text-sm opacity-60 font-bold line-clamp-2 mb-6 h-10">{product.description}</p>
+                    
+                    <div className="flex gap-2">
+                       <button 
+                        onClick={() => moveProductOrder(index, 'up')}
+                        disabled={index === 0 || saving}
+                        className="p-3 border-2 border-artistic-text rounded-xl hover:bg-artistic-blue transition-all disabled:opacity-20"
+                       >
+                         <ArrowUp size={20} />
+                       </button>
+                       <button 
+                        onClick={() => moveProductOrder(index, 'down')}
+                        disabled={index === products.length - 1 || saving}
+                        className="p-3 border-2 border-artistic-text rounded-xl hover:bg-artistic-blue transition-all disabled:opacity-20"
+                       >
+                         <ArrowDown size={20} />
+                       </button>
+                       <div className="flex-1" />
+                       <button 
+                        onClick={() => setEditingProduct(product)}
+                        className="p-3 border-2 border-artistic-text rounded-xl hover:bg-artistic-blue transition-all"
+                       >
+                         <Edit2 size={20} />
+                       </button>
+                       <button 
+                        onClick={() => product.id && setDeletingProductId(product.id)}
+                        className="p-3 border-2 border-artistic-text rounded-xl hover:bg-artistic-pink hover:text-white transition-all"
+                       >
+                         <Trash2 size={20} />
+                       </button>
+                    </div>
+                  </div>
+                </div>
+              ))}
+
+              {products.length === 0 && (
+                <div className="md:col-span-2 lg:col-span-3 py-20 text-center bg-white border-4 border-dashed border-artistic-text rounded-[2.5rem]">
+                   <ShoppingBag className="w-16 h-16 mx-auto mb-4 opacity-20" />
+                   <p className="text-xl font-black opacity-30 italic">商品がまだありません</p>
+                </div>
+              )}
+            </div>
+          </div>
+        )}
+
         {/* Edit/Add Event Form */}
         {editingEvent && (
           <EventEditModal 
@@ -1741,6 +2247,51 @@ export default function AdminDashboard() {
             saving={saving} 
           />
         )}
+        {/* Edit/Add Product Form */}
+        {editingProduct && (
+          <ProductEditModal 
+            product={editingProduct} 
+            onSave={handleSaveProduct} 
+            onClose={() => setEditingProduct(null)} 
+            saving={saving} 
+          />
+        )}
+
+        {/* Product Deleting Modal */}
+        {deletingProductId && (
+          <div className="fixed inset-0 bg-neutral-900/50 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+            <div className="bg-white border-4 border-artistic-text rounded-[2rem] shadow-[12px_12px_0px_0px_rgba(42,42,42,1)] w-full max-w-md overflow-hidden">
+              <div className="p-8 border-b-4 border-artistic-text bg-artistic-pink/20">
+                <h3 className="text-2xl font-black text-artistic-text">商品を削除</h3>
+              </div>
+              <div className="p-8 space-y-6">
+                <p className="font-bold text-lg">この商品を削除してもよろしいですか？</p>
+                <p className="text-sm opacity-70">※この操作は取り消せません。</p>
+                <div className="pt-4 flex gap-4">
+                  <button 
+                    onClick={() => {
+                      handleDeleteProduct(deletingProductId);
+                      setDeletingProductId(null);
+                    }}
+                    disabled={saving}
+                    className="flex-1 bg-artistic-pink text-white font-black py-4 rounded-xl flex items-center justify-center gap-3 hover:opacity-90 disabled:opacity-50"
+                  >
+                    <Trash2 size={20} />
+                    {saving ? '削除中...' : '削除する'}
+                  </button>
+                  <button 
+                    onClick={() => setDeletingProductId(null)}
+                    disabled={saving}
+                    className="px-8 border-2 border-artistic-text font-black rounded-xl hover:bg-neutral-100"
+                  >
+                    キャンセル
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
+
         {/* Deleting Modal */}
         {deletingEventId && (
           <div className="fixed inset-0 bg-neutral-900/50 backdrop-blur-sm z-50 flex items-center justify-center p-4">
