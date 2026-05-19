@@ -103,38 +103,85 @@ export default function Shop() {
 
     setCheckoutLoading(product.id);
     try {
-      console.log("Starting checkout process for:", product.name, "with Price ID:", product.stripePriceId);
-      const response = await fetch("/api/create-checkout-session", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          priceId: product.stripePriceId,
-          productId: product.id,
-        }),
-      });
-
-      if (!response.ok) {
-        const errorData = await response.json().catch(() => ({}));
-        throw new Error(errorData.error || `Server error: ${response.status}`);
-      }
-
-      const session = await response.json();
-      if (!session.url) {
-        throw new Error("No checkout URL returned from server.");
-      }
-
-      console.log("Redirecting to checkout URL:", session.url);
+      console.log("Starting checkout process for:", product.name, "with ID/URL:", product.stripePriceId);
       
-      // Iframe内でのブロックを回避するため、新しいタブで開くことを試みます
-      const checkoutWindow = window.open(session.url, '_blank');
+      // 1. もし入力されているのが Stripe Payment Link (URL) の場合、別タブで開く
+      if (product.stripePriceId && typeof product.stripePriceId === 'string' && product.stripePriceId.startsWith('http')) {
+        console.log("Using direct Stripe Payment Link:", product.stripePriceId);
+        
+        const checkoutWindow = window.open(product.stripePriceId, '_blank');
+        
+        if (!checkoutWindow || checkoutWindow.closed || typeof checkoutWindow.closed === 'undefined') {
+          // ポップアップがブロックされた場合は、現在のウィンドウで遷移
+          window.location.href = product.stripePriceId;
+        } else {
+          // 別タブで開いた場合は即座にローディング解除
+          setCheckoutLoading(null);
+        }
+        return;
+      }
+
+      let sessionUrl = null;
+
+      // 2. サーバーサイドAPIを試行 (Price IDの場合)
+      try {
+        const response = await fetch("/api/create-checkout-session", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            priceId: product.stripePriceId,
+            productId: product.id,
+          }),
+        });
+
+        if (response.ok) {
+          const session = await response.json();
+          sessionUrl = session.url;
+        } else if (response.status === 405 || response.status === 404) {
+          console.info("Backend API not found or not allowed (likely static host). Falling back to client-only checkout.");
+        } else {
+          const errorData = await response.json().catch(() => ({}));
+          console.warn("API Error:", errorData.error || response.status);
+        }
+      } catch (apiErr) {
+        console.info("Backend unreachable. Falling back to client-only checkout.");
+      }
+
+      // 2. サーバーサイドでURLが取得できなかった場合、フロントエンドのみの方式（Pattern A相当）で試行
+      if (!sessionUrl) {
+        console.log("Using client-side direct checkout with Price ID:", product.stripePriceId);
+        const stripe = await getStripe();
+        if (!stripe) {
+          throw new Error("Stripeの初期化に失敗しました。");
+        }
+
+        // クライアントサイドのみの遷移
+        // 注意: Stripeダッシュボードの「サーバー間でない（クライアントのみの）組み込み」設定の有効化が必要です
+        const { error } = await (stripe as any).redirectToCheckout({
+          lineItems: [{ price: product.stripePriceId, quantity: 1 }],
+          mode: 'payment',
+          successUrl: window.location.origin + '/#/shop?success=true',
+          cancelUrl: window.location.origin + '/#/shop',
+        });
+
+        if (error) {
+          if (error.message?.includes("integration is disabled")) {
+            throw new Error("Stripe設定の『クライアントのみの組み込み』が無効です。Stripeダッシュボードの[設定] > [Checkout設定]で有効にしてください。");
+          }
+          throw error;
+        }
+        return; // 遷移するのでここで終了
+      }
+
+      // 3. サーバーが返したURLがある場合はそちらへ遷移
+      console.log("Redirecting to checkout URL:", sessionUrl);
+      const checkoutWindow = window.open(sessionUrl, '_blank');
       
       if (!checkoutWindow || checkoutWindow.closed || typeof checkoutWindow.closed === 'undefined') {
-        // ポップアップがブロックされた場合は、現在のウィンドウで遷移を試行
-        window.location.href = session.url;
+        window.location.href = sessionUrl;
       } else {
-        // 別タブで開いた場合は、元のアプリ画面が固まらないようにローディングを解除
         setTimeout(() => setCheckoutLoading(null), 3000);
       }
       

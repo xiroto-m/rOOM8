@@ -459,10 +459,12 @@ const ProductEditModal = ({ product, onSave, onClose, saving }: { product: Produ
               placeholder="price_H5n8..."
             />
             <p className="text-[10px] font-bold">
-              {formData.stripePriceId?.startsWith('prod_') ? (
+              {formData.stripePriceId && typeof formData.stripePriceId === 'string' && formData.stripePriceId.startsWith('prod_') ? (
                 <span className="text-artistic-pink">⚠️ 注意: prod_ で始まるのは商品IDです。price_ で始まる「価格ID」をコピーしてください。</span>
+              ) : formData.stripePriceId && typeof formData.stripePriceId === 'string' && formData.stripePriceId.startsWith('http') ? (
+                <span className="text-green-600">✅ Stripe決済リンクが入力されています。直接リンクとして動作します。</span>
               ) : (
-                <span className="opacity-40">Stripeダッシュボードの「料金」セクションにある『...』から「価格IDをコピー」してください。</span>
+                <span className="opacity-40">Stripeの「価格ID(price_...)」または「決済リンク(https://buy.stripe.com/...)」を入力してください。</span>
               )}
             </p>
           </div>
