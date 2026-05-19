@@ -18,13 +18,39 @@ interface Product {
 }
 
 let stripePromise: Promise<any> | null = null;
-const getStripe = () => {
+let cachedPublishableKey: string | null = null;
+
+const getStripe = async () => {
   if (!stripePromise) {
-    const key = import.meta.env.VITE_STRIPE_PUBLISHABLE_KEY;
+    let key = import.meta.env.VITE_STRIPE_PUBLISHABLE_KEY || 
+              (import.meta.env as any).VITE_STRIPE_PUBLISH ||
+              (import.meta.env as any).VITE_STRIPE_PUBLISHABLE;
+
+    // Reliability fallback: Fetch from server if not in client env
     if (!key) {
-      console.warn("VITE_STRIPE_PUBLISHABLE_KEY is missing. Please set it in the Settings menu.");
+      try {
+        const res = await fetch("/api/config");
+        if (res.ok) {
+          const config = await res.json();
+          key = config.stripePublishableKey;
+          console.log("Stripe key fetched from server config:", key ? "found" : "not found");
+        }
+      } catch (err) {
+        console.error("Failed to fetch Stripe config from server:", err);
+      }
+    }
+
+    if (!key) {
+      console.warn("Stripe Publishable Key is missing. Please set 'VITE_STRIPE_PUBLISHABLE_KEY' in the Settings menu (Secrets).");
       return null;
     }
+
+    if (key.startsWith('sk_')) {
+      console.error("CRITICAL: Stripe Publishable Key starts with 'sk_'. This is a SECRET key and should not be on the client side. Please use the key starting with 'pk_'.");
+      alert("エラー: 公開可能キー(Publishable Key)にシークレットキー(Secret Key)が設定されている可能性があります。設定を確認してください。");
+    }
+
+    console.log("Initializing Stripe with key starting with:", key.substring(0, 7));
     stripePromise = loadStripe(key);
   }
   return stripePromise;
@@ -36,6 +62,16 @@ export default function Shop() {
   const [checkoutLoading, setCheckoutLoading] = useState<string | null>(null);
 
   useEffect(() => {
+    // Backend health check
+    fetch("/api/config")
+      .then(res => res.json())
+      .then(config => {
+        console.log("Backend config check:", config.stripePublishableKey ? "Key found" : "Key missing");
+      })
+      .catch(err => {
+        console.error("Backend unreachable from Shop component:", err);
+      });
+
     const q = query(
       collection(db, "products"),
       where("status", "!=", "hidden"),
@@ -60,12 +96,14 @@ export default function Shop() {
 
   const handleCheckout = async (product: Product) => {
     if (!product.stripePriceId) {
-      alert("この商品は現在決済準備中です。");
+      console.warn("Product stripePriceId is missing:", product.name);
+      alert("【管理者向け】StripeのPrice IDが設定されていません。\n1. Stripeで商品を作成\n2. price_...で始まる価格IDを取得\n3. /admin画面で商品の設定に貼り付け\nを行ってください。");
       return;
     }
 
     setCheckoutLoading(product.id);
     try {
+      console.log("Starting checkout process for:", product.name, "with Price ID:", product.stripePriceId);
       const response = await fetch("/api/create-checkout-session", {
         method: "POST",
         headers: {
@@ -77,28 +115,33 @@ export default function Shop() {
         }),
       });
 
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}));
+        throw new Error(errorData.error || `Server error: ${response.status}`);
+      }
+
       const session = await response.json();
-      if (session.error) {
-        throw new Error(session.error);
+      if (!session.url) {
+        throw new Error("No checkout URL returned from server.");
       }
 
-      const stripe = await getStripe();
-      if (!stripe) {
-        alert("決済機能が設定されていません。管理者に連絡してください。");
-        return;
+      console.log("Redirecting to checkout URL:", session.url);
+      
+      // Iframe内でのブロックを回避するため、新しいタブで開くことを試みます
+      const checkoutWindow = window.open(session.url, '_blank');
+      
+      if (!checkoutWindow || checkoutWindow.closed || typeof checkoutWindow.closed === 'undefined') {
+        // ポップアップがブロックされた場合は、現在のウィンドウで遷移を試行
+        window.location.href = session.url;
+      } else {
+        // 別タブで開いた場合は、元のアプリ画面が固まらないようにローディングを解除
+        setTimeout(() => setCheckoutLoading(null), 3000);
       }
-
-      const { error } = await (stripe as any).redirectToCheckout({
-        sessionId: session.id,
-      });
-        if (error) {
-          console.error(error);
-        }
-    } catch (error) {
-      console.error("Checkout error:", error);
-      alert("エラーが発生しました。しばらくしてから再度お試しください。");
-    } finally {
+      
+    } catch (error: any) {
       setCheckoutLoading(null);
+      console.error("Checkout error details:", error);
+      alert(`エラーが発生しました: ${error.message || "お手数ですが管理者にお問い合わせください。"}`);
     }
   };
 

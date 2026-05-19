@@ -224,7 +224,9 @@ function MainSite() {
         }
         
         // Fallback or Direct fetch for GitHub Pages / Deployed build if backend fails
-        const apiKey = import.meta.env.VITE_YOUTUBE_API_KEY || (import.meta.env as any).VITE_YOUTUBE_API_KE;
+        const apiKey = import.meta.env.VITE_YOUTUBE_API_KEY || 
+                        (import.meta.env as any).VITE_YOUTUBE_API_KE || 
+                        (import.meta.env as any).VITE_YOUTUBE_API_K;
         if (apiKey) {
           console.log(`Attempting direct client-side YouTube fetch fallback for handle: ${handle}`);
           const url = `https://www.googleapis.com/youtube/v3/channels?part=statistics&forHandle=${handle}&key=${apiKey}`;

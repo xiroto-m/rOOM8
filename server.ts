@@ -7,11 +7,15 @@ import Stripe from "stripe";
 dotenv.config();
 
 let stripe: Stripe | null = null;
-function getStripe() {
+function getStripeInstance() {
   if (!stripe) {
-    const key = process.env.STRIPE_SECRET_KEY;
+    const key = process.env.STRIPE_SECRET_KEY || 
+                process.env.VITE_STRIPE_SECRET_KEY ||
+                process.env.STRIPE_SECRET_KE;
     if (!key) {
-      console.warn("STRIPE_SECRET_KEY is missing in environment variables.");
+      console.warn("Stripe Secret Key is missing in environment variables.");
+    } else {
+      console.log("Stripe Client initialized with secret key starting with:", key.substring(0, 7));
     }
     stripe = new Stripe(key || "", {
       apiVersion: "2025-01-27.acacia" as any,
@@ -31,21 +35,48 @@ async function startServer() {
     res.json({ status: "ok", time: new Date().toISOString() });
   });
 
+  // Config Endpoint to expose public keys safely
+  app.get("/api/config", (req, res) => {
+    const publishableKey = process.env.VITE_STRIPE_PUBLISHABLE_KEY || 
+                          process.env.VITE_STRIPE_PUBLISH ||
+                          process.env.VITE_STRIPE_PUBLISHABLE ||
+                          process.env.STRIPE_PUBLISHABLE_KEY;
+    
+    res.json({
+      stripePublishableKey: publishableKey || null
+    });
+  });
+
   // Stripe Checkout Session Endpoint
   app.post("/api/create-checkout-session", async (req, res) => {
     const { priceId, productId } = req.body;
-    const appUrl = process.env.APP_URL || `http://localhost:${PORT}`;
+    const cleanPriceId = typeof priceId === 'string' ? priceId.replace(/\s/g, '') : priceId;
+    
+    // Dynamic URL detection
+    const protocol = req.headers['x-forwarded-proto'] || req.protocol;
+    const host = req.get('host');
+    const appUrl = process.env.APP_URL || `${protocol}://${host}`;
+
+    console.log(`Setting up checkout for product: ${productId}, price: ${priceId}`);
+    console.log(`Using App URL for redirect: ${appUrl}`);
 
     if (!priceId) {
       return res.status(400).json({ error: "priceId is required" });
     }
 
     try {
-      const stripeClient = getStripe();
+      const stripeClient = getStripeInstance();
+      
+      // Basic validation of the key before calling Stripe
+      const key = process.env.STRIPE_SECRET_KEY || process.env.VITE_STRIPE_SECRET_KEY || process.env.STRIPE_SECRET_KE;
+      if (!key || !key.startsWith('sk_')) {
+        throw new Error("Stripe secret key is not configured correctly (should start with sk_). Please check your Settings -> Secrets (Make sure name is STRIPE_SECRET_KEY).");
+      }
+
       const session = await stripeClient.checkout.sessions.create({
         line_items: [
           {
-            price: priceId,
+            price: cleanPriceId,
             quantity: 1,
           },
         ],
@@ -53,13 +84,14 @@ async function startServer() {
         success_url: `${appUrl}/#/shop?success=true&session_id={CHECKOUT_SESSION_ID}`,
         cancel_url: `${appUrl}/#/shop?canceled=true`,
         metadata: {
-          productId,
+          productId: productId || 'unknown',
         },
       });
 
-      res.json({ id: session.id });
+      console.log("Session created successfully:", session.id);
+      res.json({ id: session.id, url: session.url });
     } catch (error: any) {
-      console.error("Stripe Session Error:", error);
+      console.error("Stripe Session Error Details:", error);
       res.status(500).json({ error: error.message });
     }
   });
@@ -69,7 +101,8 @@ async function startServer() {
     // Check various common env var names for the API key
     const apiKey = process.env.YOUTUBE_API_KEY || 
                    process.env.VITE_YOUTUBE_API_KEY || 
-                   process.env.VITE_YOUTUBE_API_KE;
+                   process.env.VITE_YOUTUBE_API_KE ||
+                   process.env.VITE_YOUTUBE_API_K;
     
     // Get handle from query or default
     const queryHandle = req.query.handle as string;

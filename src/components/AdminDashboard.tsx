@@ -451,10 +451,20 @@ const ProductEditModal = ({ product, onSave, onClose, saving }: { product: Produ
               type="text" 
               value={formData.stripePriceId || ''} 
               onChange={e => setFormData({...formData, stripePriceId: e.target.value})}
-              className="w-full border-2 border-artistic-text p-3 rounded-xl font-mono text-sm outline-none"
+              className={`w-full border-2 p-3 rounded-xl font-mono text-sm outline-none transition-colors ${
+                formData.stripePriceId?.startsWith('prod_') 
+                ? 'border-artistic-pink text-artistic-pink bg-artistic-pink/5' 
+                : 'border-artistic-text focus:border-artistic-primary'
+              }`}
               placeholder="price_H5n8..."
             />
-            <p className="text-[10px] opacity-40 font-bold">Stripeダッシュボードから取得したPrice IDを入力してください。</p>
+            <p className="text-[10px] font-bold">
+              {formData.stripePriceId?.startsWith('prod_') ? (
+                <span className="text-artistic-pink">⚠️ 注意: prod_ で始まるのは商品IDです。price_ で始まる「価格ID」をコピーしてください。</span>
+              ) : (
+                <span className="opacity-40">Stripeダッシュボードの「料金」セクションにある『...』から「価格IDをコピー」してください。</span>
+              )}
+            </p>
           </div>
 
           <div className="space-y-4">
