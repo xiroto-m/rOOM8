@@ -115,6 +115,49 @@ service cloud.firestore {
         && (!data.keys().hasAny(['stripePriceId']) || (data.stripePriceId is string && data.stripePriceId.size() <= 200));
     }
 
+    function isValidCreatorCard(data) {
+      return data.keys().hasAll(['name', 'specialty', 'bio', 'createdAt'])
+        && data.name is string && data.name.size() <= 200
+        && data.specialty is string && data.specialty.size() <= 200
+        && data.bio is string && data.bio.size() <= 2000
+        && data.createdAt is timestamp
+        && (!data.keys().hasAny(['imageUrl']) || (data.imageUrl is string && data.imageUrl.size() <= 1048000))
+        && (!data.keys().hasAny(['instagram']) || (data.instagram is string && data.instagram.size() <= 200))
+        && (!data.keys().hasAny(['twitter']) || (data.twitter is string && data.twitter.size() <= 200))
+        && (!data.keys().hasAny(['likesCount']) || data.likesCount is number);
+    }
+
+    function isValidReferral(data) {
+      return data.keys().hasAll(['creatorId', 'introducerName', 'reason', 'conversationCount', 'createdAt'])
+        && data.creatorId is string && data.creatorId.size() <= 128
+        && data.introducerName is string && data.introducerName.size() <= 200
+        && data.reason is string && data.reason.size() <= 2000
+        && data.conversationCount is number
+        && data.createdAt is timestamp
+        && (!data.keys().hasAny(['introducerContact']) || (data.introducerContact is string && data.introducerContact.size() <= 200))
+        && (!data.keys().hasAny(['icebreakers']) || data.icebreakers is list);
+    }
+
+    function isValidMediaContent(data) {
+      return data.keys().hasAll(['title', 'youtubeUrl', 'createdAt'])
+        && data.title is string && data.title.size() <= 500
+        && data.youtubeUrl is string && data.youtubeUrl.size() <= 1000
+        && data.createdAt is timestamp
+        && (!data.keys().hasAny(['description']) || (data.description is string && data.description.size() <= 5000))
+        && (!data.keys().hasAny(['likesCount']) || data.likesCount is number)
+        && (!data.keys().hasAny(['tipsCount']) || data.tipsCount is number)
+        && (!data.keys().hasAny(['tipsTotalYen']) || data.tipsTotalYen is number);
+    }
+
+    function isValidTipTransaction(data) {
+      return data.keys().hasAll(['contentId', 'amount', 'backerName', 'createdAt'])
+        && data.contentId is string && data.contentId.size() <= 128
+        && data.amount is number
+        && data.backerName is string && data.backerName.size() <= 200
+        && data.createdAt is timestamp
+        && (!data.keys().hasAny(['cheerMessage']) || (data.cheerMessage is string && data.cheerMessage.size() <= 1000));
+    }
+
     // --- COLLECTION RULES ---
     match /settings/{docId} {
       allow read: if true;
@@ -178,6 +221,40 @@ service cloud.firestore {
       allow read: if true;
       allow create, update: if isAdmin() && isValidId(productId) && isValidProduct(incoming());
       allow delete: if isAdmin() && isValidId(productId);
+    }
+
+    match /creators/{creatorId} {
+      allow read: if true;
+      allow create, delete: if isAdmin() && isValidId(creatorId);
+      allow update: if (isAdmin() && isValidCreatorCard(incoming()))
+                      || (isValidId(creatorId) && 
+                          incoming().diff(existing()).affectedKeys().hasOnly(['likesCount']) &&
+                          (incoming().likesCount == (existing().get('likesCount', 0) + 1) ||
+                           (incoming().likesCount == (existing().get('likesCount', 0) - 1) && incoming().likesCount >= 0)));
+    }
+
+    match /referrals/{referralId} {
+      allow read: if true;
+      allow create: if isValidId(referralId) && isValidReferral(incoming());
+      allow update: if (isAdmin() && isValidReferral(incoming()))
+                      || (isValidId(referralId) && 
+                          incoming().diff(existing()).affectedKeys().hasOnly(['conversationCount']) &&
+                          incoming().conversationCount == (existing().get('conversationCount', 0) + 1));
+      allow delete: if isAdmin() && isValidId(referralId);
+    }
+
+    match /media/{mediaId} {
+      allow read: if true;
+      allow create, delete: if isAdmin() && isValidId(mediaId);
+      allow update: if (isAdmin() && isValidMediaContent(incoming()))
+                      || (isValidId(mediaId) && 
+                          incoming().diff(existing()).affectedKeys().hasAny(['likesCount', 'tipsCount', 'tipsTotalYen']));
+
+      match /tips/{tipId} {
+        allow read: if true;
+        allow create: if isValidId(tipId) && isValidTipTransaction(incoming());
+        allow update, delete: if isAdmin();
+      }
     }
   }
 }

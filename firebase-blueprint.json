@@ -107,6 +107,65 @@
         "createdAt": { "type": "string", "format": "date-time" }
       },
       "required": ["name", "price", "currency", "status", "createdAt"]
+    },
+    "CreatorCard": {
+      "title": "Creator Card",
+      "description": "Profile card for a creator, artist, or interesting person at rOOM8",
+      "type": "object",
+      "properties": {
+        "name": { "type": "string" },
+        "specialty": { "type": "string" },
+        "bio": { "type": "string" },
+        "imageUrl": { "type": "string" },
+        "instagram": { "type": "string" },
+        "twitter": { "type": "string" },
+        "likesCount": { "type": "number" },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["name", "specialty", "bio", "createdAt"]
+    },
+    "Referral": {
+      "title": "Referral Record",
+      "description": "A customized referral/other-recommendation card crafted by an introducer for a creator",
+      "type": "object",
+      "properties": {
+        "creatorId": { "type": "string" },
+        "introducerName": { "type": "string" },
+        "introducerContact": { "type": "string" },
+        "reason": { "type": "string" },
+        "icebreakers": { "type": "array", "items": { "type": "string" } },
+        "conversationCount": { "type": "number" },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["creatorId", "introducerName", "reason", "conversationCount", "createdAt"]
+    },
+    "MediaContent": {
+      "title": "Media Content",
+      "description": "Vibey party videos or artwork process explanations on feed",
+      "type": "object",
+      "properties": {
+        "title": { "type": "string" },
+        "description": { "type": "string" },
+        "youtubeUrl": { "type": "string" },
+        "likesCount": { "type": "number" },
+        "tipsCount": { "type": "number" },
+        "tipsTotalYen": { "type": "number" },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["title", "youtubeUrl", "createdAt"]
+    },
+    "TipTransaction": {
+      "title": "Tip Transaction",
+      "description": "A support/cheer points tipping transaction for a media post",
+      "type": "object",
+      "properties": {
+        "contentId": { "type": "string" },
+        "amount": { "type": "number" },
+        "backerName": { "type": "string" },
+        "cheerMessage": { "type": "string" },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["contentId", "amount", "backerName", "createdAt"]
     }
   },
   "firestore": {
@@ -137,6 +196,22 @@
     "/products/{productId}": {
       "schema": "Product",
       "description": "Products available in the shop"
+    },
+    "/creators/{creatorId}": {
+      "schema": "CreatorCard",
+      "description": "Profiles of creators, artists and interesting people at rOOM8"
+    },
+    "/referrals/{referralId}": {
+      "schema": "Referral",
+      "description": "Introductory recommendation references scanning QR codes at the party"
+    },
+    "/media/{mediaId}": {
+      "schema": "MediaContent",
+      "description": "Party video feeds and explanatory digital exhibits"
+    },
+    "/media/{mediaId}/tips/{tipId}": {
+      "schema": "TipTransaction",
+      "description": "Tip transactions showing public support and cheerful notes"
     }
   }
 }

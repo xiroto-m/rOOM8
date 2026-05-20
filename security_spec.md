@@ -13,6 +13,12 @@
 - `analytics_actions` logs every interaction (clicks, copies) and is create-only for visitors.
 - Admin access is required for all reading and bulk operations.
 
+## Referral & Tipping Invariants
+- `creators` contains artist profiles. Public users can increment `likesCount` by exactly 1.
+- `referrals` lets participants create recommendations for other creators. Only the `conversationCount` can be incremented by scanners.
+- `media` allows admins to post videos. Public likes and tips increment totals.
+- `media/{mediaId}/tips/{tipId}` records tipping deposits. Once created, they are immutable and cannot be updated or deleted.
+
 ## 2. The "Dirty Dozen" Payloads
 
 ### Identity & Spoofing
@@ -39,13 +45,21 @@
 
 ### Permission Escalation
 9. **Admin Spoofing**: An unauthenticated user tries to set `status` to 'published'.
-   - *Expected*: `PERMISSION_DENIED` (Check: `isAdmin()`).
+    - *Expected*: `PERMISSION_DENIED` (Check: `isAdmin()`).
 10. **Delete Event**: A public user tries to delete an event.
     - *Expected*: `PERMISSION_DENIED` (Check: `isAdmin()`).
 11. **Edit Global Settings**: A public user tries to edit `/settings/global`.
     - *Expected*: `PERMISSION_DENIED` (Check: `isAdmin()`).
 12. **Future Timestamp**: A client sends a `createdAt` timestamp in the future.
     - *Expected*: `PERMISSION_DENIED` (Check: `createdAt == request.time`).
+
+### Referral & Tipping Infiltration (Extended)
+13. **Referral Hijack**: An unauthenticated user attempts to update a referral's reason field post-creation.
+    - *Expected*: `PERMISSION_DENIED` (Check: `affectedKeys().hasOnly(['conversationCount'])` for public updates).
+14. **Tip Multi-Edit**: A user attempts to update their tip amount after posting it.
+    - *Expected*: `PERMISSION_DENIED` (Check: `allow update: if isAdmin();`).
+15. **Gigantic Text Injection**: A user attempts to inject 10MB of bio texts into a creator profile.
+    - *Expected*: `PERMISSION_DENIED` (Check: `isValidCreatorCard()` size limits on bio).
 
 ## 3. Test Runner Configuration
 (This will be verified in `firestore.rules.test.ts`)

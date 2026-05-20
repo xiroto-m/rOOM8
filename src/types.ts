@@ -1,0 +1,44 @@
+import { Timestamp } from "firebase/firestore";
+
+export interface CreatorCard {
+  id?: string;
+  name: string;
+  specialty: string;
+  bio: string;
+  imageUrl?: string;
+  instagram?: string;
+  twitter?: string;
+  likesCount?: number;
+  createdAt: any; // Date, Timestamp or ServerTimestamp
+}
+
+export interface Referral {
+  id?: string;
+  creatorId: string;
+  introducerName: string;
+  introducerContact?: string;
+  reason: string;
+  icebreakers: string[];
+  conversationCount: number;
+  createdAt: any;
+}
+
+export interface MediaContent {
+  id?: string;
+  title: string;
+  description?: string;
+  youtubeUrl: string;
+  likesCount: number;
+  tipsCount: number;
+  tipsTotalYen: number;
+  createdAt: any;
+}
+
+export interface TipTransaction {
+  id?: string;
+  contentId: string;
+  amount: number;
+  backerName: string;
+  cheerMessage?: string;
+  createdAt: any;
+}

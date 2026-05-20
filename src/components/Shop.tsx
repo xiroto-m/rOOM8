@@ -154,7 +154,7 @@ export default function Shop() {
         console.log("Using client-side direct checkout with Price ID:", product.stripePriceId);
         const stripe = await getStripe();
         if (!stripe) {
-          throw new Error("Stripeの初期化に失敗しました。");
+          throw new Error("Stripeの初期化に失敗しました。GitHub等でホスティングしている場合、VITE_STRIPE_PUBLISHABLE_KEY が設定（またはSecretsに追加）されているか確認してください。");
         }
 
         // クライアントサイドのみの遷移

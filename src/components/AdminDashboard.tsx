@@ -54,6 +54,19 @@ interface Product {
   order: number;
 }
 
+interface Creator {
+  id?: string;
+  name: string;
+  specialty: string;
+  bio: string;
+  imageUrl: string;
+  instagram: string;
+  twitter?: string;
+  likesCount?: number;
+  order?: number;
+  createdAt?: any;
+}
+
 const ADMIN_EMAILS = ["hiroto.mizutani@gmail.com", "taku448@gmail.com"];
 const ANALYTICS_START_DATE = new Date('2026-05-13T00:00:00+09:00');
 
@@ -524,6 +537,114 @@ const ProductEditModal = ({ product, onSave, onClose, saving }: { product: Produ
   );
 };
 
+const CreatorEditModal = ({ creator, onSave, onClose, saving }: { creator: Creator, onSave: (creator: Creator) => void, onClose: () => void, saving: boolean }) => {
+  const [formData, setFormData] = useState<Creator>(creator);
+
+  const handleSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    onSave(formData);
+  };
+
+  return (
+    <div className="fixed inset-0 bg-artistic-text/80 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+      <div className="bg-white border-4 border-artistic-text w-full max-w-2xl rounded-[2.5rem] shadow-[12px_12px_0px_0px_rgba(42,42,42,1)] overflow-hidden flex flex-col max-h-[90vh]">
+        <div className="p-8 border-b-4 border-artistic-text flex justify-between items-center bg-artistic-primary/20">
+          <h3 className="text-2xl font-black">{formData.id ? 'クリエイターを編集' : '新規クリエイター登録'}</h3>
+          <button onClick={onClose} className="font-black text-2xl">×</button>
+        </div>
+        
+        <form onSubmit={handleSubmit} className="p-8 space-y-6 overflow-y-auto">
+          <div className="grid md:grid-cols-2 gap-6">
+            <div className="space-y-2">
+              <label className="text-xs font-black uppercase opacity-60">クリエイター名</label>
+              <input 
+                type="text" 
+                required
+                value={formData.name} 
+                onChange={e => setFormData({...formData, name: e.target.value})}
+                className="w-full border-2 border-artistic-text p-3 rounded-xl font-bold outline-none"
+                placeholder="マサ (Masa)"
+              />
+            </div>
+            <div className="space-y-2">
+              <label className="text-xs font-black uppercase opacity-60">肩書・専門分野 (specialty)</label>
+              <input 
+                type="text" 
+                required
+                value={formData.specialty} 
+                onChange={e => setFormData({...formData, specialty: e.target.value})}
+                className="w-full border-2 border-artistic-text p-3 rounded-xl font-bold outline-none"
+                placeholder="Wood Crafter 🪚"
+              />
+            </div>
+          </div>
+
+          <div className="grid md:grid-cols-2 gap-6">
+            <div className="space-y-2">
+              <label className="text-xs font-black uppercase opacity-60">Instagram アカウント名 (任意)</label>
+              <input 
+                type="text" 
+                value={formData.instagram || ''} 
+                onChange={e => setFormData({...formData, instagram: e.target.value})}
+                className="w-full border-2 border-artistic-text p-3 rounded-xl font-bold outline-none"
+                placeholder="wood_masa_yoyogi"
+              />
+            </div>
+            <div className="space-y-2">
+              <label className="text-xs font-black uppercase opacity-60">Twitter/X アカウント名 (任意)</label>
+              <input 
+                type="text" 
+                value={formData.twitter || ''} 
+                onChange={e => setFormData({...formData, twitter: e.target.value})}
+                className="w-full border-2 border-artistic-text p-3 rounded-xl font-bold outline-none"
+                placeholder="masa_wood"
+              />
+            </div>
+          </div>
+
+          <div className="space-y-4">
+            <ImageUpload 
+              currentUrl={formData.imageUrl || ''} 
+              onUpload={(url) => setFormData({...formData, imageUrl: url})} 
+              label="クリエイター画像"
+            />
+          </div>
+
+          <div className="space-y-2">
+            <label className="text-xs font-black uppercase opacity-60">プロフィール / 紹介文 (bio)</label>
+            <textarea 
+              rows={4}
+              required
+              value={formData.bio} 
+              onChange={e => setFormData({...formData, bio: e.target.value})}
+              className="w-full border-2 border-artistic-text p-3 rounded-xl font-bold outline-none"
+              placeholder="紹介文を入力してください"
+            />
+          </div>
+
+          <div className="pt-4 flex gap-4">
+            <button 
+              type="submit" 
+              disabled={saving}
+              className="flex-1 bg-artistic-text text-white font-black py-4 rounded-xl flex items-center justify-center gap-3 hover:bg-neutral-800 disabled:opacity-50"
+            >
+              <Save size={20} />
+              {saving ? '保存中...' : '保存する'}
+            </button>
+            <button 
+              type="button" 
+              onClick={onClose}
+              className="px-8 border-2 border-artistic-text font-black rounded-xl hover:bg-neutral-100"
+            >
+              キャンセル
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
+  );
+};
+
 export default function AdminDashboard() {
   const [user, setUser] = useState<User | null>(null);
   const [loading, setLoading] = useState(true);
@@ -542,7 +663,7 @@ export default function AdminDashboard() {
   const [engagementStats, setEngagementStats] = useState({ avgDuration: 0, medianDuration: 0, avgScroll: 0, medianScroll: 0, completionRate: 0, completionCount: 0 });
   const [feedback, setFeedback] = useState<any[]>([]);
   const [analysisPeriod, setAnalysisPeriod] = useState<number>(14);
-  const [activeTab, setActiveTab] = useState<'events' | 'shop' | 'settings' | 'analytics' | 'feedback'>('events');
+  const [activeTab, setActiveTab] = useState<'events' | 'shop' | 'settings' | 'analytics' | 'feedback' | 'creators'>('events');
   const [globalSettings, setGlobalSettings] = useState({
     instagram: EVENT_INFO.instagram,
     youtube: EVENT_INFO.youtube,
@@ -551,9 +672,12 @@ export default function AdminDashboard() {
   });
   const [editingEvent, setEditingEvent] = useState<EventItem | null>(null);
   const [editingProduct, setEditingProduct] = useState<Product | null>(null);
+  const [editingCreator, setEditingCreator] = useState<Creator | null>(null);
   const [deletingEventId, setDeletingEventId] = useState<string | null>(null);
   const [deletingProductId, setDeletingProductId] = useState<string | null>(null);
+  const [deletingCreatorId, setDeletingCreatorId] = useState<string | null>(null);
   const [deletingFeedbackId, setDeletingFeedbackId] = useState<string | null>(null);
+  const [creators, setCreators] = useState<Creator[]>([]);
   const [status, setStatus] = useState<{ type: 'success' | 'error' | null, message: string }>({ type: null, message: '' });
   const [saving, setSaving] = useState(false);
   const [fetchingAnalytics, setFetchingAnalytics] = useState(false);
@@ -939,6 +1063,17 @@ export default function AdminDashboard() {
       })) as Product[];
       setProducts(productsList.sort((a, b) => (a.order || 0) - (b.order || 0)));
 
+      // Fetch creators
+      const creatorsRef = collection(db, 'creators');
+      const creatorsSnapshot = await getDocs(creatorsRef);
+      const creatorsList = creatorsSnapshot.docs.map(doc => ({
+        id: doc.id,
+        likesCount: 0,
+        order: 0,
+        ...doc.data()
+      })) as Creator[];
+      setCreators(creatorsList.sort((a, b) => (a.order || 0) - (b.order || 0)));
+
       // Fetch global settings
       const settingsRef = doc(db, 'settings', 'global');
       const settingsSnap = await getDoc(settingsRef);
@@ -1308,6 +1443,105 @@ export default function AdminDashboard() {
     });
   };
 
+  const handleSaveCreator = async (creatorData: Creator) => {
+    setSaving(true);
+    setStatus({ type: null, message: '' });
+    try {
+      const isNew = !creatorData.id;
+      const ref = isNew 
+        ? doc(collection(db, 'creators')) 
+        : doc(db, 'creators', creatorData.id!);
+
+      const dataToSave: any = {
+        name: creatorData.name,
+        specialty: creatorData.specialty,
+        bio: creatorData.bio,
+        imageUrl: creatorData.imageUrl || '',
+        instagram: creatorData.instagram || '',
+        twitter: creatorData.twitter || '',
+        likesCount: creatorData.likesCount !== undefined ? creatorData.likesCount : 0,
+        order: creatorData.order !== undefined ? creatorData.order : 0,
+        updatedAt: serverTimestamp()
+      };
+
+      if (isNew) {
+        dataToSave.createdAt = serverTimestamp();
+      } else if (creatorData.createdAt) {
+        dataToSave.createdAt = creatorData.createdAt;
+      } else {
+        dataToSave.createdAt = serverTimestamp();
+      }
+
+      await setDoc(ref, dataToSave, { merge: true });
+      setStatus({ 
+        type: 'success', 
+        message: isNew ? '新規クリエイターを登録しました。' : 'クリエイター情報を更新しました。' 
+      });
+      setEditingCreator(null);
+      fetchData();
+      setTimeout(() => setStatus({ type: null, message: '' }), 3000);
+    } catch (err) {
+      handleLocalFirestoreError(err, OperationType.WRITE, 'creators');
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const handleDeleteCreator = async (id: string) => {
+    setSaving(true);
+    setStatus({ type: null, message: '' });
+    try {
+      await deleteDoc(doc(db, 'creators', id));
+      setCreators(prev => prev.filter(c => c.id !== id));
+      setStatus({ type: 'success', message: 'クリエイターを削除しました。' });
+      setTimeout(() => setStatus({ type: null, message: '' }), 3000);
+    } catch (err) {
+      console.error(err);
+      setStatus({ type: 'error', message: '削除に失敗しました。' });
+    } finally {
+      setSaving(false);
+      setDeletingCreatorId(null);
+    }
+  };
+
+  const moveCreatorOrder = async (index: number, direction: 'up' | 'down') => {
+    if (direction === 'up' && index === 0) return;
+    if (direction === 'down' && index === creators.length - 1) return;
+
+    const newCreators = [...creators];
+    const targetIndex = direction === 'up' ? index - 1 : index + 1;
+    [newCreators[index], newCreators[targetIndex]] = [newCreators[targetIndex], newCreators[index]];
+
+    setSaving(true);
+    try {
+      await Promise.all(newCreators.map((c, i) => {
+        if (c.id) {
+          return setDoc(doc(db, 'creators', c.id), { ...c, order: i + 1, updatedAt: serverTimestamp() });
+        }
+        return Promise.resolve();
+      }));
+      fetchData();
+    } catch (err) {
+      handleLocalFirestoreError(err, OperationType.WRITE, 'creators');
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const startNewCreator = () => {
+    const nextOrder = creators.length > 0 ? Math.max(...creators.map(c => c.order || 0)) + 1 : 1;
+    setEditingCreator({
+      name: '',
+      specialty: '',
+      bio: '',
+      imageUrl: '',
+      instagram: '',
+      twitter: '',
+      likesCount: 0,
+      order: nextOrder
+    });
+  };
+
   if (loading) return <div className="p-10 text-center font-bold">読み込み中...</div>;
 
   if (!user) {
@@ -1381,7 +1615,7 @@ export default function AdminDashboard() {
         )}
 
         {/* Tab Navigation */}
-        <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-20 overflow-x-auto pb-4 snap-x">
+        <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4 mb-20 overflow-x-auto pb-4 snap-x">
           <button 
             onClick={() => setActiveTab('events')}
             className={`min-w-0 justify-center px-4 md:px-10 py-4 md:py-5 rounded-[1.5rem] font-black flex items-center gap-2 md:gap-4 transition-all border-4 shadow-[6px_6px_0px_0px_rgba(42,42,42,1)] active:translate-x-[2px] active:translate-y-[2px] active:shadow-none snap-start whitespace-nowrap text-sm md:text-base ${activeTab === 'events' ? 'bg-artistic-text text-white border-artistic-text' : 'bg-white text-artistic-text border-artistic-text/10 hover:border-artistic-text'}`}
@@ -1393,6 +1627,12 @@ export default function AdminDashboard() {
             className={`min-w-0 justify-center px-4 md:px-10 py-4 md:py-5 rounded-[1.5rem] font-black flex items-center gap-2 md:gap-4 transition-all border-4 shadow-[6px_6px_0px_0px_rgba(42,42,42,1)] active:translate-x-[2px] active:translate-y-[2px] active:shadow-none snap-start whitespace-nowrap text-sm md:text-base ${activeTab === 'shop' ? 'bg-artistic-text text-white border-artistic-text' : 'bg-white text-artistic-text border-artistic-text/10 hover:border-artistic-text'}`}
           >
             <ShoppingBag size={isMobile ? 18 : 24} /> ショップ管理
+          </button>
+          <button 
+            onClick={() => setActiveTab('creators')}
+            className={`min-w-0 justify-center px-4 md:px-10 py-4 md:py-5 rounded-[1.5rem] font-black flex items-center gap-2 md:gap-4 transition-all border-4 shadow-[6px_6px_0px_0px_rgba(42,42,42,1)] active:translate-x-[2px] active:translate-y-[2px] active:shadow-none snap-start whitespace-nowrap text-sm md:text-base ${activeTab === 'creators' ? 'bg-artistic-text text-white border-artistic-text' : 'bg-white text-artistic-text border-artistic-text/10 hover:border-artistic-text'}`}
+          >
+            <Users size={isMobile ? 18 : 24} /> クリエイター管理
           </button>
           <button 
             onClick={() => setActiveTab('analytics')}
@@ -1413,6 +1653,133 @@ export default function AdminDashboard() {
             <Settings size={isMobile ? 18 : 24} /> 全般設定
           </button>
         </div>
+
+        {/* Creators Tab Section */}
+        {activeTab === 'creators' && (
+          <div className="space-y-10 animate-in fade-in slide-in-from-bottom-4">
+            <div className="flex flex-col md:flex-row md:items-center justify-between gap-6">
+              <div>
+                <h2 className="text-4xl font-black italic">他己紹介クリエイター一覧</h2>
+                <p className="text-sm font-bold opacity-60">他己紹介ボード（Referral Connect）に表示されるクリエイターを登録・管理します。</p>
+              </div>
+              <button 
+                onClick={startNewCreator}
+                className="bg-artistic-accent text-artistic-text font-black px-8 py-4 rounded-xl border-2 border-artistic-text shadow-[4px_4px_0px_0px_rgba(42,42,42,1)] hover:scale-105 active:scale-95 transition-all flex items-center gap-2 justify-center"
+              >
+                <Plus size={20} /> クリエイターを追加
+              </button>
+            </div>
+
+            <div className="bg-white border-4 border-artistic-text p-6 md:p-10 rounded-[3rem] shadow-[12px_12px_0px_0px_rgba(42,42,42,1)]">
+              <div className="overflow-x-auto">
+                <table className="w-full text-left border-collapse">
+                  <thead>
+                    <tr className="border-b-4 border-artistic-text">
+                      <th className="pb-4 font-black text-sm uppercase opacity-40">並び順</th>
+                      <th className="pb-4 font-black text-sm uppercase opacity-40">画像</th>
+                      <th className="pb-4 font-black text-sm uppercase opacity-40">名前・専門分野</th>
+                      <th className="pb-4 font-black text-sm uppercase opacity-40">プロフィール（紹介文）</th>
+                      <th className="pb-4 font-black text-sm uppercase opacity-40">SNS</th>
+                      <th className="pb-4 font-black text-sm uppercase opacity-40">いいね数</th>
+                      <th className="pb-4 font-black text-sm uppercase opacity-40 text-right">操作</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y-2 divide-stone-100">
+                    {creators.map((creator, index) => (
+                      <tr key={creator.id} className="hover:bg-stone-50/50">
+                        <td className="py-6">
+                          <div className="flex flex-col gap-1 items-center justify-center w-10">
+                            <button 
+                              onClick={() => moveCreatorOrder(index, 'up')}
+                              disabled={index === 0}
+                              className="p-1 hover:bg-neutral-100 rounded disabled:opacity-20"
+                            >
+                              <ArrowUp size={16} />
+                            </button>
+                            <span className="font-bold text-xs">{index + 1}</span>
+                            <button 
+                              onClick={() => moveCreatorOrder(index, 'down')}
+                              disabled={index === creators.length - 1}
+                              className="p-1 hover:bg-neutral-100 rounded disabled:opacity-20"
+                            >
+                              <ArrowDown size={16} />
+                            </button>
+                          </div>
+                        </td>
+                        <td className="py-6">
+                          <div className="w-16 h-16 rounded-2xl border-2 border-artistic-text overflow-hidden bg-stone-100">
+                            {creator.imageUrl ? (
+                              <img src={creator.imageUrl} alt={creator.name} className="w-full h-full object-cover" referrerPolicy="no-referrer" />
+                            ) : (
+                              <div className="w-full h-full flex items-center justify-center text-xs font-bold text-gray-400 bg-stone-100">
+                                No Img
+                              </div>
+                            )}
+                          </div>
+                        </td>
+                        <td className="py-6 max-w-xs pr-4">
+                          <p className="font-black text-base">{creator.name}</p>
+                          <span className="inline-block mt-1 bg-artistic-primary/10 text-artistic-primary text-xs font-bold px-2 py-0.5 rounded">
+                            {creator.specialty}
+                          </span>
+                        </td>
+                        <td className="py-6 max-w-md pr-4">
+                          <p className="text-xs font-bold text-stone-600 line-clamp-3 leading-relaxed whitespace-pre-wrap">{creator.bio}</p>
+                        </td>
+                        <td className="py-6 space-y-1">
+                          {creator.instagram && (
+                            <p className="text-xs font-black text-[#E1306C]/80 flex items-center gap-1">
+                              instagram: {creator.instagram}
+                            </p>
+                          )}
+                          {creator.twitter && (
+                            <p className="text-xs font-black text-[#1DA1F2]/80 flex items-center gap-1">
+                              twitter: {creator.twitter}
+                            </p>
+                          )}
+                          {!creator.instagram && !creator.twitter && (
+                            <p className="text-xs font-bold text-gray-400 italic">未入力</p>
+                          )}
+                        </td>
+                        <td className="py-6">
+                          <div className="flex items-center gap-1 font-bold text-artistic-pink text-sm">
+                            <Heart size={14} fill="currentColor" />
+                            <span>{creator.likesCount || 0}</span>
+                          </div>
+                        </td>
+                        <td className="py-6 text-right">
+                          <div className="flex items-center justify-end gap-2">
+                            <button 
+                              onClick={() => setEditingCreator(creator)}
+                              className="p-2 border-2 border-artistic-text hover:bg-neutral-100 rounded-lg"
+                              title="編集"
+                            >
+                              <Edit2 size={16} />
+                            </button>
+                            <button 
+                              onClick={() => creator.id && setDeletingCreatorId(creator.id)}
+                              className="p-2 border-2 border-artistic-text hover:bg-red-50 hover:text-red-500 rounded-lg"
+                              title="削除"
+                            >
+                              <Trash2 size={16} />
+                            </button>
+                          </div>
+                        </td>
+                      </tr>
+                    ))}
+                    {creators.length === 0 && (
+                      <tr>
+                        <td colSpan={7} className="py-12 text-center text-gray-400 font-bold italic">
+                          クリエイターが登録されていません。「クリエイターを追加」から新しく登録してください。
+                        </td>
+                      </tr>
+                    )}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          </div>
+        )}
 
         {/* Global Settings Section */}
         {activeTab === 'settings' && (
@@ -2275,6 +2642,16 @@ export default function AdminDashboard() {
           />
         )}
 
+        {/* Edit/Add Creator Form */}
+        {editingCreator && (
+          <CreatorEditModal 
+            creator={editingCreator} 
+            onSave={handleSaveCreator} 
+            onClose={() => setEditingCreator(null)} 
+            saving={saving} 
+          />
+        )}
+
         {/* Product Deleting Modal */}
         {deletingProductId && (
           <div className="fixed inset-0 bg-neutral-900/50 backdrop-blur-sm z-50 flex items-center justify-center p-4">
@@ -2368,6 +2745,40 @@ export default function AdminDashboard() {
                   </button>
                   <button 
                     onClick={() => setDeletingFeedbackId(null)}
+                    disabled={saving}
+                    className="px-8 border-2 border-artistic-text font-black rounded-xl hover:bg-neutral-100"
+                  >
+                    キャンセル
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Creator Deleting Modal */}
+        {deletingCreatorId && (
+          <div className="fixed inset-0 bg-neutral-900/50 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+            <div className="bg-white border-4 border-artistic-text rounded-[2rem] shadow-[12px_12px_0px_0px_rgba(42,42,42,1)] w-full max-w-md overflow-hidden">
+              <div className="p-8 border-b-4 border-artistic-text bg-artistic-pink/20">
+                <h3 className="text-2xl font-black text-artistic-text">クリエイターを削除</h3>
+              </div>
+              <div className="p-8 space-y-6">
+                <p className="font-bold text-lg">このクリエイターを削除してもよろしいですか？</p>
+                <p className="text-sm opacity-70">※この操作は取り消せません。</p>
+                <div className="pt-4 flex gap-4">
+                  <button 
+                    onClick={() => {
+                      handleDeleteCreator(deletingCreatorId);
+                    }}
+                    disabled={saving}
+                    className="flex-1 bg-artistic-pink text-white font-black py-4 rounded-xl flex items-center justify-center gap-3 hover:opacity-90 disabled:opacity-50"
+                  >
+                    <Trash2 size={20} />
+                    {saving ? '削除中...' : '削除する'}
+                  </button>
+                  <button 
+                    onClick={() => setDeletingCreatorId(null)}
                     disabled={saving}
                     className="px-8 border-2 border-artistic-text font-black rounded-xl hover:bg-neutral-100"
                   >
