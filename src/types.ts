@@ -9,6 +9,8 @@ export interface CreatorCard {
   instagram?: string;
   twitter?: string;
   likesCount?: number;
+  isExhibitingToday?: boolean;
+  isPastExhibitor?: boolean;
   createdAt: any; // Date, Timestamp or ServerTimestamp
 }
 
@@ -20,6 +22,9 @@ export interface Referral {
   reason: string;
   icebreakers: string[];
   conversationCount: number;
+  authorDeviceId?: string;
+  authorIP?: string;
+  likesCount?: number;
   createdAt: any;
 }
 
@@ -40,5 +45,8 @@ export interface TipTransaction {
   amount: number;
   backerName: string;
   cheerMessage?: string;
+  authorDeviceId?: string;
+  authorIP?: string;
+  likesCount?: number;
   createdAt: any;
 }

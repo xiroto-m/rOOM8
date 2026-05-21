@@ -551,7 +551,7 @@ function MainSite() {
 
           // Start observing sections - periodically check for new elements (e.g. after data load)
           const observeSections = () => {
-             ['home', 'about', 'event-info', 'archive', 'location', 'youtube-registration', 'gallery', 'feedback', 'products', 'contact'].forEach(id => {
+             ['home', 'about', 'event-info', 'archive', 'location', 'youtube-registration', 'party-connect', 'gallery', 'feedback', 'products', 'contact'].forEach(id => {
               const el = document.getElementById(id);
               if (el) observer.observe(el);
             });
@@ -1012,11 +1012,26 @@ function MainSite() {
   };
 
   const getMapEmbedUrl = (event: EventItem) => {
-    if (!event.address && !event.locationName && event.googleMapEmbedUrl) {
+    let queryText = event.address || event.locationName || '';
+    if (
+      queryText.includes("代々木") || 
+      queryText.includes("4-28-8") || 
+      (event.googleMapEmbedUrl && (event.googleMapEmbedUrl.includes("5Luj44CF5pyo5Y-w44Oe44Oz") || event.googleMapEmbedUrl.includes("代々木")))
+    ) {
+      queryText = "東京都渋谷区代々木 4-28-8";
+    } else if (!queryText && event.googleMapEmbedUrl) {
       return event.googleMapEmbedUrl;
     }
-    const query = encodeURIComponent(event.address || event.locationName || '');
+    const query = encodeURIComponent(queryText || "東京都渋谷区代々木 4-28-8");
     return `https://maps.google.com/maps?q=${query}&output=embed`;
+  };
+
+  const getMapSearchUrl = (event: EventItem) => {
+    let queryText = event.address || event.locationName || '';
+    if (queryText.includes("代々木") || queryText.includes("4-28-8")) {
+      queryText = "東京都渋谷区代々木 4-28-8";
+    }
+    return `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(queryText || "東京都渋谷区代々木 4-28-8")}`;
   };
 
   const EventModal = ({ event, onClose }: { event: EventItem, onClose: () => void }) => {
@@ -1372,19 +1387,16 @@ function MainSite() {
                 About
               </a>
               <a 
-                href="#gallery" 
-                onClick={(e) => scrollToSection(e, 'gallery')}
+                href="#party-connect" 
+                onClick={(e) => {
+                  setActiveCatalystTab("referral");
+                  scrollToSection(e, 'party-connect');
+                }}
                 className="text-[10px] font-black uppercase tracking-widest hover:text-artistic-primary transition-colors cursor-pointer"
               >
-                Gallery
+                他己紹介
               </a>
-              <a 
-                href="#location" 
-                onClick={(e) => scrollToSection(e, 'location')}
-                className="text-[10px] font-black uppercase tracking-widest hover:text-artistic-primary transition-colors cursor-pointer"
-              >
-                Location
-              </a>
+
               <Link
                 to="/shop"
                 onClick={() => trackAction('click_header_shop')}
@@ -1846,7 +1858,7 @@ function MainSite() {
             {/* Mobile Fallback Prompt */}
             <div className="absolute bottom-4 right-4 md:hidden">
               <a 
-                href={`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(heroEvent.address || heroEvent.locationName)}`}
+                href={getMapSearchUrl(heroEvent)}
                 target="_blank"
                 rel="noopener noreferrer"
                 className="bg-white/90 backdrop-blur-sm border-2 border-artistic-text px-3 py-2 rounded-xl text-[10px] font-black flex items-center gap-1 shadow-lg"
@@ -1858,7 +1870,7 @@ function MainSite() {
 
           <div className="flex flex-col md:flex-row justify-center items-center gap-4 mb-16">
              <a 
-              href={`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(heroEvent.address || heroEvent.locationName)}`}
+              href={getMapSearchUrl(heroEvent)}
               target="_blank"
               rel="noopener noreferrer"
               className="w-full md:w-auto bg-white border-2 border-artistic-text px-6 py-3 rounded-2xl font-black text-sm flex items-center justify-center gap-2 hover:bg-artistic-accent transition-colors shadow-[4px_4px_0px_0px_rgba(42,42,42,1)]"
@@ -2006,11 +2018,6 @@ function MainSite() {
         </motion.div>
       </Section>
 
-      {/* Collage Gallery Section */}
-      <Section className="py-12" id="gallery">
-        <PrivacyGallery />
-      </Section>
-
       {/* Conversation Catalysts Tab Board */}
       <Section id="party-connect" className="py-24 bg-[#FFFDF9] border-y-4 border-artistic-text relative overflow-hidden">
         {/* Abstract background decorative spark */}
@@ -2033,7 +2040,7 @@ function MainSite() {
                     : "text-stone-500 hover:text-artistic-text"
                 }`}
               >
-                <Users size={16} /> 他己紹介ボード (Referral Connect)
+                <Users size={16} /> 他己紹介ボード
               </button>
               <button
                 onClick={() => {
@@ -2077,6 +2084,11 @@ function MainSite() {
             </AnimatePresence>
           </div>
         </div>
+      </Section>
+
+      {/* Collage Gallery Section */}
+      <Section className="py-12" id="gallery">
+        <PrivacyGallery />
       </Section>
 
       {/* Feedback Section */}

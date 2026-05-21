@@ -236,11 +236,9 @@ service cloud.firestore {
     match /referrals/{referralId} {
       allow read: if true;
       allow create: if isValidId(referralId) && isValidReferral(incoming());
-      allow update: if (isAdmin() && isValidReferral(incoming()))
-                      || (isValidId(referralId) && 
-                          incoming().diff(existing()).affectedKeys().hasOnly(['conversationCount']) &&
-                          incoming().conversationCount == (existing().get('conversationCount', 0) + 1));
-      allow delete: if isAdmin() && isValidId(referralId);
+      allow update, delete: if isAdmin() || 
+                              (existing().get('authorDeviceId', '') != '' && existing().get('authorDeviceId', '') == incoming().get('authorDeviceId', '')) ||
+                              (existing().get('authorIP', '') != '' && existing().get('authorIP', '') == incoming().get('authorIP', ''));
     }
 
     match /media/{mediaId} {
@@ -248,12 +246,21 @@ service cloud.firestore {
       allow create, delete: if isAdmin() && isValidId(mediaId);
       allow update: if (isAdmin() && isValidMediaContent(incoming()))
                       || (isValidId(mediaId) && 
-                          incoming().diff(existing()).affectedKeys().hasAny(['likesCount', 'tipsCount', 'tipsTotalYen']));
+                           incoming().diff(existing()).affectedKeys().hasAny(['likesCount', 'tipsCount', 'tipsTotalYen']));
 
       match /tips/{tipId} {
         allow read: if true;
         allow create: if isValidId(tipId) && isValidTipTransaction(incoming());
-        allow update, delete: if isAdmin();
+        allow update: if isAdmin() || 
+                        (existing().get('authorDeviceId', '') != '' && existing().get('authorDeviceId', '') == incoming().get('authorDeviceId', '')) ||
+                        (existing().get('authorIP', '') != '' && existing().get('authorIP', '') == incoming().get('authorIP', '')) ||
+                        (isValidId(tipId) && 
+                         incoming().diff(existing()).affectedKeys().hasOnly(['likesCount']) &&
+                         (incoming().likesCount == (existing().get('likesCount', 0) + 1) ||
+                          (incoming().likesCount == (existing().get('likesCount', 0) - 1) && incoming().likesCount >= 0)));
+        allow delete: if isAdmin() || 
+                        (existing().get('authorDeviceId', '') != '' && existing().get('authorDeviceId', '') == incoming().get('authorDeviceId', '')) ||
+                        (existing().get('authorIP', '') != '' && existing().get('authorIP', '') == incoming().get('authorIP', ''));
       }
     }
   }

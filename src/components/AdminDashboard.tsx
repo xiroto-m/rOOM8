@@ -64,6 +64,8 @@ interface Creator {
   twitter?: string;
   likesCount?: number;
   order?: number;
+  isExhibitingToday?: boolean;
+  isPastExhibitor?: boolean;
   createdAt?: any;
 }
 
@@ -620,6 +622,27 @@ const CreatorEditModal = ({ creator, onSave, onClose, saving }: { creator: Creat
               className="w-full border-2 border-artistic-text p-3 rounded-xl font-bold outline-none"
               placeholder="紹介文を入力してください"
             />
+          </div>
+
+          <div className="grid grid-cols-2 gap-4 bg-stone-50 border-2 border-dashed border-stone-200 p-4 rounded-2xl">
+            <label className="flex items-center gap-3 cursor-pointer select-none">
+              <input 
+                type="checkbox" 
+                checked={!!formData.isExhibitingToday} 
+                onChange={e => setFormData({...formData, isExhibitingToday: e.target.checked})}
+                className="w-5 h-5 rounded border-2 border-artistic-text text-artistic-primary focus:ring-artistic-primary"
+              />
+              <span className="text-sm font-black text-stone-700">🟢 本日出展中</span>
+            </label>
+            <label className="flex items-center gap-3 cursor-pointer select-none">
+              <input 
+                type="checkbox" 
+                checked={!!formData.isPastExhibitor} 
+                onChange={e => setFormData({...formData, isPastExhibitor: e.target.checked})}
+                className="w-5 h-5 rounded border-2 border-artistic-text text-artistic-primary focus:ring-artistic-primary"
+              />
+              <span className="text-sm font-black text-stone-600">📅 過去に出展</span>
+            </label>
           </div>
 
           <div className="pt-4 flex gap-4">
@@ -1461,6 +1484,8 @@ export default function AdminDashboard() {
         twitter: creatorData.twitter || '',
         likesCount: creatorData.likesCount !== undefined ? creatorData.likesCount : 0,
         order: creatorData.order !== undefined ? creatorData.order : 0,
+        isExhibitingToday: !!creatorData.isExhibitingToday,
+        isPastExhibitor: !!creatorData.isPastExhibitor,
         updatedAt: serverTimestamp()
       };
 
@@ -1538,6 +1563,8 @@ export default function AdminDashboard() {
       instagram: '',
       twitter: '',
       likesCount: 0,
+      isExhibitingToday: false,
+      isPastExhibitor: false,
       order: nextOrder
     });
   };
@@ -1660,7 +1687,7 @@ export default function AdminDashboard() {
             <div className="flex flex-col md:flex-row md:items-center justify-between gap-6">
               <div>
                 <h2 className="text-4xl font-black italic">他己紹介クリエイター一覧</h2>
-                <p className="text-sm font-bold opacity-60">他己紹介ボード（Referral Connect）に表示されるクリエイターを登録・管理します。</p>
+                <p className="text-sm font-bold opacity-60">他己紹介ボードに表示されるクリエイターを登録・管理します。</p>
               </div>
               <button 
                 onClick={startNewCreator}
@@ -1718,7 +1745,19 @@ export default function AdminDashboard() {
                           </div>
                         </td>
                         <td className="py-6 max-w-xs pr-4">
-                          <p className="font-black text-base">{creator.name}</p>
+                          <p className="font-black text-base flex flex-wrap gap-1.5 items-center">
+                            {creator.name}
+                            {creator.isExhibitingToday && (
+                              <span className="text-[9px] text-emerald-800 bg-emerald-50 border border-emerald-200 px-1.5 py-0.5 rounded font-black whitespace-nowrap">
+                                🟢 本日出展中
+                              </span>
+                            )}
+                            {creator.isPastExhibitor && (
+                              <span className="text-[9px] text-stone-600 bg-stone-100 border border-stone-200 px-1.5 py-0.5 rounded font-black whitespace-nowrap">
+                                📅 過去に出展
+                              </span>
+                            )}
+                          </p>
                           <span className="inline-block mt-1 bg-artistic-primary/10 text-artistic-primary text-xs font-bold px-2 py-0.5 rounded">
                             {creator.specialty}
                           </span>
