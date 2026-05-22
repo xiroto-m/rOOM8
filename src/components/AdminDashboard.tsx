@@ -1767,14 +1767,24 @@ export default function AdminDashboard() {
                         </td>
                         <td className="py-6 space-y-1">
                           {creator.instagram && (
-                            <p className="text-xs font-black text-[#E1306C]/80 flex items-center gap-1">
-                              instagram: {creator.instagram}
-                            </p>
+                            <a 
+                              href={creator.instagram.startsWith("http") ? creator.instagram : `https://instagram.com/${creator.instagram}`}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="text-xs font-black text-[#E1306C]/80 hover:text-[#E1306C] hover:underline flex items-center gap-1"
+                            >
+                              instagram: {creator.instagram} ↗
+                            </a>
                           )}
                           {creator.twitter && (
-                            <p className="text-xs font-black text-[#1DA1F2]/80 flex items-center gap-1">
-                              twitter: {creator.twitter}
-                            </p>
+                            <a 
+                              href={creator.twitter.startsWith("http") ? creator.twitter : `https://x.com/${creator.twitter}`}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="text-xs font-black text-[#1DA1F2]/80 hover:text-[#1DA1F2] hover:underline flex items-center gap-1"
+                            >
+                              twitter: {creator.twitter} ↗
+                            </a>
                           )}
                           {!creator.instagram && !creator.twitter && (
                             <p className="text-xs font-bold text-gray-400 italic">未入力</p>

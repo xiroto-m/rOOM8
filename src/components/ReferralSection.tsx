@@ -385,6 +385,36 @@ export default function ReferralSection({ userIP, deviceId }: { userIP: string |
                     <p className="text-xs text-stone-500 font-bold leading-relaxed italic mb-4">
                       「{c.bio}」
                     </p>
+
+                    {/* SNS Links */}
+                    {(c.instagram || c.twitter) && (
+                      <div className="flex flex-wrap gap-2 mb-4" onClick={(e) => e.stopPropagation()}>
+                        {c.instagram && (
+                          <a
+                            href={c.instagram.startsWith("http") ? c.instagram : `https://instagram.com/${c.instagram}`}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="inline-flex items-center gap-1.5 px-3 py-1 bg-[#E1306C]/10 text-[#E1306C] hover:bg-[#E1306C]/20 border border-[#E1306C]/20 rounded-full text-xs font-black transition-all hover:scale-105 active:scale-95"
+                          >
+                            <Instagram size={12} className="stroke-[2.5]" />
+                            <span>Instagram</span>
+                            <ExternalLink size={9} className="opacity-60" />
+                          </a>
+                        )}
+                        {c.twitter && (
+                          <a
+                            href={c.twitter.startsWith("http") ? c.twitter : `https://x.com/${c.twitter}`}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="inline-flex items-center gap-1.5 px-3 py-1 bg-stone-100 hover:bg-stone-200 text-stone-700 border border-stone-200 rounded-full text-xs font-black transition-all hover:scale-105 active:scale-95"
+                          >
+                            <Twitter size={12} className="stroke-[2.5]" />
+                            <span>Twitter/X</span>
+                            <ExternalLink size={9} className="opacity-60" />
+                          </a>
+                        )}
+                      </div>
+                    )}
                   </div>
 
                   <div className="pt-4 border-t border-dashed border-stone-100 space-y-4">
@@ -741,6 +771,35 @@ export default function ReferralSection({ userIP, deviceId }: { userIP: string |
                             )}
                           </div>
                           <p className="text-[10px] text-artistic-pink font-extrabold mt-1">{cr?.specialty}</p>
+
+                          {cr && (cr.instagram || cr.twitter) && (
+                            <div className="flex flex-wrap gap-1.5 mt-2">
+                              {cr.instagram && (
+                                <a
+                                  href={cr.instagram.startsWith("http") ? cr.instagram : `https://instagram.com/${cr.instagram}`}
+                                  target="_blank"
+                                  rel="noopener noreferrer"
+                                  className="inline-flex items-center gap-1 px-2 py-0.5 bg-[#E1306C]/10 text-[#E1306C] hover:bg-[#E1306C]/20 border border-[#E1306C]/10 rounded text-[9px] font-black transition-all hover:scale-105"
+                                  onClick={(e) => e.stopPropagation()}
+                                >
+                                  <Instagram size={10} className="stroke-[2.5]" />
+                                  <span>Insta</span>
+                                </a>
+                              )}
+                              {cr.twitter && (
+                                <a
+                                  href={cr.twitter.startsWith("http") ? cr.twitter : `https://x.com/${cr.twitter}`}
+                                  target="_blank"
+                                  rel="noopener noreferrer"
+                                  className="inline-flex items-center gap-1 px-2 py-0.5 bg-stone-100 hover:bg-stone-200 text-stone-700 border border-stone-200 rounded text-[9px] font-black transition-all hover:scale-105"
+                                  onClick={(e) => e.stopPropagation()}
+                                >
+                                  <Twitter size={10} className="stroke-[2.5]" />
+                                  <span>Twitter</span>
+                                </a>
+                              )}
+                            </div>
+                          )}
                         </div>
                       </div>
                     );
