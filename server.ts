@@ -198,6 +198,12 @@ async function startServer() {
     }
   });
 
+  // Favicon and bookmark icon fallback redirects
+  // This ensures browser background requests for .ico or .png are redirected or resolved to the new favicon.svg
+  app.get(["/favicon.ico", "/favicon.png", "/apple-touch-icon.png"], (req, res) => {
+    res.redirect("/favicon.svg?v=room8_v2");
+  });
+
   // Vite middleware for development
   if (process.env.NODE_ENV !== "production") {
     const vite = await createViteServer({
