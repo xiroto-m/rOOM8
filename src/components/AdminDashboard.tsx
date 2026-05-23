@@ -736,7 +736,7 @@ export default function AdminDashboard() {
       reader.readAsDataURL(faviconFile);
       const fileData = await loadPromise;
 
-      const response = await fetch('/api/update-favicon', {
+      const response = await fetch('/api/update-site-icon', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',

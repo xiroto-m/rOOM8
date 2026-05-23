@@ -256,7 +256,7 @@ async function startServer() {
   });
 
   // Favicon update endpoint from Admin Dashboard
-  app.post("/api/update-favicon", async (req, res) => {
+  app.post("/api/update-site-icon", async (req, res) => {
     try {
       const { fileData, mimeType } = req.body; // fileData is base64 string
       if (!fileData) {
