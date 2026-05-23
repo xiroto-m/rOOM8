@@ -256,7 +256,7 @@ async function startServer() {
   });
 
   // Favicon update endpoint from Admin Dashboard (supports both current and fallback paths)
-  app.post(["/api/update-site-icon", "/api/update-favicon"], async (req, res) => {
+  const handleUpdateSiteIcon = async (req: express.Request, res: express.Response) => {
     try {
       const { fileData, mimeType } = req.body; // fileData is base64 string
       if (!fileData) {
@@ -358,10 +358,13 @@ async function startServer() {
       console.error("Error updating favicon in API:", error);
       return res.status(500).json({ error: error.message || "Failed to update favicon" });
     }
-  });
+  };
+
+  app.post("/api/update-site-icon", handleUpdateSiteIcon);
+  app.post("/api/update-favicon", handleUpdateSiteIcon);
 
   // Favicon and apple-touch-icon serving route with robust MIME-types and CORS support
-  app.get(["/favicon.ico", "/favicon.png", "/apple-touch-icon.png", "/favicon.svg"], async (req, res, next) => {
+  const handleServeFavicon = async (req: express.Request, res: express.Response, next: express.NextFunction) => {
     // Set CORS headers so standard crossorigin requests from iOS Safari don't get blocked
     res.setHeader("Access-Control-Allow-Origin", "*");
     res.setHeader("Access-Control-Allow-Methods", "GET, HEAD, OPTIONS");
@@ -397,7 +400,12 @@ async function startServer() {
         }
       }
     }
-  });
+  };
+
+  app.get("/favicon.ico", handleServeFavicon);
+  app.get("/favicon.png", handleServeFavicon);
+  app.get("/apple-touch-icon.png", handleServeFavicon);
+  app.get("/favicon.svg", handleServeFavicon);
 
   // Vite middleware for development
   if (process.env.NODE_ENV !== "production") {
