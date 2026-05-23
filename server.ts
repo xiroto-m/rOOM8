@@ -255,8 +255,8 @@ async function startServer() {
     return res.json({ success: true, message: "Handled by sharp on startup" });
   });
 
-  // Favicon update endpoint from Admin Dashboard
-  app.post("/api/update-site-icon", async (req, res) => {
+  // Favicon update endpoint from Admin Dashboard (supports both current and fallback paths)
+  app.post(["/api/update-site-icon", "/api/update-favicon"], async (req, res) => {
     try {
       const { fileData, mimeType } = req.body; // fileData is base64 string
       if (!fileData) {
