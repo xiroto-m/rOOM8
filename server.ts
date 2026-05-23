@@ -198,10 +198,43 @@ async function startServer() {
     }
   });
 
+  // Save Apple Touch Icon and Favicon PNGs from rendered canvas data
+  app.post("/api/save-icons", async (req, res) => {
+    try {
+      const { appleTouchIcon, faviconPng } = req.body;
+      const fs = await import("fs/promises");
+      
+      if (appleTouchIcon) {
+        const base64Data = appleTouchIcon.replace(/^data:image\/png;base64,/, "");
+        await fs.writeFile(path.join(process.cwd(), "public", "apple-touch-icon.png"), Buffer.from(base64Data, "base64"));
+        console.log("Successfully saved /public/apple-touch-icon.png");
+      }
+      if (faviconPng) {
+        const base64Data = faviconPng.replace(/^data:image\/png;base64,/, "");
+        await fs.writeFile(path.join(process.cwd(), "public", "favicon.png"), Buffer.from(base64Data, "base64"));
+        console.log("Successfully saved /public/favicon.png");
+      }
+      
+      return res.json({ success: true, message: "Icons saved successfully." });
+    } catch (e: any) {
+      console.error("Error saving icons:", e);
+      return res.status(500).json({ error: e.message });
+    }
+  });
+
   // Favicon and bookmark icon fallback redirects
-  // This ensures browser background requests for .ico or .png are redirected or resolved to the new favicon.svg
-  app.get(["/favicon.ico", "/favicon.png", "/apple-touch-icon.png"], (req, res) => {
-    res.redirect("/favicon.svg?v=room8_v2");
+  // This ensures browser background requests for .ico or .png are redirected or resolved to the new files if they exist, otherwise fallback to svg
+  app.get(["/favicon.ico", "/favicon.png", "/apple-touch-icon.png"], async (req, res, next) => {
+    const fs = await import("fs/promises");
+    const filePath = path.join(process.cwd(), "public", req.path);
+    try {
+      await fs.access(filePath);
+      // File exists, let express.static or vite handle it
+      next();
+    } catch {
+      // File does not exist, fallback download / redirect
+      res.redirect("/favicon.svg?v=room8_v2");
+    }
   });
 
   // Vite middleware for development

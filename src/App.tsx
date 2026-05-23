@@ -191,7 +191,77 @@ const LogoElement = ({ isScrolled }: { isScrolled: boolean }) => {
   );
 };
 
+function useIconGenerator() {
+  useEffect(() => {
+    const generatePngIcons = async () => {
+      try {
+        const response = await fetch('/favicon.svg?v=room8_v2');
+        if (!response.ok) return;
+        const svgText = await response.text();
+        
+        const renderToPng = (svgString: string, size: number): Promise<string> => {
+          return new Promise((resolve, reject) => {
+            const img = new Image();
+            img.crossOrigin = "anonymous";
+            const parser = new DOMParser();
+            const doc = parser.parseFromString(svgString, "image/svg+xml");
+            const svgEl = doc.querySelector("svg");
+            if (svgEl) {
+              svgEl.setAttribute("width", size.toString());
+              svgEl.setAttribute("height", size.toString());
+            }
+            const serializedSvg = new XMLSerializer().serializeToString(doc);
+            const svgBlob = new Blob([serializedSvg], { type: "image/svg+xml;charset=utf-8" });
+            const url = URL.createObjectURL(svgBlob);
+            
+            img.onload = () => {
+              const canvas = document.createElement("canvas");
+              canvas.width = size;
+              canvas.height = size;
+              const ctx = canvas.getContext("2d");
+              if (ctx) {
+                ctx.drawImage(img, 0, 0, size, size);
+                const dataUrl = canvas.toDataURL("image/png");
+                URL.revokeObjectURL(url);
+                resolve(dataUrl);
+              } else {
+                reject(new Error("Failed to get 2d context"));
+              }
+            };
+            img.onerror = (e) => {
+              URL.revokeObjectURL(url);
+              reject(e);
+            };
+            img.src = url;
+          });
+        };
+
+        const appleTouchIcon = await renderToPng(svgText, 180);
+        const faviconPng = await renderToPng(svgText, 192);
+
+        await fetch('/api/save-icons', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({ appleTouchIcon, faviconPng }),
+        });
+        console.log("SVG icons converted to PNG successfully!");
+      } catch (err) {
+        console.error("Failed to generate and save PNG icons:", err);
+      }
+    };
+
+    if (!localStorage.getItem('room8_icons_generated_v2')) {
+      generatePngIcons().then(() => {
+        localStorage.setItem('room8_icons_generated_v2', 'true');
+      });
+    }
+  }, []);
+}
+
 function MainSite() {
+  useIconGenerator();
   const [events, setEvents] = useState<EventItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [loadingProgress, setLoadingProgress] = useState(0);
