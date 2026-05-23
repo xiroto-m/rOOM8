@@ -1,11 +1,27 @@
 import fs from "fs/promises";
 import path from "path";
-import sharp from "sharp";
 
 async function generateIcons() {
   try {
     const svgPath = path.join(process.cwd(), "public", "favicon.svg");
+    try {
+      await fs.access(svgPath);
+    } catch {
+      console.warn("⚠️ [Icon Generator] public/favicon.svg not found. Skipping static generation.");
+      return;
+    }
+
     const svgContent = await fs.readFile(svgPath);
+
+    // Dynamic import to prevent syntax/module load errors if sharp fails to install/compile on GitHub/CI
+    let sharp;
+    try {
+      const sharpModule = await import("sharp");
+      sharp = sharpModule.default || sharpModule;
+    } catch (sharpLoadError) {
+      console.warn("⚠️ [Icon Generator] 'sharp' library could not be loaded. (Often happens in minimal GitHub/CI environments without platform C++ binaries). Skipping icon building step; pre-existing icons in public/ will be used intact.", sharpLoadError.message);
+      return;
+    }
 
     // Target PNG output file paths
     const publicApplePath = path.join(process.cwd(), "public", "apple-touch-icon.png");
@@ -16,18 +32,16 @@ async function generateIcons() {
       .resize(180, 180)
       .png()
       .toFile(publicApplePath);
-    console.log("Successfully generated public/apple-touch-icon.png (180x180)");
+    console.log("✅ [Icon Generator] Successfully generated public/apple-touch-icon.png (180x180)");
 
     await sharp(svgContent)
       .resize(192, 192)
       .png()
       .toFile(publicFaviconPath);
-    console.log("Successfully generated public/favicon.png (192x192)");
+    console.log("✅ [Icon Generator] Successfully generated public/favicon.png (192x192)");
 
-    // If dist/ exists or is created afterwards during vite build, 
-    // Vite will automatically copy public/ contents to dist/.
   } catch (error) {
-    console.error("Error generating icons during build process:", error);
+    console.warn("⚠️ [Icon Generator] Error generating icons during build process:", error.message || error);
   }
 }
 
