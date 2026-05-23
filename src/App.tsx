@@ -673,6 +673,23 @@ function MainSite() {
             ...data,
             youtube: data.youtube || data.facebook || prev.youtube // Fallback
           }));
+
+          // Dynamically apply custom favicon to HTML head
+          if (data.customFavicon) {
+            const links = document.querySelectorAll(
+              "link[rel*='icon'], link[rel='apple-touch-icon'], link[rel='shortcut icon']"
+            );
+            links.forEach((link: any) => {
+              link.href = data.customFavicon;
+              if (data.customFavicon.startsWith("data:image/svg+xml")) {
+                link.type = "image/svg+xml";
+              } else if (data.customFavicon.startsWith("data:image/x-icon")) {
+                link.type = "image/x-icon";
+              } else {
+                link.type = "image/png";
+              }
+            });
+          }
         }
       },
       (err) => {
