@@ -198,42 +198,80 @@ async function startServer() {
     }
   });
 
-  // Save Apple Touch Icon and Favicon PNGs from rendered canvas data
-  app.post("/api/save-icons", async (req, res) => {
+  // Pre-render Apple Touch Icon and Favicon PNGs from SVG using Sharp on startup
+  const generateIconsWithSharp = async () => {
     try {
-      const { appleTouchIcon, faviconPng } = req.body;
       const fs = await import("fs/promises");
+      const sharp = (await import("sharp")).default;
       
-      if (appleTouchIcon) {
-        const base64Data = appleTouchIcon.replace(/^data:image\/png;base64,/, "");
-        await fs.writeFile(path.join(process.cwd(), "public", "apple-touch-icon.png"), Buffer.from(base64Data, "base64"));
-        console.log("Successfully saved /public/apple-touch-icon.png");
-      }
-      if (faviconPng) {
-        const base64Data = faviconPng.replace(/^data:image\/png;base64,/, "");
-        await fs.writeFile(path.join(process.cwd(), "public", "favicon.png"), Buffer.from(base64Data, "base64"));
-        console.log("Successfully saved /public/favicon.png");
-      }
+      const svgPath = path.join(process.cwd(), "public", "favicon.svg");
+      const svgContent = await fs.readFile(svgPath);
       
-      return res.json({ success: true, message: "Icons saved successfully." });
-    } catch (e: any) {
-      console.error("Error saving icons:", e);
-      return res.status(500).json({ error: e.message });
+      // Target PNG output file paths
+      const publicApplePath = path.join(process.cwd(), "public", "apple-touch-icon.png");
+      const publicFaviconPath = path.join(process.cwd(), "public", "favicon.png");
+      
+      // Pre-render 180x180 PNG for high-res Apple Devices (apple-touch-icon)
+      await sharp(svgContent)
+        .resize(180, 180)
+        .png()
+        .toFile(publicApplePath);
+      console.log("Pre-rendered sharp: public/apple-touch-icon.png (180x180)");
+      
+      // Pre-render 192x192 PNG for Favicon
+      await sharp(svgContent)
+        .resize(192, 192)
+        .png()
+        .toFile(publicFaviconPath);
+      console.log("Pre-rendered sharp: public/favicon.png (192x192)");
+      
+      // Also pre-render to dist/ if it exists so production can also serve them
+      const distPath = path.join(process.cwd(), "dist");
+      try {
+        await fs.access(distPath);
+        await sharp(svgContent)
+          .resize(180, 180)
+          .png()
+          .toFile(path.join(distPath, "apple-touch-icon.png"));
+        await sharp(svgContent)
+          .resize(192, 192)
+          .png()
+          .toFile(path.join(distPath, "favicon.png"));
+        console.log("Pre-rendered sharp files also copied to dist/");
+      } catch {
+        // dist/ directory doesn't exist yet (normal in dev mode)
+      }
+    } catch (e) {
+      console.error("Failed to pre-render icons with Sharp:", e);
     }
+  };
+
+  // Run the generator immediately
+  generateIconsWithSharp();
+
+  // Stub save-icons endpoint for background capability
+  app.post("/api/save-icons", (req, res) => {
+    return res.json({ success: true, message: "Handled by sharp on startup" });
   });
 
-  // Favicon and bookmark icon fallback redirects
-  // This ensures browser background requests for .ico or .png are redirected or resolved to the new files if they exist, otherwise fallback to svg
+  // Favicon and apple-touch-icon serving route
   app.get(["/favicon.ico", "/favicon.png", "/apple-touch-icon.png"], async (req, res, next) => {
     const fs = await import("fs/promises");
     const filePath = path.join(process.cwd(), "public", req.path);
     try {
       await fs.access(filePath);
-      // File exists, let express.static or vite handle it
-      next();
+      // Serve the local generated PNG files directly
+      res.sendFile(filePath);
     } catch {
-      // File does not exist, fallback download / redirect
-      res.redirect("/favicon.svg?v=room8_v2");
+      // Check dist next
+      const distFilePath = path.join(process.cwd(), "dist", req.path);
+      try {
+        await fs.access(distFilePath);
+        res.sendFile(distFilePath);
+      } catch {
+        // Fallback to svg if somehow the PNG files are missing
+        res.redirect("/favicon.svg?v=room8_v2");
+      }
     }
   });
 
