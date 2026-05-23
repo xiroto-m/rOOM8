@@ -748,17 +748,29 @@ export default function AdminDashboard() {
       });
 
       if (!response.ok) {
-        throw new Error(`HTTP error! status: ${response.status}`);
+        let errMsg = `エラーが発生しました (ステータス: ${response.status})`;
+        try {
+          const errJson = await response.json();
+          if (errJson && errJson.error) {
+            errMsg = `エラー: ${errJson.error}`;
+          }
+        } catch {}
+        throw new Error(errMsg);
       }
 
       setStatus({ type: 'success', message: 'ファビコン画像が更新されました！' });
       setFaviconFile(null);
       setFaviconTimestamp(Date.now());
-      setTimeout(() => setStatus({ type: null, message: '' }), 3000);
+      setTimeout(() => setStatus({ type: null, message: '' }), 4000);
     } catch (err: any) {
       console.error(err);
-      setStatus({ type: 'error', message: 'ファビコン画像のアップロードに失敗しました。' });
-      setTimeout(() => setStatus({ type: null, message: '' }), 3000);
+      setStatus({ 
+        type: 'error', 
+        message: err.message && err.message.includes('エラー:') 
+          ? err.message 
+          : `ファビコン画像のアップロードに失敗しました。詳細: ${err.message || '不明なエラー'}` 
+      });
+      setTimeout(() => setStatus({ type: null, message: '' }), 6000);
     } finally {
       setUploadingFavicon(false);
     }
