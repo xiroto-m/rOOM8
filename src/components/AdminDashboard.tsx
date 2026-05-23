@@ -736,7 +736,9 @@ export default function AdminDashboard() {
       reader.readAsDataURL(faviconFile);
       const fileData = await loadPromise;
 
-      const response = await fetch('/api/update-site-icon', {
+      const targetUrl = `${window.location.origin}/api/update-site-icon`;
+      console.log('Uploading favicon to:', targetUrl);
+      const response = await fetch(targetUrl, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -749,6 +751,13 @@ export default function AdminDashboard() {
 
       if (!response.ok) {
         let errMsg = `エラーが発生しました (ステータス: ${response.status})`;
+        try {
+          const resText = await response.clone().text();
+          if (resText) {
+            const cleanText = resText.replace(/<[^>]*>/g, ' ').substring(0, 150).trim();
+            errMsg = `エラーが発生しました (ステータス: ${response.status}, 内容: ${cleanText})`;
+          }
+        } catch {}
         try {
           const errJson = await response.json();
           if (errJson && errJson.error) {

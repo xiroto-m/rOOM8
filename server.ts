@@ -257,6 +257,7 @@ async function startServer() {
 
   // Favicon update endpoint from Admin Dashboard (supports both current and fallback paths)
   const handleUpdateSiteIcon = async (req: express.Request, res: express.Response) => {
+    console.log(`[DEBUG_API_LOG] Received favicon upload request: ${req.method} ${req.url}`);
     try {
       const { fileData, mimeType } = req.body; // fileData is base64 string
       if (!fileData) {
