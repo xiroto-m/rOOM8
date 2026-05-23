@@ -722,35 +722,62 @@ export default function AdminDashboard() {
     }
   };
 
+  const resizeFavicon = (file: File): Promise<{ dataUrl: string; mimeType: string }> => {
+    return new Promise((resolve, reject) => {
+      if (file.type === "image/svg+xml") {
+        const reader = new FileReader();
+        reader.onload = () => resolve({ dataUrl: reader.result as string, mimeType: "image/svg+xml" });
+        reader.onerror = reject;
+        reader.readAsDataURL(file);
+        return;
+      }
+
+      const reader = new FileReader();
+      reader.onload = (e) => {
+        const img = new Image();
+        img.onload = () => {
+          const maxSize = 192; // 192x192 is the target size for standard favicon/apple-icon files
+          const canvas = document.createElement("canvas");
+          canvas.width = maxSize;
+          canvas.height = maxSize;
+          const ctx = canvas.getContext("2d");
+          if (!ctx) {
+            reject(new Error("Canvas context is not supported"));
+            return;
+          }
+
+          // Crop a perfect square from the center of the image
+          const size = Math.min(img.width, img.height);
+          const sx = (img.width - size) / 2;
+          const sy = (img.height - size) / 2;
+
+          ctx.drawImage(img, sx, sy, size, size, 0, 0, maxSize, maxSize);
+          
+          const dataUrl = canvas.toDataURL("image/png");
+          resolve({ dataUrl, mimeType: "image/png" });
+        };
+        img.onerror = reject;
+        img.src = e.target?.result as string;
+      };
+      reader.onerror = reject;
+      reader.readAsDataURL(file);
+    });
+  };
+
   const uploadFavicon = async () => {
     if (!faviconFile) return;
     setUploadingFavicon(true);
     setStatus({ type: null, message: '' });
 
     try {
-      const reader = new FileReader();
-      const loadPromise = new Promise<string>((resolve, reject) => {
-        reader.onload = () => resolve(reader.result as string);
-        reader.onerror = reject;
-      });
-      reader.readAsDataURL(faviconFile);
-      const fileData = await loadPromise;
+      setStatus({ type: 'info', message: '画像をファビコン用に192x192ピクセルに最適圧縮・自動切り抜き中...' });
+      
+      const { dataUrl, mimeType } = await resizeFavicon(faviconFile);
 
-      // 1. Save directly to Firestore for instant, 100% reliable local client-side and full application-wide synchronization
-      const settingsRef = doc(db, 'settings', 'global');
-      await setDoc(settingsRef, {
-        ...globalSettings,
-        customFavicon: fileData
-      });
+      setStatus({ type: 'info', message: 'サーバー側ファイルを更新中...' });
 
-      // Update local state copy
-      setGlobalSettings((prev: any) => ({
-        ...prev,
-        customFavicon: fileData
-      }));
-
-      // 2. Best-effort API mirror to backend. If this fails, we STILL consider it a full success 
-      // because Firestore real-time synchronization loads is 100% functional and robust
+      // 1. Upload to backend first. This writes the pre-resized, lightweight file directly to filesystem
+      let apiSuccess = false;
       try {
         const targetUrl = `${window.location.origin}/api/update-site-icon`;
         const response = await fetch(targetUrl, {
@@ -759,30 +786,49 @@ export default function AdminDashboard() {
             'Content-Type': 'application/json',
           },
           body: JSON.stringify({
-            fileData,
-            mimeType: faviconFile.type
+            fileData: dataUrl,
+            mimeType
           })
         });
-        if (!response.ok) {
-          console.warn("Backend favicon sync returned status:", response.status);
+        if (response.ok) {
+          apiSuccess = true;
+          console.log("Successfully updated favicon files on server.");
         } else {
-          console.log("Successfully mirrors favicon configuration to backend.");
+          console.warn("Backend favicon sync returned status:", response.status);
         }
       } catch (backendErr) {
-        console.warn("Backend filesystem mirror bypassed or failed (non-blocking):", backendErr);
+        console.warn("Backend favicon update bypassed or failed:", backendErr);
       }
 
-      setStatus({ type: 'success', message: 'ファビコン画像が更新されました！' });
+      // 2. Save a tiny timestamp to Firestore settings object instead of the huge base64 customFavicon
+      // This completely guarantees we NEVER hit the Firestore 1MB document size limit
+      const newTimestamp = Date.now();
+      const settingsRef = doc(db, 'settings', 'global');
+      
+      const updatedSettings = {
+        ...globalSettings,
+        faviconTimestamp: newTimestamp
+      };
+
+      // Force-delete any legacy customFavicon fields so they don't bloat the document
+      if ('customFavicon' in updatedSettings) {
+        delete (updatedSettings as any).customFavicon;
+      }
+
+      await setDoc(settingsRef, updatedSettings);
+
+      // Update local state copy
+      setGlobalSettings(updatedSettings);
+
+      setStatus({ type: 'success', message: 'ファビコン画像が更新されました！ブラウザ側でもリアルタイムに切り替わります。' });
       setFaviconFile(null);
-      setFaviconTimestamp(Date.now());
+      setFaviconTimestamp(newTimestamp);
       setTimeout(() => setStatus({ type: null, message: '' }), 4000);
     } catch (err: any) {
       console.error(err);
       setStatus({ 
         type: 'error', 
-        message: err.message && err.message.includes('エラー:') 
-          ? err.message 
-          : `ファビコン画像のアップロードに失敗しました。詳細: ${err.message || '不明なエラー'}` 
+        message: `ファビコン画像のアップロードに失敗しました。詳細: ${err.message || '不明なエラー'}` 
       });
       setTimeout(() => setStatus({ type: null, message: '' }), 6000);
     } finally {
@@ -1186,7 +1232,10 @@ export default function AdminDashboard() {
       const settingsRef = doc(db, 'settings', 'global');
       const settingsSnap = await getDoc(settingsRef);
       if (settingsSnap.exists()) {
-        const data = settingsSnap.data();
+        const data = { ...settingsSnap.data() };
+        if ('customFavicon' in data) {
+          delete (data as any).customFavicon;
+        }
         setGlobalSettings((prev: any) => ({
           ...prev,
           ...data,
@@ -1202,7 +1251,11 @@ export default function AdminDashboard() {
     e.preventDefault();
     setSaving(true);
     try {
-      await setDoc(doc(db, 'settings', 'global'), globalSettings);
+      const cleanSettings = { ...globalSettings };
+      if ('customFavicon' in cleanSettings) {
+        delete (cleanSettings as any).customFavicon;
+      }
+      await setDoc(doc(db, 'settings', 'global'), cleanSettings);
       setStatus({ type: 'success', message: 'グローバル設定が保存されました。' });
       setTimeout(() => setStatus({ type: null, message: '' }), 3000);
     } catch (err) {
@@ -1977,7 +2030,10 @@ export default function AdminDashboard() {
                     <p className="text-[10px] font-black uppercase opacity-55 mb-2 font-sans text-center">適用中のアイコン</p>
                     <div className="w-24 h-24 bg-artistic-bg/20 border-2 border-artistic-text rounded-2xl p-4 flex items-center justify-center relative group">
                       <img 
-                        src={(globalSettings as any).customFavicon || `/apple-touch-icon.png?t=${faviconTimestamp}`} 
+                        src={
+                          (globalSettings as any).customFavicon || 
+                          ((globalSettings as any).faviconTimestamp ? `/favicon.png?t=${(globalSettings as any).faviconTimestamp}` : `/apple-touch-icon.png?t=${faviconTimestamp}`)
+                        } 
                         alt="Site Icon" 
                         className="w-full h-full object-contain rounded-lg animate-in fade-in" 
                         referrerPolicy="no-referrer"

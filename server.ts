@@ -264,9 +264,9 @@ async function startServer() {
         return res.status(400).json({ error: "fileData (base64 string) is required" });
       }
 
-      const buffer = Buffer.from(fileData.split(",")[1] || fileData, "base64");
+      const base64Data = fileData.split(",")[1] || fileData;
+      const buffer = Buffer.from(base64Data, "base64");
       const fs = await import("fs/promises");
-      const sharp = (await import("sharp")).default;
 
       const publicDir = path.join(process.cwd(), "public");
       const distDir = path.join(process.cwd(), "dist");
@@ -281,75 +281,101 @@ async function startServer() {
         hasDist = true;
       } catch {}
 
-      if (mimeType === "image/svg+xml" || fileData.startsWith("data:image/svg+xml")) {
-        // It's SVG
-        const svgContent = buffer.toString("utf-8");
-        
-        // Write public/favicon.svg
-        await fs.writeFile(publicSvgPath, svgContent);
-        if (hasDist) {
-          await fs.writeFile(path.join(distDir, "favicon.svg"), svgContent);
+      // A dynamic write function that stores the buffer directly to filesystem (absolute highest reliability fallback)
+      const directWriteAll = async (buf: Buffer, isSvg: boolean) => {
+        if (isSvg) {
+          await fs.writeFile(publicSvgPath, buf);
+          if (hasDist) {
+            await fs.writeFile(path.join(distDir, "favicon.svg"), buf);
+          }
+        } else {
+          await fs.writeFile(publicFaviconPath, buf);
+          await fs.writeFile(publicApplePath, buf);
+          if (hasDist) {
+            await fs.writeFile(path.join(distDir, "favicon.png"), buf);
+            await fs.writeFile(path.join(distDir, "apple-touch-icon.png"), buf);
+          }
         }
+      };
 
-        // Generate PNGs from SVG
-        await sharp(Buffer.from(svgContent))
-          .resize(180, 180)
-          .png()
-          .toFile(publicApplePath);
-        
-        await sharp(Buffer.from(svgContent))
-          .resize(192, 192)
-          .png()
-          .toFile(publicFaviconPath);
+      try {
+        // Try importing sharp for premium sizing and formatting variations
+        const sharp = (await import("sharp")).default;
 
-        if (hasDist) {
+        if (mimeType === "image/svg+xml" || fileData.startsWith("data:image/svg+xml")) {
+          // It's SVG
+          const svgContent = buffer.toString("utf-8");
+          
+          // Write public/favicon.svg
+          await fs.writeFile(publicSvgPath, svgContent);
+          if (hasDist) {
+            await fs.writeFile(path.join(distDir, "favicon.svg"), svgContent);
+          }
+
+          // Generate PNGs from SVG
           await sharp(Buffer.from(svgContent))
             .resize(180, 180)
             .png()
-            .toFile(path.join(distDir, "apple-touch-icon.png"));
+            .toFile(publicApplePath);
           
           await sharp(Buffer.from(svgContent))
             .resize(192, 192)
             .png()
-            .toFile(path.join(distDir, "favicon.png"));
-        }
-      } else {
-        // It's a standard raster image (PNG, JPEG, etc.)
-        // Write the custom wrapped SVG so /favicon.svg works too!
-        const resizedPngBufferBase64 = (await sharp(buffer)
-          .resize(512, 512, { fit: "contain", background: { r: 0, g: 0, b: 0, alpha: 0 } })
-          .png()
-          .toBuffer()).toString("base64");
+            .toFile(publicFaviconPath);
 
-        const svgWrapper = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="100%" height="100%"><image href="data:image/png;base64,${resizedPngBufferBase64}" width="512" height="512" /></svg>`;
-        
-        await fs.writeFile(publicSvgPath, svgWrapper);
-        if (hasDist) {
-          await fs.writeFile(path.join(distDir, "favicon.svg"), svgWrapper);
-        }
+          if (hasDist) {
+            await sharp(Buffer.from(svgContent))
+              .resize(180, 180)
+              .png()
+              .toFile(path.join(distDir, "apple-touch-icon.png"));
+            
+            await sharp(Buffer.from(svgContent))
+              .resize(192, 192)
+              .png()
+              .toFile(path.join(distDir, "favicon.png"));
+          }
+        } else {
+          // It's a standard raster image (PNG, JPEG, etc.)
+          // Write the custom wrapped SVG so /favicon.svg works too!
+          const resizedPngBufferBase64 = (await sharp(buffer)
+            .resize(256, 256, { fit: "contain", background: { r: 0, g: 0, b: 0, alpha: 0 } })
+            .png()
+            .toBuffer()).toString("base64");
 
-        // Generate specific PNG outputs
-        await sharp(buffer)
-          .resize(180, 180)
-          .png()
-          .toFile(publicApplePath);
-        
-        await sharp(buffer)
-          .resize(192, 192)
-          .png()
-          .toFile(publicFaviconPath);
+          const svgWrapper = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="100%" height="100%"><image href="data:image/png;base64,${resizedPngBufferBase64}" width="512" height="512" /></svg>`;
+          
+          await fs.writeFile(publicSvgPath, svgWrapper);
+          if (hasDist) {
+            await fs.writeFile(path.join(distDir, "favicon.svg"), svgWrapper);
+          }
 
-        if (hasDist) {
+          // Generate specific PNG outputs
           await sharp(buffer)
             .resize(180, 180)
             .png()
-            .toFile(path.join(distDir, "apple-touch-icon.png"));
+            .toFile(publicApplePath);
           
           await sharp(buffer)
             .resize(192, 192)
             .png()
-            .toFile(path.join(distDir, "favicon.png"));
+            .toFile(publicFaviconPath);
+
+          if (hasDist) {
+            await sharp(buffer)
+              .resize(180, 180)
+              .png()
+              .toFile(path.join(distDir, "apple-touch-icon.png"));
+            
+            await sharp(buffer)
+              .resize(192, 192)
+              .png()
+              .toFile(path.join(distDir, "favicon.png"));
+          }
         }
+      } catch (sharpErr) {
+        console.warn("Sharp library processing failed/omitted, writing directly as fallback: ", sharpErr);
+        const isSvg = mimeType === "image/svg+xml" || fileData.startsWith("data:image/svg+xml");
+        await directWriteAll(buffer, isSvg);
       }
 
       console.log("Admin successfully updated favicon images across public and dist folders!");

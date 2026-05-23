@@ -675,15 +675,16 @@ function MainSite() {
           }));
 
           // Dynamically apply custom favicon to HTML head
-          if (data.customFavicon) {
+          const faviconUrl = data.customFavicon || (data.faviconTimestamp ? `/favicon.png?t=${data.faviconTimestamp}` : null);
+          if (faviconUrl) {
             const links = document.querySelectorAll(
               "link[rel*='icon'], link[rel='apple-touch-icon'], link[rel='shortcut icon']"
             );
             links.forEach((link: any) => {
-              link.href = data.customFavicon;
-              if (data.customFavicon.startsWith("data:image/svg+xml")) {
+              link.href = faviconUrl;
+              if (faviconUrl.startsWith("data:image/svg+xml")) {
                 link.type = "image/svg+xml";
-              } else if (data.customFavicon.startsWith("data:image/x-icon")) {
+              } else if (faviconUrl.startsWith("data:image/x-icon")) {
                 link.type = "image/x-icon";
               } else {
                 link.type = "image/png";
