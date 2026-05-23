@@ -1,0 +1,20 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="100%" height="100%">
+  <!-- Background with Offset Neo-Brutalist Shadow -->
+  <rect x="60" y="60" width="412" height="412" rx="80" fill="#2A2A2A" />
+  <rect x="40" y="40" width="412" height="412" rx="80" fill="#FF521B" stroke="#2A2A2A" stroke-width="18" />
+  
+  <!-- Playful artistic '8' -->
+  <!-- Top bubble of the 8 -->
+  <circle cx="246" cy="190" r="64" fill="#FFD166" stroke="#2A2A2A" stroke-width="16" />
+  <!-- Bottom bubble of the 8 -->
+  <circle cx="246" cy="310" r="82" fill="#EF476F" stroke="#2A2A2A" stroke-width="16" />
+  
+  <!-- Inner contrast holes -->
+  <circle cx="246" cy="190" r="22" fill="#FAF9F6" stroke="#2A2A2A" stroke-width="8" />
+  <circle cx="246" cy="310" r="30" fill="#FAF9F6" stroke="#2A2A2A" stroke-width="8" />
+
+  <!-- Eye-catching Sparkle element (Neo-Brutalist aesthetic) -->
+  <g transform="translate(375, 115)">
+    <path d="M 0 -30 L 8 -8 L 30 0 L 8 8 L 0 30 L -8 8 L -30 0 L -8 -8 Z" fill="#FAF9F6" stroke="#2A2A2A" stroke-width="8" stroke-linejoin="round" />
+  </g>
+</svg>
