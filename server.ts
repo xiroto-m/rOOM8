@@ -254,13 +254,27 @@ async function startServer() {
     return res.json({ success: true, message: "Handled by sharp on startup" });
   });
 
-  // Favicon and apple-touch-icon serving route
-  app.get(["/favicon.ico", "/favicon.png", "/apple-touch-icon.png"], async (req, res, next) => {
+  // Favicon and apple-touch-icon serving route with robust MIME-types and CORS support
+  app.get(["/favicon.ico", "/favicon.png", "/apple-touch-icon.png", "/favicon.svg"], async (req, res, next) => {
+    // Set CORS headers so standard crossorigin requests from iOS Safari don't get blocked
+    res.setHeader("Access-Control-Allow-Origin", "*");
+    res.setHeader("Access-Control-Allow-Methods", "GET, HEAD, OPTIONS");
+    
+    // Explicitly set correct content-types to guarantee the MIME property
+    const ext = path.extname(req.path);
+    if (ext === ".png") {
+      res.setHeader("Content-Type", "image/png");
+    } else if (ext === ".ico") {
+      res.setHeader("Content-Type", "image/x-icon");
+    } else if (ext === ".svg") {
+      res.setHeader("Content-Type", "image/svg+xml");
+    }
+
     const fs = await import("fs/promises");
     const filePath = path.join(process.cwd(), "public", req.path);
     try {
       await fs.access(filePath);
-      // Serve the local generated PNG files directly
+      // Serve the local generated or asset files directly
       res.sendFile(filePath);
     } catch {
       // Check dist next
@@ -269,8 +283,12 @@ async function startServer() {
         await fs.access(distFilePath);
         res.sendFile(distFilePath);
       } catch {
-        // Fallback to svg if somehow the PNG files are missing
-        res.redirect("/favicon.svg?v=room8_v2");
+        if (req.path === "/favicon.svg") {
+          res.status(404).send("Not found");
+        } else {
+          // Fallback to svg if somehow the PNG files are missing
+          res.redirect("/favicon.svg?v=room8_v2");
+        }
       }
     }
   });
