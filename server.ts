@@ -254,6 +254,111 @@ async function startServer() {
     return res.json({ success: true, message: "Handled by sharp on startup" });
   });
 
+  // Favicon update endpoint from Admin Dashboard
+  app.post("/api/update-favicon", async (req, res) => {
+    try {
+      const { fileData, mimeType } = req.body; // fileData is base64 string
+      if (!fileData) {
+        return res.status(400).json({ error: "fileData (base64 string) is required" });
+      }
+
+      const buffer = Buffer.from(fileData.split(",")[1] || fileData, "base64");
+      const fs = await import("fs/promises");
+      const sharp = (await import("sharp")).default;
+
+      const publicDir = path.join(process.cwd(), "public");
+      const distDir = path.join(process.cwd(), "dist");
+
+      const publicApplePath = path.join(publicDir, "apple-touch-icon.png");
+      const publicFaviconPath = path.join(publicDir, "favicon.png");
+      const publicSvgPath = path.join(publicDir, "favicon.svg");
+
+      let hasDist = false;
+      try {
+        await fs.access(distDir);
+        hasDist = true;
+      } catch {}
+
+      if (mimeType === "image/svg+xml" || fileData.startsWith("data:image/svg+xml")) {
+        // It's SVG
+        const svgContent = buffer.toString("utf-8");
+        
+        // Write public/favicon.svg
+        await fs.writeFile(publicSvgPath, svgContent);
+        if (hasDist) {
+          await fs.writeFile(path.join(distDir, "favicon.svg"), svgContent);
+        }
+
+        // Generate PNGs from SVG
+        await sharp(Buffer.from(svgContent))
+          .resize(180, 180)
+          .png()
+          .toFile(publicApplePath);
+        
+        await sharp(Buffer.from(svgContent))
+          .resize(192, 192)
+          .png()
+          .toFile(publicFaviconPath);
+
+        if (hasDist) {
+          await sharp(Buffer.from(svgContent))
+            .resize(180, 180)
+            .png()
+            .toFile(path.join(distDir, "apple-touch-icon.png"));
+          
+          await sharp(Buffer.from(svgContent))
+            .resize(192, 192)
+            .png()
+            .toFile(path.join(distDir, "favicon.png"));
+        }
+      } else {
+        // It's a standard raster image (PNG, JPEG, etc.)
+        // Write the custom wrapped SVG so /favicon.svg works too!
+        const resizedPngBufferBase64 = (await sharp(buffer)
+          .resize(512, 512, { fit: "contain", background: { r: 0, g: 0, b: 0, alpha: 0 } })
+          .png()
+          .toBuffer()).toString("base64");
+
+        const svgWrapper = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="100%" height="100%"><image href="data:image/png;base64,${resizedPngBufferBase64}" width="512" height="512" /></svg>`;
+        
+        await fs.writeFile(publicSvgPath, svgWrapper);
+        if (hasDist) {
+          await fs.writeFile(path.join(distDir, "favicon.svg"), svgWrapper);
+        }
+
+        // Generate specific PNG outputs
+        await sharp(buffer)
+          .resize(180, 180)
+          .png()
+          .toFile(publicApplePath);
+        
+        await sharp(buffer)
+          .resize(192, 192)
+          .png()
+          .toFile(publicFaviconPath);
+
+        if (hasDist) {
+          await sharp(buffer)
+            .resize(180, 180)
+            .png()
+            .toFile(path.join(distDir, "apple-touch-icon.png"));
+          
+          await sharp(buffer)
+            .resize(192, 192)
+            .png()
+            .toFile(path.join(distDir, "favicon.png"));
+        }
+      }
+
+      console.log("Admin successfully updated favicon images across public and dist folders!");
+
+      return res.json({ success: true, message: "Favicon updated successfully" });
+    } catch (error: any) {
+      console.error("Error updating favicon in API:", error);
+      return res.status(500).json({ error: error.message || "Failed to update favicon" });
+    }
+  });
+
   // Favicon and apple-touch-icon serving route with robust MIME-types and CORS support
   app.get(["/favicon.ico", "/favicon.png", "/apple-touch-icon.png", "/favicon.svg"], async (req, res, next) => {
     // Set CORS headers so standard crossorigin requests from iOS Safari don't get blocked

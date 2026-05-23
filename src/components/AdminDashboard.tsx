@@ -705,6 +705,65 @@ export default function AdminDashboard() {
   const [saving, setSaving] = useState(false);
   const [fetchingAnalytics, setFetchingAnalytics] = useState(false);
 
+  // Favicon states
+  const [faviconFile, setFaviconFile] = useState<File | null>(null);
+  const [uploadingFavicon, setUploadingFavicon] = useState(false);
+  const [faviconTimestamp, setFaviconTimestamp] = useState(Date.now());
+
+  const handleFaviconChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      if (file.size > 2 * 1024 * 1024) {
+        setStatus({ type: 'error', message: 'ファイルサイズは2MB以下にしてください。' });
+        setTimeout(() => setStatus({ type: null, message: '' }), 3000);
+        return;
+      }
+      setFaviconFile(file);
+    }
+  };
+
+  const uploadFavicon = async () => {
+    if (!faviconFile) return;
+    setUploadingFavicon(true);
+    setStatus({ type: null, message: '' });
+
+    try {
+      const reader = new FileReader();
+      const loadPromise = new Promise<string>((resolve, reject) => {
+        reader.onload = () => resolve(reader.result as string);
+        reader.onerror = reject;
+      });
+      reader.readAsDataURL(faviconFile);
+      const fileData = await loadPromise;
+
+      const response = await fetch('/api/update-favicon', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          fileData,
+          mimeType: faviconFile.type
+        })
+      });
+
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`);
+      }
+
+      setStatus({ type: 'success', message: 'ファビコン画像が更新されました！' });
+      setFaviconFile(null);
+      setFaviconTimestamp(Date.now());
+      setTimeout(() => setStatus({ type: null, message: '' }), 3000);
+    } catch (err: any) {
+      console.error(err);
+      setStatus({ type: 'error', message: 'ファビコン画像のアップロードに失敗しました。' });
+      setTimeout(() => setStatus({ type: null, message: '' }), 3000);
+    } finally {
+      setUploadingFavicon(false);
+    }
+  };
+
   useEffect(() => {
     if ((activeTab === 'analytics' || activeTab === 'feedback') && user) {
       fetchAnalytics();
@@ -1874,6 +1933,93 @@ export default function AdminDashboard() {
                 <Save size={18} /> 全般設定を保存
               </button>
             </form>
+
+            {/* Favicon Settings Section */}
+            <div className="bg-white border-4 border-artistic-text p-6 md:p-10 rounded-[2rem] shadow-[8px_8px_0px_0px_rgba(42,42,42,1)] mt-10 space-y-6">
+              <h3 className="text-xl font-black flex items-center gap-2">
+                <Monitor size={20} className="text-artistic-blue" /> サイトアイコン（ファビコン / ホーム画面アイコン）自動処理設定
+              </h3>
+              <p className="text-xs font-bold opacity-70 leading-relaxed text-artistic-text">
+                ブラウザのタブや、スマートフォンで「ホーム画面に追加」した際に表示される、サイト共通のアイコン画像を設定できます。<br />
+                SVG（ベクター画像）はもちろん、お手持ちのPNGやJPEGもそのままアップロードできます。サーバー側でiOS（Safariなど）やAndroid、PC等すべての端末に最適な仕様へ全自動で変換・適用されます。
+              </p>
+              
+              <div className="flex flex-col lg:flex-row gap-8 items-stretch bg-artistic-bg/30 p-6 rounded-2xl border-2 border-dashed border-artistic-text/10">
+                {/* Unified Current Icon Preview & Passive System Status List */}
+                <div className="flex flex-col md:flex-row gap-6 items-center bg-white p-6 rounded-xl border-2 border-artistic-text shadow-[4px_4px_0px_0px_rgba(42,42,42,1)] lg:w-[48%] bg-white shrink-0">
+                  <div className="flex flex-col items-center shrink-0">
+                    <p className="text-[10px] font-black uppercase opacity-55 mb-2 font-sans text-center">適用中のアイコン</p>
+                    <div className="w-24 h-24 bg-artistic-bg/20 border-2 border-artistic-text rounded-2xl p-4 flex items-center justify-center relative group">
+                      <img 
+                        src={`/apple-touch-icon.png?t=${faviconTimestamp}`} 
+                        alt="Site Icon" 
+                        className="w-full h-full object-contain rounded-lg animate-in fade-in" 
+                        referrerPolicy="no-referrer"
+                        onError={(e) => {
+                          // Fallback just in case
+                          (e.target as HTMLImageElement).src = `/favicon.svg?t=${faviconTimestamp}`;
+                        }}
+                      />
+                    </div>
+                  </div>
+                  
+                  {/* Status List to clarify it's passive */}
+                  <div className="flex-1 space-y-3 text-left w-full mt-4 md:mt-0">
+                    <p className="text-xs font-black text-artistic-text border-b pb-1.5 border-dashed border-artistic-text/15">
+                      自動最適化ステータス:
+                    </p>
+                    <div className="space-y-2">
+                      <div className="flex items-center gap-2 text-[11px] font-bold text-emerald-600">
+                        <span className="w-5 h-5 flex items-center justify-center rounded-full bg-emerald-50 border border-emerald-300 text-xs text-emerald-600 shrink-0 select-none">✓</span>
+                        <span>iOSホーム用 (apple-touch-icon.png: 180x180)</span>
+                      </div>
+                      <div className="flex items-center gap-2 text-[11px] font-bold text-emerald-600">
+                        <span className="w-5 h-5 flex items-center justify-center rounded-full bg-emerald-50 border border-emerald-300 text-xs text-emerald-600 shrink-0 select-none">✓</span>
+                        <span>標準ブラウザ用 (favicon.png: 192x192)</span>
+                      </div>
+                      <div className="flex items-center gap-2 text-[11px] font-bold text-emerald-600">
+                        <span className="w-5 h-5 flex items-center justify-center rounded-full bg-emerald-50 border border-emerald-300 text-xs text-emerald-600 shrink-0 select-none">✓</span>
+                        <span>高画質ベクター (favicon.svg: 自動差替済)</span>
+                      </div>
+                    </div>
+                    <p className="text-[9px] leading-relaxed font-bold opacity-50 mt-1">
+                      ※アップロードが完了すると、上記すべての配信用ファイルがサーバー側でリアルタイムに最適化・自動生成されます。クリックは不要です。
+                    </p>
+                  </div>
+                </div>
+
+                {/* Upload Form */}
+                <div className="flex-1 w-full space-y-4 text-left">
+                  <div className="relative border-4 border-dashed border-artistic-text/10 rounded-2xl p-6 text-center hover:border-artistic-primary transition-colors cursor-pointer bg-white">
+                    <input 
+                      type="file" 
+                      accept=".svg,.png,.jpg,.jpeg" 
+                      onChange={handleFaviconChange}
+                      className="absolute inset-0 w-full h-full opacity-0 cursor-pointer" 
+                    />
+                    <Upload className="mx-auto mb-2 opacity-50 text-artistic-blue" size={24} />
+                    <p className="font-extrabold text-xs text-artistic-text">クリックして新しいアイコン画像を選択</p>
+                    <p className="text-[10px] font-bold opacity-45 mt-1 text-artistic-text/70">(SVG, PNG, JPG, JPEG / 最大 2MB)</p>
+                  </div>
+                  
+                  {faviconFile && (
+                    <div className="flex items-center justify-between bg-white border-2 border-artistic-text/25 p-3 rounded-xl animate-in fade-in slide-in-from-bottom-2">
+                      <div className="truncate pr-4 text-left">
+                        <p className="text-xs font-black truncate text-artistic-text">{faviconFile.name}</p>
+                        <p className="text-[10px] opacity-40 font-mono text-artistic-text">{(faviconFile.size / 1024).toFixed(1)} KB</p>
+                      </div>
+                      <button 
+                        onClick={uploadFavicon}
+                        disabled={uploadingFavicon}
+                        className="bg-artistic-primary text-white font-black text-xs px-4 py-2 rounded-lg hover:bg-neutral-800 disabled:opacity-50 shrink-0 shadow-[2px_2px_0px_0px_rgba(42,42,42,1)] border border-artistic-text cursor-pointer transition-transform active:translate-y-0.5"
+                      >
+                        {uploadingFavicon ? "形式を解析して自動変換中..." : "サーバーにアップロードして自動適正化"}
+                      </button>
+                    </div>
+                  )}
+                </div>
+              </div>
+            </div>
           </div>
         )}
 
