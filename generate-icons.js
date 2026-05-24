@@ -29,6 +29,8 @@ async function generateIcons() {
     const public32Path = path.join(process.cwd(), "public", "favicon-32x32.png");
     const public16Path = path.join(process.cwd(), "public", "favicon-16x16.png");
     const publicIcoPath = path.join(process.cwd(), "public", "favicon.ico");
+    const publicAndroid192Path = path.join(process.cwd(), "public", "android-chrome-192x192.png");
+    const publicAndroid512Path = path.join(process.cwd(), "public", "android-chrome-512x512.png");
 
     // Make sure we write to public/ first
     await sharp(svgContent)
@@ -61,6 +63,18 @@ async function generateIcons() {
       .png()
       .toFile(publicIcoPath);
     console.log("✅ [Icon Generator] Successfully generated public/favicon.ico (32x32 fallback)");
+
+    await sharp(svgContent)
+      .resize(192, 192)
+      .png()
+      .toFile(publicAndroid192Path);
+    console.log("✅ [Icon Generator] Successfully generated public/android-chrome-192x192.png (192x192)");
+
+    await sharp(svgContent)
+      .resize(512, 512)
+      .png()
+      .toFile(publicAndroid512Path);
+    console.log("✅ [Icon Generator] Successfully generated public/android-chrome-512x512.png (512x512)");
 
   } catch (error) {
     console.warn("⚠️ [Icon Generator] Error generating icons during build process:", error.message || error);
