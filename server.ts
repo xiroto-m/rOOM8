@@ -508,19 +508,29 @@ async function startServer() {
     }
 
     const fs = await import("fs/promises");
-    const filePath = path.join(process.cwd(), "public", req.path);
+    // Normalize requested icon files to support automatic browser/iOS implicit requests
+    let targetPath = req.path;
+    if (targetPath.startsWith("/apple-touch-icon")) {
+      targetPath = "/apple-touch-icon.png";
+    } else if (targetPath.startsWith("/android-chrome-512")) {
+      targetPath = "/android-chrome-512x512.png";
+    } else if (targetPath.startsWith("/android-chrome-")) {
+      targetPath = "/android-chrome-192x192.png";
+    }
+
+    const filePath = path.join(process.cwd(), "public", targetPath);
     try {
       await fs.access(filePath);
       // Serve the local generated or asset files directly
       res.sendFile(filePath);
     } catch {
       // Check dist next
-      const distFilePath = path.join(process.cwd(), "dist", req.path);
+      const distFilePath = path.join(process.cwd(), "dist", targetPath);
       try {
         await fs.access(distFilePath);
         res.sendFile(distFilePath);
       } catch {
-        if (req.path === "/favicon.svg") {
+        if (targetPath === "/favicon.svg") {
           res.status(404).send("Not found");
         } else {
           // Fallback to svg if somehow the PNG files are missing
@@ -535,6 +545,8 @@ async function startServer() {
   app.get("/favicon-32x32.png", handleServeFavicon);
   app.get("/favicon-16x16.png", handleServeFavicon);
   app.get("/apple-touch-icon.png", handleServeFavicon);
+  app.get("/apple-touch-icon*.png", handleServeFavicon);
+  app.get("/android-chrome-*.png", handleServeFavicon);
   app.get("/favicon.svg", handleServeFavicon);
   app.get("/site.webmanifest", handleServeFavicon);
 
@@ -546,6 +558,21 @@ async function startServer() {
       root: process.cwd(),
     });
     app.use(vite.middlewares);
+    
+    // Strong SPA fallback routing inside Express in dev mode to guarantee iOS Home Screen accesses don't 404
+    app.get('*', async (req, res, next) => {
+      if (req.path.startsWith('/api') || path.extname(req.path)) {
+        return next();
+      }
+      try {
+        const fs = await import("fs/promises");
+        let html = await fs.readFile(path.join(process.cwd(), 'index.html'), 'utf-8');
+        html = await vite.transformIndexHtml(req.url, html);
+        res.status(200).set({ 'Content-Type': 'text/html' }).end(html);
+      } catch (e) {
+        next(e);
+      }
+    });
   } else {
     const distPath = path.join(process.cwd(), 'dist');
     app.use(express.static(distPath));
