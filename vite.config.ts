@@ -7,7 +7,7 @@ export default defineConfig(({mode}) => {
   const env = loadEnv(mode, '.', '');
   const isGitHubActions = process.env.GITHUB_ACTIONS === 'true';
   return {
-    base: isGitHubActions ? '/rOOM8/' : '/',
+    base: env.VITE_BASE_PATH || (isGitHubActions ? '/rOOM8/' : '/'),
     plugins: [react(), tailwindcss()],
     define: {
       'process.env.GEMINI_API_KEY': JSON.stringify(env.GEMINI_API_KEY || env.VITE_GEMINI_API_KEY),
