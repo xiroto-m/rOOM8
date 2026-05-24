@@ -1,6 +1,11 @@
 {
   "name": "rOOM8",
   "short_name": "rOOM8",
+  "scope": "/",
+  "start_url": "/?homescreen=1",
+  "display": "browser",
+  "background_color": "#2A2A2A",
+  "theme_color": "#2A2A2A",
   "icons": [
     {
       "src": "/android-chrome-192x192.png",
@@ -12,9 +17,5 @@
       "sizes": "512x512",
       "type": "image/png"
     }
-  ],
-  "theme_color": "#2A2A2A",
-  "background_color": "#2A2A2A",
-  "display": "standalone",
-  "start_url": "/"
+  ]
 }

@@ -503,6 +503,8 @@ async function startServer() {
       res.setHeader("Content-Type", "image/x-icon");
     } else if (ext === ".svg") {
       res.setHeader("Content-Type", "image/svg+xml");
+    } else if (ext === ".webmanifest") {
+      res.setHeader("Content-Type", "application/manifest+json");
     }
 
     const fs = await import("fs/promises");
@@ -534,6 +536,7 @@ async function startServer() {
   app.get("/favicon-16x16.png", handleServeFavicon);
   app.get("/apple-touch-icon.png", handleServeFavicon);
   app.get("/favicon.svg", handleServeFavicon);
+  app.get("/site.webmanifest", handleServeFavicon);
 
   // Vite middleware for development
   if (process.env.NODE_ENV !== "production") {
