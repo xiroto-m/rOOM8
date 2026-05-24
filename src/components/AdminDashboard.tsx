@@ -709,6 +709,7 @@ export default function AdminDashboard() {
   const [faviconFile, setFaviconFile] = useState<File | null>(null);
   const [uploadingFavicon, setUploadingFavicon] = useState(false);
   const [faviconTimestamp, setFaviconTimestamp] = useState(Date.now());
+  const [customFavicon, setCustomFavicon] = useState<string | null>(null);
 
   const handleFaviconChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -800,9 +801,18 @@ export default function AdminDashboard() {
         console.warn("Backend favicon update bypassed or failed:", backendErr);
       }
 
-      // 2. Save a tiny timestamp to Firestore settings object instead of the huge base64 customFavicon
-      // This completely guarantees we NEVER hit the Firestore 1MB document size limit
+      // 2. Save the Base64 dataURL to settings/favicon document (supports serverless & GitHub Pages)
+      // This document is separate from global settings so it doesn't cause any document size / performance issues for other settings!
       const newTimestamp = Date.now();
+      const faviconRef = doc(db, 'settings', 'favicon');
+      await setDoc(faviconRef, {
+        customFavicon: dataUrl,
+        timestamp: newTimestamp
+      });
+      setCustomFavicon(dataUrl);
+
+      // 3. Save a tiny timestamp to Firestore settings object instead of the huge base64 customFavicon
+      // This completely guarantees we NEVER hit the Firestore 1MB document size limit
       const settingsRef = doc(db, 'settings', 'global');
       
       const updatedSettings = {
@@ -833,6 +843,54 @@ export default function AdminDashboard() {
       setTimeout(() => setStatus({ type: null, message: '' }), 6000);
     } finally {
       setUploadingFavicon(false);
+    }
+  };
+
+  const downloadFaviconPack = (type: 'png' | 'svg' | 'apple') => {
+    // Determine source
+    const sourceDataUrl = customFavicon || (globalSettings as any).customFavicon;
+    
+    if (!sourceDataUrl) {
+      alert("アップロードされたカスタムファビコンが見つかりません。先に新しいアイコンをアップロードしてください。");
+      return;
+    }
+
+    if (type === 'png') {
+      const link = document.createElement('a');
+      link.href = sourceDataUrl;
+      link.download = 'favicon.png';
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+    } else if (type === 'apple') {
+      const link = document.createElement('a');
+      link.href = sourceDataUrl;
+      link.download = 'apple-touch-icon.png';
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+    } else if (type === 'svg') {
+      // If the original data URL is indeed SVG, download directly.
+      if (sourceDataUrl.startsWith("data:image/svg+xml")) {
+        const link = document.createElement('a');
+        link.href = sourceDataUrl;
+        link.download = 'favicon.svg';
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+      } else {
+        // Create an SVG wrapper that embeds the Base64 PNG. This is highly compatible and fully vector-capable!
+        const svgWrapperContent = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 192 192">
+  <image width="192" height="192" href="${sourceDataUrl}" />
+</svg>`;
+        const dataUrl = "data:image/svg+xml;charset=utf-8," + encodeURIComponent(svgWrapperContent);
+        const link = document.createElement('a');
+        link.href = dataUrl;
+        link.download = 'favicon.svg';
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+      }
     }
   };
 
@@ -1241,6 +1299,19 @@ export default function AdminDashboard() {
           ...data,
           youtube: data.youtube || data.facebook || prev.youtube // Fallback for settings too
         }));
+      }
+
+      // Fetch dedicated custom favicon for live preview (serverless / GitHub Pages compatible)
+      try {
+        const faviconSnap = await getDoc(doc(db, 'settings', 'favicon'));
+        if (faviconSnap.exists()) {
+          const faviconData = faviconSnap.data();
+          if (faviconData.customFavicon) {
+            setCustomFavicon(faviconData.customFavicon);
+          }
+        }
+      } catch (err) {
+        console.warn("Failed to fetch custom favicon from Firestore:", err);
       }
     } catch (err) {
       console.error("Failed to fetch data", err);
@@ -2031,15 +2102,25 @@ export default function AdminDashboard() {
                     <div className="w-24 h-24 bg-artistic-bg/20 border-2 border-artistic-text rounded-2xl p-4 flex items-center justify-center relative group">
                       <img 
                         src={
+                          customFavicon || 
                           (globalSettings as any).customFavicon || 
-                          ((globalSettings as any).faviconTimestamp ? `/favicon.png?t=${(globalSettings as any).faviconTimestamp}` : `/apple-touch-icon.png?t=${faviconTimestamp}`)
+                          ((globalSettings as any).faviconTimestamp ? (() => {
+                            const base = import.meta.env.BASE_URL || "/";
+                            const cleanBase = base.endsWith("/") ? base : base + "/";
+                            return `${cleanBase}favicon.png?t=${(globalSettings as any).faviconTimestamp}`;
+                          })() : (() => {
+                            const base = import.meta.env.BASE_URL || "/";
+                            const cleanBase = base.endsWith("/") ? base : base + "/";
+                            return `${cleanBase}apple-touch-icon.png?t=${faviconTimestamp}`;
+                          })())
                         } 
                         alt="Site Icon" 
                         className="w-full h-full object-contain rounded-lg animate-in fade-in" 
                         referrerPolicy="no-referrer"
                         onError={(e) => {
-                          // Fallback just in case
-                          (e.target as HTMLImageElement).src = `/favicon.svg?t=${faviconTimestamp}`;
+                          const base = import.meta.env.BASE_URL || "/";
+                          const cleanBase = base.endsWith("/") ? base : base + "/";
+                          (e.target as HTMLImageElement).src = `${cleanBase}favicon.svg?t=${faviconTimestamp}`;
                         }}
                       />
                     </div>
@@ -2053,19 +2134,19 @@ export default function AdminDashboard() {
                     <div className="space-y-2">
                       <div className="flex items-center gap-2 text-[11px] font-bold text-emerald-600">
                         <span className="w-5 h-5 flex items-center justify-center rounded-full bg-emerald-50 border border-emerald-300 text-xs text-emerald-600 shrink-0 select-none">✓</span>
-                        <span>iOSホーム用 (apple-touch-icon.png: 180x180)</span>
+                        <span>iOSホーム用 (apple-touch-icon.png)</span>
                       </div>
                       <div className="flex items-center gap-2 text-[11px] font-bold text-emerald-600">
                         <span className="w-5 h-5 flex items-center justify-center rounded-full bg-emerald-50 border border-emerald-300 text-xs text-emerald-600 shrink-0 select-none">✓</span>
-                        <span>標準ブラウザ用 (favicon.png: 192x192)</span>
+                        <span>標準ブラウザ用 (favicon.png)</span>
                       </div>
                       <div className="flex items-center gap-2 text-[11px] font-bold text-emerald-600">
                         <span className="w-5 h-5 flex items-center justify-center rounded-full bg-emerald-50 border border-emerald-300 text-xs text-emerald-600 shrink-0 select-none">✓</span>
-                        <span>高画質ベクター (favicon.svg: 自動差替済)</span>
+                        <span>高画質ベクター (favicon.svg)</span>
                       </div>
                     </div>
                     <p className="text-[9px] leading-relaxed font-bold opacity-50 mt-1">
-                      ※高信頼データベース(リアルタイム同期対応)とサーバー側静的ファイルに二重で保存されます。ブラウザ側で瞬時に反映されます。
+                      ※高信頼Firestoreデータベース（リアルタイム同期対応）とサーバー側静的ファイルに二重で保存されます。
                     </p>
                   </div>
                 </div>
@@ -2099,6 +2180,62 @@ export default function AdminDashboard() {
                       </button>
                     </div>
                   )}
+                </div>
+              </div>
+
+              {/* GitHub Pages & Git Integration Section */}
+              <div className="bg-artistic-blue/5 border-2 border-artistic-text/15 p-6 rounded-2xl space-y-4">
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+                  <h4 className="text-sm font-black flex items-center gap-2">
+                    📦 GitHub Pages 向け：ファビコン手動エクスポート (Gitコミット用)
+                  </h4>
+                  <span className="bg-artistic-blue/15 text-artistic-blue px-2.5 py-0.5 rounded-full text-[9px] font-black tracking-widest self-start sm:self-auto">
+                    RECOMMENDED FOR GITHUB PAGES
+                  </span>
+                </div>
+                
+                <p className="text-xs font-bold leading-relaxed text-artistic-text opacity-85">
+                  GitHub Pages等の完全な静的サーバー環境では、ブラウザの初期読み込み時点、お気に入り登録時、SEOクローラーに対して正しいファビコンを100％完璧に認識させるために、下記ファイルをダウンロードしてリポジトリの <code>public/</code> ディレクトリにコミット＆プッシュしておくことが強く推奨されます。
+                </p>
+
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4 pt-2">
+                  <button
+                    onClick={() => downloadFaviconPack('png')}
+                    disabled={!customFavicon && !(globalSettings as any).customFavicon}
+                    className="flex items-center justify-center gap-2 px-4 py-3 bg-white border-2 border-artistic-text rounded-xl font-bold text-xs shadow-[3px_3px_0px_0px_rgba(42,42,42,1)] hover:shadow-none hover:translate-x-0.5 hover:translate-y-0.5 active:scale-95 transition-all text-artistic-text hover:bg-artistic-bg/25 disabled:opacity-35 disabled:cursor-not-allowed group cursor-pointer"
+                  >
+                    <Download size={14} className="text-artistic-blue group-hover:scale-110 transition-transform" />
+                    <span>favicon.png を取得</span>
+                  </button>
+                  
+                  <button
+                    onClick={() => downloadFaviconPack('svg')}
+                    disabled={!customFavicon && !(globalSettings as any).customFavicon}
+                    className="flex items-center justify-center gap-2 px-4 py-3 bg-white border-2 border-artistic-text rounded-xl font-bold text-xs shadow-[3px_3px_0px_0px_rgba(42,42,42,1)] hover:shadow-none hover:translate-x-0.5 hover:translate-y-0.5 active:scale-95 transition-all text-artistic-text hover:bg-artistic-bg/25 disabled:opacity-35 disabled:cursor-not-allowed group cursor-pointer"
+                  >
+                    <Download size={14} className="text-emerald-600 group-hover:scale-110 transition-transform" />
+                    <span>favicon.svg を取得</span>
+                  </button>
+
+                  <button
+                    onClick={() => downloadFaviconPack('apple')}
+                    disabled={!customFavicon && !(globalSettings as any).customFavicon}
+                    className="flex items-center justify-center gap-2 px-4 py-3 bg-white border-2 border-artistic-text rounded-xl font-bold text-xs shadow-[3px_3px_0px_0px_rgba(42,42,42,1)] hover:shadow-none hover:translate-x-0.5 hover:translate-y-0.5 active:scale-95 transition-all text-artistic-text hover:bg-artistic-bg/25 disabled:opacity-35 disabled:cursor-not-allowed group cursor-pointer"
+                  >
+                    <Download size={14} className="text-artistic-pink group-hover:scale-110 transition-transform" />
+                    <span>apple-touch-icon.png を取得</span>
+                  </button>
+                </div>
+
+                <div className="bg-white p-4 rounded-xl border border-artistic-text/15 space-y-2 mt-2">
+                  <p className="text-[10px] font-black uppercase text-artistic-pink">✨ GitHub Pages 完璧設定ステップ</p>
+                  <ol className="list-decimal list-inside text-xs leading-relaxed space-y-1.5 font-bold text-artistic-text opacity-90">
+                    <li>上のセクションから画像を選択し、<b>「サーバーにアップロードして自動適正化」</b>ボタンをクリックし、リアルタイム適用を実行します。</li>
+                    <li>続けて、上記3つのボタンから各ファイルをダウンロードします（SVGは高解像度ベクターとして自動生成・補完されます）。</li>
+                    <li>ダウンロードしたファイルを、お使いのGitHubローカルリポジトリの <code>public/</code> フォルダに配置します（既存ファイルを上書き）。</li>
+                    <li>変更をコミットしてGitHubリポジトリにプッシュします（例：<code>git commit -am "Update custom favicons" &amp;&amp; git push</code>）。</li>
+                    <li>GitHub Actionsでの自動ビルド・デプロイが完了すると、完全に表示される完璧なファビコン設定完了です！</li>
+                  </ol>
                 </div>
               </div>
             </div>

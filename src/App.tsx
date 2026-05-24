@@ -663,6 +663,31 @@ function MainSite() {
       }
     );
 
+    const applyFavicon = (url: string) => {
+      const links = document.querySelectorAll(
+        "link[rel*='icon'], link[rel='apple-touch-icon'], link[rel='shortcut icon']"
+      );
+      
+      // Convert absolute paths to subfolder-aware paths for GitHub Pages if not a data URL
+      let resolvedUrl = url;
+      if (url.startsWith("/") && !url.startsWith("data:") && !url.startsWith("http:") && !url.startsWith("https:")) {
+        const base = import.meta.env.BASE_URL || "/";
+        const cleanBase = base.endsWith("/") ? base : base + "/";
+        resolvedUrl = cleanBase + url.slice(1);
+      }
+
+      links.forEach((link: any) => {
+        link.href = resolvedUrl;
+        if (resolvedUrl.startsWith("data:image/svg+xml")) {
+          link.type = "image/svg+xml";
+        } else if (resolvedUrl.startsWith("data:image/x-icon")) {
+          link.type = "image/x-icon";
+        } else {
+          link.type = "image/png";
+        }
+      });
+    };
+
     // Listen to global settings
     const unsubGlobal = onSnapshot(doc(db, 'settings', 'global'), 
       (snapshot) => {
@@ -674,22 +699,9 @@ function MainSite() {
             youtube: data.youtube || data.facebook || prev.youtube // Fallback
           }));
 
-          // Dynamically apply custom favicon to HTML head
-          const faviconUrl = data.customFavicon || (data.faviconTimestamp ? `/favicon.png?t=${data.faviconTimestamp}` : null);
-          if (faviconUrl) {
-            const links = document.querySelectorAll(
-              "link[rel*='icon'], link[rel='apple-touch-icon'], link[rel='shortcut icon']"
-            );
-            links.forEach((link: any) => {
-              link.href = faviconUrl;
-              if (faviconUrl.startsWith("data:image/svg+xml")) {
-                link.type = "image/svg+xml";
-              } else if (faviconUrl.startsWith("data:image/x-icon")) {
-                link.type = "image/x-icon";
-              } else {
-                link.type = "image/png";
-              }
-            });
+          // Apply static timestamped favicon with subfolder path support
+          if (data.faviconTimestamp) {
+            applyFavicon(`/favicon.png?t=${data.faviconTimestamp}`);
           }
         }
       },
@@ -698,9 +710,25 @@ function MainSite() {
       }
     );
 
+    // Listen to dedicated favicon document for live Base64 updates (supports serverless / GitHub Pages)
+    const unsubFavicon = onSnapshot(doc(db, 'settings', 'favicon'),
+      (snapshot) => {
+        if (snapshot.exists()) {
+          const data = snapshot.data();
+          if (data.customFavicon) {
+            applyFavicon(data.customFavicon);
+          }
+        }
+      },
+      (err) => {
+        console.error("Firestore Favicon Listen Error:", err);
+      }
+    );
+
     return () => {
       unsubEvents();
       unsubGlobal();
+      unsubFavicon();
       if (analyticsCleanupRef.current) {
         analyticsCleanupRef.current();
       }
