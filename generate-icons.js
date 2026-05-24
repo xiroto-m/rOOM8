@@ -26,6 +26,9 @@ async function generateIcons() {
     // Target PNG output file paths
     const publicApplePath = path.join(process.cwd(), "public", "apple-touch-icon.png");
     const publicFaviconPath = path.join(process.cwd(), "public", "favicon.png");
+    const public32Path = path.join(process.cwd(), "public", "favicon-32x32.png");
+    const public16Path = path.join(process.cwd(), "public", "favicon-16x16.png");
+    const publicIcoPath = path.join(process.cwd(), "public", "favicon.ico");
 
     // Make sure we write to public/ first
     await sharp(svgContent)
@@ -39,6 +42,25 @@ async function generateIcons() {
       .png()
       .toFile(publicFaviconPath);
     console.log("✅ [Icon Generator] Successfully generated public/favicon.png (192x192)");
+
+    await sharp(svgContent)
+      .resize(32, 32)
+      .png()
+      .toFile(public32Path);
+    console.log("✅ [Icon Generator] Successfully generated public/favicon-32x32.png (32x32)");
+
+    await sharp(svgContent)
+      .resize(16, 16)
+      .png()
+      .toFile(public16Path);
+    console.log("✅ [Icon Generator] Successfully generated public/favicon-16x16.png (16x16)");
+
+    // Convert or copy a 32x32 PNG as .ico (Modern browsers perfectly recognize PNG files named with .ico extension)
+    await sharp(svgContent)
+      .resize(32, 32)
+      .png()
+      .toFile(publicIcoPath);
+    console.log("✅ [Icon Generator] Successfully generated public/favicon.ico (32x32 fallback)");
 
   } catch (error) {
     console.warn("⚠️ [Icon Generator] Error generating icons during build process:", error.message || error);

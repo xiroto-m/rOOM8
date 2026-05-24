@@ -846,7 +846,7 @@ export default function AdminDashboard() {
     }
   };
 
-  const downloadFaviconPack = (type: 'png' | 'svg' | 'apple') => {
+  const downloadFaviconPack = (type: 'png' | 'svg' | 'apple' | 'png32' | 'png16' | 'ico') => {
     // Determine source
     const sourceDataUrl = customFavicon || (globalSettings as any).customFavicon;
     
@@ -855,41 +855,71 @@ export default function AdminDashboard() {
       return;
     }
 
+    const downloadDirectly = (url: string, filename: string) => {
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = filename;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+    };
+
     if (type === 'png') {
-      const link = document.createElement('a');
-      link.href = sourceDataUrl;
-      link.download = 'favicon.png';
-      document.body.appendChild(link);
-      link.click();
-      document.body.removeChild(link);
+      downloadDirectly(sourceDataUrl, 'favicon.png');
     } else if (type === 'apple') {
-      const link = document.createElement('a');
-      link.href = sourceDataUrl;
-      link.download = 'apple-touch-icon.png';
-      document.body.appendChild(link);
-      link.click();
-      document.body.removeChild(link);
+      downloadDirectly(sourceDataUrl, 'apple-touch-icon.png');
+    } else if (type === 'png32') {
+      // Create a downscaled version using Canvas for client side
+      const img = new Image();
+      img.onload = () => {
+        const canvas = document.createElement('canvas');
+        canvas.width = 32;
+        canvas.height = 32;
+        const ctx = canvas.getContext('2d');
+        if (ctx) {
+          ctx.drawImage(img, 0, 0, 32, 32);
+          downloadDirectly(canvas.toDataURL('image/png'), 'favicon-32x32.png');
+        }
+      };
+      img.src = sourceDataUrl;
+    } else if (type === 'png16') {
+      const img = new Image();
+      img.onload = () => {
+        const canvas = document.createElement('canvas');
+        canvas.width = 16;
+        canvas.height = 16;
+        const ctx = canvas.getContext('2d');
+        if (ctx) {
+          ctx.drawImage(img, 0, 0, 16, 16);
+          downloadDirectly(canvas.toDataURL('image/png'), 'favicon-16x16.png');
+        }
+      };
+      img.src = sourceDataUrl;
+    } else if (type === 'ico') {
+      const img = new Image();
+      img.onload = () => {
+        const canvas = document.createElement('canvas');
+        canvas.width = 32;
+        canvas.height = 32;
+        const ctx = canvas.getContext('2d');
+        if (ctx) {
+          ctx.drawImage(img, 0, 0, 32, 32);
+          // Standard browser accepts PNG format disguised as .ico perfectly
+          downloadDirectly(canvas.toDataURL('image/png'), 'favicon.ico');
+        }
+      };
+      img.src = sourceDataUrl;
     } else if (type === 'svg') {
       // If the original data URL is indeed SVG, download directly.
       if (sourceDataUrl.startsWith("data:image/svg+xml")) {
-        const link = document.createElement('a');
-        link.href = sourceDataUrl;
-        link.download = 'favicon.svg';
-        document.body.appendChild(link);
-        link.click();
-        document.body.removeChild(link);
+        downloadDirectly(sourceDataUrl, 'favicon.svg');
       } else {
         // Create an SVG wrapper that embeds the Base64 PNG. This is highly compatible and fully vector-capable!
         const svgWrapperContent = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 192 192">
   <image width="192" height="192" href="${sourceDataUrl}" />
 </svg>`;
         const dataUrl = "data:image/svg+xml;charset=utf-8," + encodeURIComponent(svgWrapperContent);
-        const link = document.createElement('a');
-        link.href = dataUrl;
-        link.download = 'favicon.svg';
-        document.body.appendChild(link);
-        link.click();
-        document.body.removeChild(link);
+        downloadDirectly(dataUrl, 'favicon.svg');
       }
     }
   };
@@ -2134,15 +2164,23 @@ export default function AdminDashboard() {
                     <div className="space-y-2">
                       <div className="flex items-center gap-2 text-[11px] font-bold text-emerald-600">
                         <span className="w-5 h-5 flex items-center justify-center rounded-full bg-emerald-50 border border-emerald-300 text-xs text-emerald-600 shrink-0 select-none">✓</span>
-                        <span>iOSホーム用 (apple-touch-icon.png)</span>
+                        <span>iOS・Safariお気に入り用 (apple-touch-icon.png: 180x180)</span>
                       </div>
                       <div className="flex items-center gap-2 text-[11px] font-bold text-emerald-600">
                         <span className="w-5 h-5 flex items-center justify-center rounded-full bg-emerald-50 border border-emerald-300 text-xs text-emerald-600 shrink-0 select-none">✓</span>
-                        <span>標準ブラウザ用 (favicon.png)</span>
+                        <span>高解像度PWA/Android用 (favicon.png: 192x192)</span>
                       </div>
                       <div className="flex items-center gap-2 text-[11px] font-bold text-emerald-600">
                         <span className="w-5 h-5 flex items-center justify-center rounded-full bg-emerald-50 border border-emerald-300 text-xs text-emerald-600 shrink-0 select-none">✓</span>
-                        <span>高画質ベクター (favicon.svg)</span>
+                        <span>ブラウザ高画質ベクター (favicon.svg)</span>
+                      </div>
+                      <div className="flex items-center gap-2 text-[11px] font-bold text-emerald-600">
+                        <span className="w-5 h-5 flex items-center justify-center rounded-full bg-emerald-50 border border-emerald-300 text-xs text-emerald-600 shrink-0 select-none">✓</span>
+                        <span>標準タブ・Safariお気に入りバー用 (favicon-32x32.png, favicon-16x16.png)</span>
+                      </div>
+                      <div className="flex items-center gap-2 text-[11px] font-bold text-emerald-600">
+                        <span className="w-5 h-5 flex items-center justify-center rounded-full bg-emerald-50 border border-emerald-300 text-xs text-emerald-600 shrink-0 select-none">✓</span>
+                        <span>レガシー上位互換フォールバック (favicon.ico: 32x32)</span>
                       </div>
                     </div>
                     <p className="text-[9px] leading-relaxed font-bold opacity-50 mt-1">
@@ -2198,14 +2236,41 @@ export default function AdminDashboard() {
                   GitHub Pages等の完全な静的サーバー環境では、ブラウザの初期読み込み時点、お気に入り登録時、SEOクローラーに対して正しいファビコンを100％完璧に認識させるために、下記ファイルをダウンロードしてリポジトリの <code>public/</code> ディレクトリにコミット＆プッシュしておくことが強く推奨されます。
                 </p>
 
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-4 pt-2">
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 pt-2">
                   <button
                     onClick={() => downloadFaviconPack('png')}
                     disabled={!customFavicon && !(globalSettings as any).customFavicon}
                     className="flex items-center justify-center gap-2 px-4 py-3 bg-white border-2 border-artistic-text rounded-xl font-bold text-xs shadow-[3px_3px_0px_0px_rgba(42,42,42,1)] hover:shadow-none hover:translate-x-0.5 hover:translate-y-0.5 active:scale-95 transition-all text-artistic-text hover:bg-artistic-bg/25 disabled:opacity-35 disabled:cursor-not-allowed group cursor-pointer"
                   >
                     <Download size={14} className="text-artistic-blue group-hover:scale-110 transition-transform" />
-                    <span>favicon.png を取得</span>
+                    <span>favicon.png を取得 (192)</span>
+                  </button>
+
+                  <button
+                    onClick={() => downloadFaviconPack('png32')}
+                    disabled={!customFavicon && !(globalSettings as any).customFavicon}
+                    className="flex items-center justify-center gap-2 px-4 py-3 bg-white border-2 border-artistic-text rounded-xl font-bold text-xs shadow-[3px_3px_0px_0px_rgba(42,42,42,1)] hover:shadow-none hover:translate-x-0.5 hover:translate-y-0.5 active:scale-95 transition-all text-artistic-text hover:bg-artistic-bg/25 disabled:opacity-35 disabled:cursor-not-allowed group cursor-pointer"
+                  >
+                    <Download size={14} className="text-artistic-blue group-hover:scale-110 transition-transform" />
+                    <span>favicon-32x32.png を取得</span>
+                  </button>
+
+                  <button
+                    onClick={() => downloadFaviconPack('png16')}
+                    disabled={!customFavicon && !(globalSettings as any).customFavicon}
+                    className="flex items-center justify-center gap-2 px-4 py-3 bg-white border-2 border-artistic-text rounded-xl font-bold text-xs shadow-[3px_3px_0px_0px_rgba(42,42,42,1)] hover:shadow-none hover:translate-x-0.5 hover:translate-y-0.5 active:scale-95 transition-all text-artistic-text hover:bg-artistic-bg/25 disabled:opacity-35 disabled:cursor-not-allowed group cursor-pointer"
+                  >
+                    <Download size={14} className="text-artistic-blue group-hover:scale-110 transition-transform" />
+                    <span>favicon-16x16.png を取得</span>
+                  </button>
+
+                  <button
+                    onClick={() => downloadFaviconPack('ico')}
+                    disabled={!customFavicon && !(globalSettings as any).customFavicon}
+                    className="flex items-center justify-center gap-2 px-4 py-3 bg-white border-2 border-artistic-text rounded-xl font-bold text-xs shadow-[3px_3px_0px_0px_rgba(42,42,42,1)] hover:shadow-none hover:translate-x-0.5 hover:translate-y-0.5 active:scale-95 transition-all text-artistic-text hover:bg-artistic-bg/25 disabled:opacity-35 disabled:cursor-not-allowed group cursor-pointer"
+                  >
+                    <Download size={14} className="text-amber-600 group-hover:scale-110 transition-transform" />
+                    <span>favicon.ico を取得</span>
                   </button>
                   
                   <button
@@ -2231,7 +2296,7 @@ export default function AdminDashboard() {
                   <p className="text-[10px] font-black uppercase text-artistic-pink">✨ GitHub Pages 完璧設定ステップ</p>
                   <ol className="list-decimal list-inside text-xs leading-relaxed space-y-1.5 font-bold text-artistic-text opacity-90">
                     <li>上のセクションから画像を選択し、<b>「サーバーにアップロードして自動適正化」</b>ボタンをクリックし、リアルタイム適用を実行します。</li>
-                    <li>続けて、上記3つのボタンから各ファイルをダウンロードします（SVGは高解像度ベクターとして自動生成・補完されます）。</li>
+                    <li>続けて、ダウンロードリンクから必要なアセットをダウンロードします（SVGは高解像度ベクターとして自動生成・補完されます）。</li>
                     <li>ダウンロードしたファイルを、お使いのGitHubローカルリポジトリの <code>public/</code> フォルダに配置します（既存ファイルを上書き）。</li>
                     <li>変更をコミットしてGitHubリポジトリにプッシュします（例：<code>git commit -am "Update custom favicons" &amp;&amp; git push</code>）。</li>
                     <li>GitHub Actionsでの自動ビルド・デプロイが完了すると、完全に表示される完璧なファビコン設定完了です！</li>

@@ -211,6 +211,9 @@ async function startServer() {
       // Target PNG output file paths
       const publicApplePath = path.join(process.cwd(), "public", "apple-touch-icon.png");
       const publicFaviconPath = path.join(process.cwd(), "public", "favicon.png");
+      const public32Path = path.join(process.cwd(), "public", "favicon-32x32.png");
+      const public16Path = path.join(process.cwd(), "public", "favicon-16x16.png");
+      const publicIcoPath = path.join(process.cwd(), "public", "favicon.ico");
       
       // Pre-render 180x180 PNG for high-res Apple Devices (apple-touch-icon)
       await sharp(svgContent)
@@ -225,6 +228,21 @@ async function startServer() {
         .png()
         .toFile(publicFaviconPath);
       console.log("Pre-rendered sharp: public/favicon.png (192x192)");
+
+      // Pre-render smaller formats for browser tabs and favorites
+      await sharp(svgContent)
+        .resize(32, 32)
+        .png()
+        .toFile(public32Path);
+      await sharp(svgContent)
+        .resize(16, 16)
+        .png()
+        .toFile(public16Path);
+      await sharp(svgContent)
+        .resize(32, 32)
+        .png()
+        .toFile(publicIcoPath);
+      console.log("Pre-rendered sharp browser tab sizes: 32x32, 16x16 and favicon.ico");
       
       // Also pre-render to dist/ if it exists so production can also serve them
       const distPath = path.join(process.cwd(), "dist");
@@ -238,6 +256,18 @@ async function startServer() {
           .resize(192, 192)
           .png()
           .toFile(path.join(distPath, "favicon.png"));
+        await sharp(svgContent)
+          .resize(32, 32)
+          .png()
+          .toFile(path.join(distPath, "favicon-32x32.png"));
+        await sharp(svgContent)
+          .resize(16, 16)
+          .png()
+          .toFile(path.join(distPath, "favicon-16x16.png"));
+        await sharp(svgContent)
+          .resize(32, 32)
+          .png()
+          .toFile(path.join(distPath, "favicon.ico"));
         console.log("Pre-rendered sharp files also copied to dist/");
       } catch {
         // dist/ directory doesn't exist yet (normal in dev mode)
@@ -273,6 +303,9 @@ async function startServer() {
 
       const publicApplePath = path.join(publicDir, "apple-touch-icon.png");
       const publicFaviconPath = path.join(publicDir, "favicon.png");
+      const public32Path = path.join(publicDir, "favicon-32x32.png");
+      const public16Path = path.join(publicDir, "favicon-16x16.png");
+      const publicIcoPath = path.join(publicDir, "favicon.ico");
       const publicSvgPath = path.join(publicDir, "favicon.svg");
 
       let hasDist = false;
@@ -291,9 +324,15 @@ async function startServer() {
         } else {
           await fs.writeFile(publicFaviconPath, buf);
           await fs.writeFile(publicApplePath, buf);
+          await fs.writeFile(public32Path, buf);
+          await fs.writeFile(public16Path, buf);
+          await fs.writeFile(publicIcoPath, buf);
           if (hasDist) {
             await fs.writeFile(path.join(distDir, "favicon.png"), buf);
             await fs.writeFile(path.join(distDir, "apple-touch-icon.png"), buf);
+            await fs.writeFile(path.join(distDir, "favicon-32x32.png"), buf);
+            await fs.writeFile(path.join(distDir, "favicon-16x16.png"), buf);
+            await fs.writeFile(path.join(distDir, "favicon.ico"), buf);
           }
         }
       };
@@ -323,6 +362,21 @@ async function startServer() {
             .png()
             .toFile(publicFaviconPath);
 
+          await sharp(Buffer.from(svgContent))
+            .resize(32, 32)
+            .png()
+            .toFile(public32Path);
+
+          await sharp(Buffer.from(svgContent))
+            .resize(16, 16)
+            .png()
+            .toFile(public16Path);
+
+          await sharp(Buffer.from(svgContent))
+            .resize(32, 32)
+            .png()
+            .toFile(publicIcoPath);
+
           if (hasDist) {
             await sharp(Buffer.from(svgContent))
               .resize(180, 180)
@@ -333,6 +387,21 @@ async function startServer() {
               .resize(192, 192)
               .png()
               .toFile(path.join(distDir, "favicon.png"));
+
+            await sharp(Buffer.from(svgContent))
+              .resize(32, 32)
+              .png()
+              .toFile(path.join(distDir, "favicon-32x32.png"));
+
+            await sharp(Buffer.from(svgContent))
+              .resize(16, 16)
+              .png()
+              .toFile(path.join(distDir, "favicon-16x16.png"));
+
+            await sharp(Buffer.from(svgContent))
+              .resize(32, 32)
+              .png()
+              .toFile(path.join(distDir, "favicon.ico"));
           }
         } else {
           // It's a standard raster image (PNG, JPEG, etc.)
@@ -360,6 +429,21 @@ async function startServer() {
             .png()
             .toFile(publicFaviconPath);
 
+          await sharp(buffer)
+            .resize(32, 32)
+            .png()
+            .toFile(public32Path);
+
+          await sharp(buffer)
+            .resize(16, 16)
+            .png()
+            .toFile(public16Path);
+
+          await sharp(buffer)
+            .resize(32, 32)
+            .png()
+            .toFile(publicIcoPath);
+
           if (hasDist) {
             await sharp(buffer)
               .resize(180, 180)
@@ -370,6 +454,21 @@ async function startServer() {
               .resize(192, 192)
               .png()
               .toFile(path.join(distDir, "favicon.png"));
+
+            await sharp(buffer)
+              .resize(32, 32)
+              .png()
+              .toFile(path.join(distDir, "favicon-32x32.png"));
+
+            await sharp(buffer)
+              .resize(16, 16)
+              .png()
+              .toFile(path.join(distDir, "favicon-16x16.png"));
+
+            await sharp(buffer)
+              .resize(32, 32)
+              .png()
+              .toFile(path.join(distDir, "favicon.ico"));
           }
         }
       } catch (sharpErr) {
@@ -431,6 +530,8 @@ async function startServer() {
 
   app.get("/favicon.ico", handleServeFavicon);
   app.get("/favicon.png", handleServeFavicon);
+  app.get("/favicon-32x32.png", handleServeFavicon);
+  app.get("/favicon-16x16.png", handleServeFavicon);
   app.get("/apple-touch-icon.png", handleServeFavicon);
   app.get("/favicon.svg", handleServeFavicon);
 

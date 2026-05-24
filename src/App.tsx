@@ -665,25 +665,39 @@ function MainSite() {
 
     const applyFavicon = (url: string) => {
       const links = document.querySelectorAll(
-        "link[rel*='icon'], link[rel='apple-touch-icon'], link[rel='shortcut icon']"
+        "link[rel*='icon'], link[rel*='apple-touch-icon'], link[rel='shortcut icon']"
       );
       
-      // Convert absolute paths to subfolder-aware paths for GitHub Pages if not a data URL
-      let resolvedUrl = url;
-      if (url.startsWith("/") && !url.startsWith("data:") && !url.startsWith("http:") && !url.startsWith("https:")) {
-        const base = import.meta.env.BASE_URL || "/";
-        const cleanBase = base.endsWith("/") ? base : base + "/";
-        resolvedUrl = cleanBase + url.slice(1);
-      }
+      const isDataUrl = url.startsWith("data:");
+      const base = import.meta.env.BASE_URL || "/";
+      const cleanBase = base.endsWith("/") ? base : base + "/";
 
       links.forEach((link: any) => {
-        link.href = resolvedUrl;
-        if (resolvedUrl.startsWith("data:image/svg+xml")) {
-          link.type = "image/svg+xml";
-        } else if (resolvedUrl.startsWith("data:image/x-icon")) {
-          link.type = "image/x-icon";
+        if (isDataUrl) {
+          // If Firestore contains raw base64, set it directly on everything
+          link.href = url;
+          if (url.startsWith("data:image/svg+xml")) {
+            link.type = "image/svg+xml";
+          } else if (url.startsWith("data:image/x-icon")) {
+            link.type = "image/x-icon";
+          } else {
+            link.type = "image/png";
+          }
         } else {
-          link.type = "image/png";
+          // If it's a static path or timestamp refresh, keep each link's exact file and add timestamp
+          const hrefAttr = link.getAttribute("href") || "";
+          
+          // Extract original filename, e.g. "apple-touch-icon.png" or "favicon-32x32.png"
+          const cleanFileName = hrefAttr.split("?")[0].split("/").pop() || "favicon.png";
+          
+          // Compose complete base url
+          const resolvedAssetUrl = cleanBase + cleanFileName;
+          
+          // Extract timestamp if exists
+          const timestampMatch = url.match(/t=\d+/);
+          const tQuery = timestampMatch ? `?${timestampMatch[0]}` : "";
+          
+          link.href = resolvedAssetUrl + tQuery;
         }
       });
     };
