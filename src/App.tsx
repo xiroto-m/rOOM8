@@ -1076,22 +1076,23 @@ function MainSite() {
     if (
       queryText.includes("代々木") || 
       queryText.includes("4-28-8") || 
+      queryText.includes("4-34-5") || 
       (event.googleMapEmbedUrl && (event.googleMapEmbedUrl.includes("5Luj44CF5pyo5Y-w44Oe44Oz") || event.googleMapEmbedUrl.includes("代々木")))
     ) {
-      queryText = "東京都渋谷区代々木 4-28-8";
+      queryText = "東京都渋谷区代々木 4-34-5 代々木台マンション";
     } else if (!queryText && event.googleMapEmbedUrl) {
       return event.googleMapEmbedUrl;
     }
-    const query = encodeURIComponent(queryText || "東京都渋谷区代々木 4-28-8");
+    const query = encodeURIComponent(queryText || "東京都渋谷区代々木 4-34-5 代々木台マンション");
     return `https://maps.google.com/maps?q=${query}&output=embed`;
   };
 
   const getMapSearchUrl = (event: EventItem) => {
     let queryText = event.address || event.locationName || '';
-    if (queryText.includes("代々木") || queryText.includes("4-28-8")) {
-      queryText = "東京都渋谷区代々木 4-28-8";
+    if (queryText.includes("代々木") || queryText.includes("4-28-8") || queryText.includes("4-34-5")) {
+      return "https://maps.app.goo.gl/d9uhX6Uwi2XTULiy9?g_st=ic";
     }
-    return `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(queryText || "東京都渋谷区代々木 4-28-8")}`;
+    return `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(queryText || "東京都渋谷区代々木 4-34-5 代々木台マンション")}`;
   };
 
   const EventModal = ({ event, onClose }: { event: EventItem, onClose: () => void }) => {
