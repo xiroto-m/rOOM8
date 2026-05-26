@@ -2,8 +2,8 @@ import { db } from "./firebase";
 import { collection, getDocs, writeBatch, doc, serverTimestamp } from "firebase/firestore";
 
 export async function ensureSeedData() {
+  // 1. Seed Creators if empty
   try {
-    // 1. Seed Creators if empty
     const creatorsRef = collection(db, "creators");
     const creatorsSnapshot = await getDocs(creatorsRef);
     
@@ -62,8 +62,12 @@ export async function ensureSeedData() {
       await batch.commit();
       console.log("Seeding creators completed!");
     }
+  } catch (error) {
+    console.warn("Seeding creators failed (likely lacks permission if not logged in as Admin):", error);
+  }
 
-    // 2. Seed Media files if empty
+  // 2. Seed Media files if empty
+  try {
     const mediaRef = collection(db, "media");
     const mediaSnapshot = await getDocs(mediaRef);
     
@@ -131,6 +135,124 @@ export async function ensureSeedData() {
       console.log("Seeding media completed!");
     }
   } catch (error) {
-    console.error("Seeding failed: ", error);
+    console.warn("Seeding media failed (likely lacks permission if not logged in as Admin):", error);
+  }
+
+  // 3. Seed Events if empty
+  try {
+    const eventsRef = collection(db, "events");
+    const eventsSnapshot = await getDocs(eventsRef);
+    if (eventsSnapshot.empty) {
+      console.log("Seeding initial events...");
+      const batch = writeBatch(db);
+      const seedEvents = [
+        {
+          id: "seed_event_1",
+          title: "あの高島くん厳選！ボードゲームをギャラリーで遊び尽くす 🔥",
+          date: "2026.05.15 (金)",
+          time: "19:30〜",
+          locationName: "代々木台マンション 4階8号室",
+          address: "〒151-0053 東京都渋谷区代々木４丁目３４−５ 代々木台マンション 408",
+          access: "京王新線 初台駅 徒歩5分 / 小田急線 参宮橋駅 徒歩7分",
+          fee: "1,000円 (19歳以下・お子様無料)",
+          googleMapEmbedUrl: "https://www.google.com/maps/embed?pb=!1m18!1m12!1m3!1d3241.1347648356193!2d139.6914561!3d35.6737525!2m3!1f0!2f0!3f0!3m2!1i1024!2i768!4f13.1!3m3!1m2!1s0x60188cb7e4e16d41%3A0x67db233eaca5144b!2z5Luj44CF5pyo5Y-w44Oe44Oz44K344On44Oz!5e0!3m2!1sja!2sjp!4v1714900000000!5m2!1sja!2sjp",
+          order: 1,
+          likesCount: 1,
+          isPublished: true,
+          description: "みんなお馴染みの傑作ボードゲームから、ちょっとマニアックなインディーズ作品まで、持ち寄って日が暮れるまで遊び倒しましょう！初心者大歓迎です。",
+          youtubeUrl: "https://www.youtube.com/watch?v=dQw4w9WgXcQ"
+        },
+        {
+          id: "seed_event_2",
+          title: "晴れろ！！☀️ ルーフトップでスカイバー 🏔 持ち寄りギャラリー rOOM8",
+          date: "2026.05.31 (日)",
+          time: "13:00〜",
+          locationName: "代々木台マンション 屋上",
+          address: "〒151-0053 東京都渋谷区代々木４丁目３４−５ 代々木台マンション 屋上",
+          access: "京王新線 初台駅 徒歩5分 / 小田急線 参宮橋駅 徒歩7分",
+          fee: "1,000円 (19歳以下・お子様無料)",
+          googleMapEmbedUrl: "https://www.google.com/maps/embed?pb=!1m18!1m12!1m3!1d3241.1347648356193!2d139.6914561!3d35.6737525!2m3!1f0!2f0!3f0!3m2!1i1024!2i768!4f13.1!3m3!1m2!1s0x60188cb7e4e16d41%3A0x67db233eaca5144b!2z5Luj44CF5pyo5Y-w44Oe44Oz44K344On44Oz!5e0!3m2!1sja!2sjp!4v1714900000000!5m2!1sja!2sjp",
+          order: 2,
+          likesCount: 1,
+          isPublished: true,
+          description: "初夏の風を浴びながら、代々木台マンションのルーフトップで最高に気持ち良いチルアウト。ドリンクや軽食は各自ちょっとずつ持ち寄ってシェアしましょう！",
+          youtubeUrl: "https://www.youtube.com/watch?v=dQw4w9WgXcQ"
+        }
+      ];
+
+      for (const event of seedEvents) {
+        batch.set(doc(db, "events", event.id), {
+          title: event.title,
+          date: event.date,
+          time: event.time,
+          locationName: event.locationName,
+          address: event.address,
+          access: event.access,
+          fee: event.fee,
+          googleMapEmbedUrl: event.googleMapEmbedUrl,
+          order: event.order,
+          likesCount: event.likesCount,
+          isPublished: event.isPublished,
+          description: event.description,
+          youtubeUrl: event.youtubeUrl,
+          createdAt: serverTimestamp(),
+          updatedAt: serverTimestamp()
+        });
+      }
+      await batch.commit();
+      console.log("Seeding events completed!");
+    }
+  } catch (error) {
+    console.warn("Seeding events failed (likely lacks permission if not logged in as Admin):", error);
+  }
+
+  // 4. Seed Products if empty
+  try {
+    const productsRef = collection(db, "products");
+    const productsSnapshot = await getDocs(productsRef);
+    if (productsSnapshot.empty) {
+      console.log("Seeding initial products...");
+      const batch = writeBatch(db);
+      const seedProducts = [
+        {
+          id: "seed_product_1",
+          name: "rOOM8 Official T-Shirt",
+          description: "High-quality heavy cotton tee with the official rOOM8 'passion' design. Limited edition.",
+          price: 4500,
+          currency: "JPY",
+          imageUrl: "https://images.unsplash.com/photo-1521572267360-ee0c2909d518?q=80&w=800&auto=format&fit=crop",
+          status: "active",
+          order: 1
+        },
+        {
+          id: "seed_product_2",
+          name: "Original Art Print #001",
+          description: "A3 size premium print of the main gallery visual. Signed by the artists.",
+          price: 8000,
+          currency: "JPY",
+          imageUrl: "https://images.unsplash.com/photo-1579783902614-a3fb3927b6a5?q=80&w=800&auto=format&fit=crop",
+          status: "active",
+          order: 2
+        }
+      ];
+
+      for (const product of seedProducts) {
+        batch.set(doc(db, "products", product.id), {
+          name: product.name,
+          description: product.description,
+          price: product.price,
+          currency: product.currency,
+          imageUrl: product.imageUrl,
+          status: product.status,
+          order: product.order,
+          createdAt: serverTimestamp(),
+          updatedAt: serverTimestamp()
+        });
+      }
+      await batch.commit();
+      console.log("Seeding products completed!");
+    }
+  } catch (error) {
+    console.warn("Seeding products failed (likely lacks permission if not logged in as Admin):", error);
   }
 }

@@ -37,6 +37,7 @@ import {
 } from 'firebase/firestore';
 import { EVENT_INFO } from '../constants';
 import { formatEventDate, isPastEvent } from '../lib/dateUtils';
+import { ensureSeedData } from '../lib/seedData';
 import { Link } from 'react-router-dom';
 import { LogIn, LogOut, Save, AlertCircle, CheckCircle, ArrowLeft, ArrowRight, ArrowUp, ArrowDown, Plus, Trash2, Edit2, Calendar, Settings, Copy, Heart, BarChart3, Download, Upload, Monitor, Clock, Users, ShoppingBag } from 'lucide-react';
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, PieChart, Pie, Cell, Legend, BarChart, Bar } from 'recharts';
@@ -2301,6 +2302,50 @@ export default function AdminDashboard() {
                     <li>変更をコミットしてGitHubリポジトリにプッシュします（例：<code>git commit -am "Update custom favicons" &amp;&amp; git push</code>）。</li>
                     <li>GitHub Actionsでの自動ビルド・デプロイが完了すると、完全に表示される完璧なファビコン設定完了です！</li>
                   </ol>
+                </div>
+              </div>
+
+              {/* Database Utility Settings Section */}
+              <div className="bg-white border-4 border-artistic-text p-6 md:p-10 rounded-[2rem] shadow-[8px_8px_0px_0px_rgba(42,42,42,1)] mt-10 space-y-6">
+                <h3 className="text-xl font-black flex items-center gap-2">
+                  <Users size={20} className="text-artistic-primary" /> データベース初期データ復元・投入
+                </h3>
+                <p className="text-xs font-bold opacity-70 leading-relaxed text-artistic-text">
+                  Firestoreの初期データベースが空の場合、またはイベント情報・お土産・クリエイター情報などが正しく表示されない場合は、この機能を使用してデモ（初期）データを安全に投入・復元できます。
+                </p>
+                
+                <div className="bg-amber-50 border-2 border-amber-300 p-4 rounded-xl space-y-2 text-amber-900">
+                  <div className="flex items-center gap-2 font-black text-sm">
+                    <AlertCircle size={16} /> 注意事項
+                  </div>
+                  <p className="text-xs font-bold leading-normal">
+                    この処理は、空、またはデータが不足しているコレクションに対して初期設定データ（お馴染みのボードゲーム大会、屋上スカイバーイベントなど）を追加します。既存の自作データが削除されることはありません。
+                  </p>
+                </div>
+
+                <div className="flex justify-start">
+                  <button 
+                    type="button"
+                    onClick={async () => {
+                      setSaving(true);
+                      setStatus({ type: 'success', message: 'データベース初期セットアップを実行中...' });
+                      try {
+                        await ensureSeedData();
+                        setStatus({ type: 'success', message: 'データベースの初期化が成功しました！' });
+                        await fetchData();
+                        setTimeout(() => setStatus({ type: null, message: '' }), 5000);
+                      } catch (err: any) {
+                        console.error("Manual seed failed:", err);
+                        setStatus({ type: 'error', message: `初期化に失敗しました: ${err.message || err}` });
+                      } finally {
+                        setSaving(false);
+                      }
+                    }}
+                    disabled={saving}
+                    className="px-6 py-4 bg-artistic-primary hover:bg-neutral-800 text-white font-black text-sm rounded-xl flex items-center gap-2 transition-all shadow-[4px_4px_0px_0px_rgba(42,42,42,1)] active:translate-y-0.5 active:shadow-none disabled:opacity-50 cursor-pointer"
+                  >
+                    <Plus size={18} /> デモ・初期データを投入/復元する
+                  </button>
                 </div>
               </div>
             </div>

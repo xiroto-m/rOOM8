@@ -1072,27 +1072,60 @@ function MainSite() {
   };
 
   const getMapEmbedUrl = (event: EventItem) => {
-    let queryText = event.address || event.locationName || '';
-    if (
-      queryText.includes("代々木") || 
-      queryText.includes("4-28-8") || 
-      queryText.includes("4-34-5") || 
-      (event.googleMapEmbedUrl && (event.googleMapEmbedUrl.includes("5Luj44CF5pyo5Y-w44Oe44Oz") || event.googleMapEmbedUrl.includes("代々木")))
-    ) {
-      queryText = "東京都渋谷区代々木 4-34-5 代々木台マンション";
-    } else if (!queryText && event.googleMapEmbedUrl) {
-      return event.googleMapEmbedUrl;
+    // 1. googleMapEmbedUrlがデーターベースに設定されている場合は最優先で使用（iframeタグからのsrc抽出にも対応）
+    if (event.googleMapEmbedUrl && event.googleMapEmbedUrl.trim() !== '') {
+      let url = event.googleMapEmbedUrl.trim();
+      if (url.startsWith('<iframe') || url.includes('src=')) {
+        const match = url.match(/src=["']([^"']+)["']/);
+        if (match && match[1]) {
+          url = match[1];
+        }
+      }
+      if (url.startsWith('http') && (url.includes('maps/embed') || url.includes('pb='))) {
+        return url;
+      }
     }
-    const query = encodeURIComponent(queryText || "東京都渋谷区代々木 4-34-5 代々木台マンション");
-    return `https://maps.google.com/maps?q=${query}&output=embed`;
+
+    const address = event.address || '';
+    const location = event.locationName || '';
+    let queryText = address || location;
+    
+    // 2. 代々木、初台、参宮橋、rOOM8等のキーワードを含む場合は、赤いピン（赤マーカー）が確実に立つ本拠地の公式埋め込み地図を返却
+    if (
+      !queryText ||
+      queryText.includes("代々木") ||
+      queryText.includes("初台") ||
+      queryText.includes("参宮橋") ||
+      queryText.includes("rOOM8") ||
+      queryText.includes("room8") ||
+      queryText.includes("4-34-5") ||
+      queryText.includes("４丁目３４−５")
+    ) {
+      // 代々木台マンション（赤ピン付き）の確実な公式なマップ埋め込みコード
+      return "https://www.google.com/maps/embed?pb=!1m18!1m12!1m3!1d3241.1347648356193!2d139.6914561!3d35.6737525!2m3!1f0!2f0!3f0!3m2!1i1024!2i768!4f13.1!3m3!1m2!1s0x60188cb7e4e16d41%3A0x67db233eaca5144b!2z5Luj44CF5pyo5Y-w44Oe44Oz44K344On44Oz!5e0!3m2!1sja!2sjp!4v1714900000000!5m2!1sja!2sjp";
+    }
+
+    // 3. その他の住所の場合は、ピンマークを確約するためのフォールバック埋め込みパラメータ
+    const query = encodeURIComponent(queryText);
+    return `https://maps.google.com/maps?q=${query}&z=16&iwloc=near&output=embed`;
   };
 
   const getMapSearchUrl = (event: EventItem) => {
-    let queryText = event.address || event.locationName || '';
-    if (queryText.includes("代々木") || queryText.includes("4-28-8") || queryText.includes("4-34-5")) {
+    const address = event.address || '';
+    const location = event.locationName || '';
+    const queryText = address || location;
+
+    if (
+      !queryText ||
+      queryText.includes("代々木台マンション") ||
+      queryText.includes("代々木４丁目３４−５") ||
+      queryText.includes("代々木4-34-5") ||
+      queryText.includes("rOOM8") ||
+      queryText.includes("room8")
+    ) {
       return "https://maps.app.goo.gl/d9uhX6Uwi2XTULiy9?g_st=ic";
     }
-    return `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(queryText || "東京都渋谷区代々木 4-34-5 代々木台マンション")}`;
+    return `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(queryText)}`;
   };
 
   const EventModal = ({ event, onClose }: { event: EventItem, onClose: () => void }) => {
