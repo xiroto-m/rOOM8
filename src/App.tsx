@@ -752,7 +752,8 @@ function MainSite() {
   }, [isAdmin]);
 
   const handleLike = async (eventId: string) => {
-    if (!userIP || !eventId) return;
+    const ident = userIP || deviceId;
+    if (!ident || !eventId) return;
 
     // Prevent multiple concurrent requests for the same event
     if (likingEvents.has(eventId)) return;
@@ -764,10 +765,10 @@ function MainSite() {
     });
 
     const isLiked = likedEvents.has(eventId);
-    const pathForLike = `events/${eventId}/likes/${userIP}`;
+    const pathForLike = `events/${eventId}/likes/${ident}`;
     const pathForEvent = `events/${eventId}`;
 
-    const likeDocRef = doc(db, 'events', eventId, 'likes', userIP);
+    const likeDocRef = doc(db, 'events', eventId, 'likes', ident);
     const eventDocRef = doc(db, 'events', eventId);
     const batch = writeBatch(db);
     
@@ -778,7 +779,8 @@ function MainSite() {
       });
     } else {
       batch.set(likeDocRef, {
-        ip: userIP,
+        ip: userIP || 'unknown',
+        deviceId: deviceId || 'unknown',
         eventId: eventId,
         createdAt: serverTimestamp()
       });
@@ -843,24 +845,26 @@ function MainSite() {
     const isLiked = likedEvents.has(eventId);
     const isLiking = likingEvents.has(eventId);
     const height = compact ? "h-11" : "h-12";
+    const ident = userIP || deviceId;
     
     // Customize button interactive behavior when loading
     const buttonBase = `flex items-center justify-center gap-2 px-4 rounded-xl border-2 transition-all font-black group/btn shrink-0 ${height} ${
-      isLiking 
+      isLiking || !ident
         ? 'opacity-70 cursor-wait border-artistic-text/40 bg-gray-100 shadow-none translate-x-[2px] translate-y-[2px]' 
         : 'shadow-[4px_4px_0px_0px_rgba(42,42,42,1)] hover:shadow-none hover:translate-x-[2px] hover:translate-y-[2px] active:scale-95'
     }`;
     
     return (
       <button 
+        type="button"
         onClick={(e) => {
           e.preventDefault();
           e.stopPropagation();
-          if (!isLiking) {
+          if (!isLiking && ident) {
             handleLike(eventId);
           }
         }}
-        disabled={!userIP || isLiking}
+        aria-disabled={!ident || isLiking}
         className={`${buttonBase} min-w-[120px]
           ${isLiked 
             ? 'bg-artistic-pink text-white border-artistic-text' 

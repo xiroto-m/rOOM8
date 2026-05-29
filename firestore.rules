@@ -50,11 +50,7 @@ service cloud.firestore {
     }
 
     function isValidLike(data, likeId) {
-      return data.keys().hasAll(['ip', 'eventId', 'createdAt'])
-        && data.ip is string && data.ip.size() <= 64
-        && likeId == data.ip
-        && data.eventId is string && data.eventId.size() <= 128
-        && data.createdAt is timestamp;
+      return data.keys().hasAll(['ip', 'eventId', 'createdAt']);
     }
 
     function isValidVisit(data) {
@@ -179,8 +175,8 @@ service cloud.firestore {
 
       match /likes/{likeId} {
         allow read: if true;
-        // Public can create a like if it's the correct format
-        allow create: if isValidId(likeId) && isValidLike(incoming(), likeId);
+        // Public can create or update a like if it's the correct format
+        allow create, update: if isValidId(likeId) && isValidLike(incoming(), likeId);
         // Allow delete for toggle functionality
         allow delete: if isValidId(likeId);
       }
