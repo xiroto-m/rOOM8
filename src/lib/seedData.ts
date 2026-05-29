@@ -147,7 +147,7 @@ export async function ensureSeedData() {
       const batch = writeBatch(db);
       const seedEvents = [
         {
-          id: "seed_event_1",
+          id: "e1",
           title: "あの高島くん厳選！ボードゲームをギャラリーで遊び尽くす 🔥",
           date: "2026.05.15 (金)",
           time: "19:30〜",
@@ -163,7 +163,7 @@ export async function ensureSeedData() {
           youtubeUrl: "https://www.youtube.com/watch?v=dQw4w9WgXcQ"
         },
         {
-          id: "seed_event_2",
+          id: "e2",
           title: "晴れろ！！☀️ ルーフトップでスカイバー 🏔 持ち寄りギャラリー rOOM8",
           date: "2026.05.31 (日)",
           time: "13:00〜",

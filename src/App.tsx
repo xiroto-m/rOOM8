@@ -192,6 +192,7 @@ const LogoElement = ({ isScrolled }: { isScrolled: boolean }) => {
 };
 
 function MainSite() {
+  const [isAdmin, setIsAdmin] = useState(false);
   const [events, setEvents] = useState<EventItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [loadingProgress, setLoadingProgress] = useState(0);
@@ -204,8 +205,10 @@ function MainSite() {
 
   // Seed initial creators and media records if Firestore is blank
   useEffect(() => {
-    ensureSeedData();
-  }, []);
+    if (isAdmin) {
+      ensureSeedData();
+    }
+  }, [isAdmin]);
 
   // Fetch YouTube subscriber count
   useEffect(() => {
@@ -334,6 +337,7 @@ function MainSite() {
     }
   };
   const [likedEvents, setLikedEvents] = useState<Set<string>>(new Set());
+  const [likingEvents, setLikingEvents] = useState<Set<string>>(new Set());
   const [isScrolled, setIsScrolled] = useState(false);
   
   const scrollToSection = (e: React.MouseEvent, id: string) => {
@@ -387,8 +391,6 @@ function MainSite() {
   }, []);
 
   const analyticsCleanupRef = React.useRef<(() => void) | null>(null);
-
-  const [isAdmin, setIsAdmin] = useState(false);
 
   useEffect(() => {
     const checkAdmin = (user: any) => {
@@ -752,65 +754,113 @@ function MainSite() {
   const handleLike = async (eventId: string) => {
     if (!userIP || !eventId) return;
 
+    // Prevent multiple concurrent requests for the same event
+    if (likingEvents.has(eventId)) return;
+
+    setLikingEvents(prev => {
+      const next = new Set(prev);
+      next.add(eventId);
+      return next;
+    });
+
     const isLiked = likedEvents.has(eventId);
     const pathForLike = `events/${eventId}/likes/${userIP}`;
     const pathForEvent = `events/${eventId}`;
 
-    try {
-      const likeDocRef = doc(db, 'events', eventId, 'likes', userIP);
-      const eventDocRef = doc(db, 'events', eventId);
+    const likeDocRef = doc(db, 'events', eventId, 'likes', userIP);
+    const eventDocRef = doc(db, 'events', eventId);
+    const batch = writeBatch(db);
+    
+    if (isLiked) {
+      batch.delete(likeDocRef);
+      batch.update(eventDocRef, {
+        likesCount: increment(-1)
+      });
+    } else {
+      batch.set(likeDocRef, {
+        ip: userIP,
+        eventId: eventId,
+        createdAt: serverTimestamp()
+      });
+      batch.update(eventDocRef, {
+        likesCount: increment(1)
+      });
+    }
 
-      const batch = writeBatch(db);
-      
+    // 1. Optimistic Updates for instant UX feedback
+    const originalEvents = [...events];
+    const originalLiked = new Set(likedEvents);
+
+    // Live update UI count
+    setEvents(prev => prev.map(ev => {
+      if (ev.id === eventId) {
+        return {
+          ...ev,
+          likesCount: Math.max(0, (ev.likesCount || 0) + (isLiked ? -1 : 1))
+        };
+      }
+      return ev;
+    }));
+
+    // Toggle liked status
+    setLikedEvents(prev => {
+      const next = new Set(prev);
       if (isLiked) {
-        batch.delete(likeDocRef);
-        batch.update(eventDocRef, {
-          likesCount: increment(-1)
-        });
+        next.delete(eventId);
       } else {
-        batch.set(likeDocRef, {
-          ip: userIP,
-          eventId: eventId,
-          createdAt: serverTimestamp()
-        });
-        batch.update(eventDocRef, {
-          likesCount: increment(1)
-        });
+        next.add(eventId);
       }
+      return next;
+    });
 
-      try {
-        await batch.commit();
-      } catch (err) {
-        handleFirestoreError(err, OperationType.WRITE, `batch:${pathForLike}+${pathForEvent}`);
-        return;
-      }
+    try {
+      await batch.commit();
 
+      // Update LocalStorage on success
       const newLiked = new Set(likedEvents);
       if (isLiked) {
         newLiked.delete(eventId);
       } else {
         newLiked.add(eventId);
       }
-      setLikedEvents(newLiked);
       localStorage.setItem('rOOM8_liked_events', JSON.stringify(Array.from(newLiked)));
     } catch (err) {
-      console.error("Failed to toggle like:", err);
+      // Rollback memory states if Firestore request fails
+      setEvents(originalEvents);
+      setLikedEvents(originalLiked);
+      handleFirestoreError(err, OperationType.WRITE, `batch:${pathForLike}+${pathForEvent}`);
+    } finally {
+      // Remove loading state
+      setLikingEvents(prev => {
+        const next = new Set(prev);
+        next.delete(eventId);
+        return next;
+      });
     }
   };
 
   const LikeButton = ({ eventId, count, compact = false }: { eventId: string, count?: number, compact?: boolean }) => {
     const isLiked = likedEvents.has(eventId);
+    const isLiking = likingEvents.has(eventId);
     const height = compact ? "h-11" : "h-12";
-    const buttonBase = `flex items-center justify-center gap-2 px-4 rounded-xl border-2 transition-all font-black group/btn shrink-0 ${height} shadow-[4px_4px_0px_0px_rgba(42,42,42,1)] hover:shadow-none hover:translate-x-[2px] hover:translate-y-[2px] active:scale-95`;
+    
+    // Customize button interactive behavior when loading
+    const buttonBase = `flex items-center justify-center gap-2 px-4 rounded-xl border-2 transition-all font-black group/btn shrink-0 ${height} ${
+      isLiking 
+        ? 'opacity-70 cursor-wait border-artistic-text/40 bg-gray-100 shadow-none translate-x-[2px] translate-y-[2px]' 
+        : 'shadow-[4px_4px_0px_0px_rgba(42,42,42,1)] hover:shadow-none hover:translate-x-[2px] hover:translate-y-[2px] active:scale-95'
+    }`;
     
     return (
       <button 
         onClick={(e) => {
           e.preventDefault();
           e.stopPropagation();
-          handleLike(eventId);
+          if (!isLiking) {
+            handleLike(eventId);
+          }
         }}
-        disabled={!userIP}
+        disabled={!userIP || isLiking}
         className={`${buttonBase} min-w-[120px]
           ${isLiked 
             ? 'bg-artistic-pink text-white border-artistic-text' 
@@ -819,19 +869,25 @@ function MainSite() {
         `}
       >
         <motion.div
-          animate={isLiked ? { scale: [1, 1.3, 1] } : {}}
-          transition={{ duration: 0.3 }}
+          animate={isLiking ? { scale: [1, 1.15, 1], rotate: [0, 10, -10, 0] } : isLiked ? { scale: [1, 1.3, 1] } : {}}
+          transition={isLiking ? { repeat: Infinity, duration: 1.2 } : { duration: 0.3 }}
           className="flex items-center justify-center"
         >
           <Heart 
             size={compact ? 16 : 18} 
             fill={isLiked ? "currentColor" : "none"} 
             strokeWidth={3}
-            className="transition-colors"
+            className={`${isLiking ? 'text-gray-400' : 'transition-colors'}`}
           />
         </motion.div>
-        <span className={`${compact ? 'text-[11px]' : 'text-sm'} tracking-tighter`}>{isLiked ? 'LIKED' : 'LIKE'}</span>
-        <span className={`px-1.5 py-0.5 rounded-lg text-[10px] min-w-[1.2rem] text-center font-mono transition-colors ${isLiked ? 'bg-white/20 text-white font-bold' : 'bg-black/5 text-artistic-text group-hover/btn:bg-black/10'}`}>
+        <span className={`${compact ? 'text-[11px]' : 'text-sm'} tracking-tighter`}>
+          {isLiking ? '...' : isLiked ? 'LIKED' : 'LIKE'}
+        </span>
+        <span className={`px-1.5 py-0.5 rounded-lg text-[10px] min-w-[1.2rem] text-center font-mono transition-colors ${
+          isLiked 
+            ? 'bg-white/20 text-white font-bold' 
+            : 'bg-black/5 text-artistic-text group-hover/btn:bg-black/10'
+        }`}>
           {count || 0}
         </span>
       </button>

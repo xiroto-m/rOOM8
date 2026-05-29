@@ -12,15 +12,15 @@ service cloud.firestore {
     }
 
     function isAdmin() {
-      return isSignedIn() && (
+      return isSignedIn() &&
+        request.auth.token.email_verified == true &&
+        ('email' in request.auth.token) &&
         (request.auth.token.email.lower() == "hiroto.mizutani@gmail.com" || 
-         request.auth.token.email.lower() == "taku448@gmail.com") &&
-        request.auth.token.email_verified == true
-      );
+         request.auth.token.email.lower() == "taku448@gmail.com");
     }
 
     function isValidId(id) {
-      return id is string && id.size() <= 128 && id.matches('^[a-zA-Z0-9_\\-\\.]+$');
+      return id is string && id.size() <= 128 && id.matches('^[a-zA-Z0-9_.:-]+$');
     }
 
     function incoming() {
@@ -44,8 +44,8 @@ service cloud.firestore {
         && (!data.keys().hasAny(['youtubeUrl']) || (data.youtubeUrl is string && data.youtubeUrl.size() <= 1000))
         && (!data.keys().hasAny(['description']) || (data.description is string && data.description.size() <= 10000))
         && (!data.keys().hasAny(['title']) || (data.title is string && data.title.size() <= 200))
-        && (!data.keys().hasAny(['likesCount']) || data.likesCount is number)
-        && data.order is number
+        && (!data.keys().hasAny(['likesCount']) || data.likesCount is int || data.likesCount is float)
+        && (data.order is int || data.order is float)
         && data.updatedAt is timestamp;
     }
 
@@ -54,7 +54,7 @@ service cloud.firestore {
         && data.ip is string && data.ip.size() <= 64
         && likeId == data.ip
         && data.eventId is string && data.eventId.size() <= 128
-        && data.createdAt == request.time;
+        && data.createdAt is timestamp;
     }
 
     function isValidVisit(data) {
@@ -64,16 +64,16 @@ service cloud.firestore {
         && data.date is string && data.date.size() <= 10
         && data.deviceType in ['mobile', 'desktop']
         && data.timestamp is timestamp
-        && (!data.keys().hasAny(['duration']) || data.duration is number)
-        && (!data.keys().hasAny(['maxScrollDepth']) || data.maxScrollDepth is number)
+        && (!data.keys().hasAny(['duration']) || data.duration is int || data.duration is float)
+        && (!data.keys().hasAny(['maxScrollDepth']) || data.maxScrollDepth is int || data.maxScrollDepth is float)
         && (!data.keys().hasAny(['sectionsReached']) || data.sectionsReached is list)
         && (!data.keys().hasAny(['referrer']) || data.referrer is string)
         && (!data.keys().hasAny(['lastActive']) || data.lastActive is timestamp)
         // Mobile detailed fields
         && (!data.keys().hasAny(['language']) || data.language is string)
-        && (!data.keys().hasAny(['screenWidth']) || data.screenWidth is number)
-        && (!data.keys().hasAny(['screenHeight']) || data.screenHeight is number)
-        && (!data.keys().hasAny(['devicePixelRatio']) || data.devicePixelRatio is number)
+        && (!data.keys().hasAny(['screenWidth']) || data.screenWidth is int || data.screenWidth is float)
+        && (!data.keys().hasAny(['screenHeight']) || data.screenHeight is int || data.screenHeight is float)
+        && (!data.keys().hasAny(['devicePixelRatio']) || data.devicePixelRatio is int || data.devicePixelRatio is float)
         && (!data.keys().hasAny(['orientation']) || data.orientation is string)
         && (!data.keys().hasAny(['connectionType']) || data.connectionType is string);
     }
@@ -88,7 +88,7 @@ service cloud.firestore {
 
     function isValidFeedback(data) {
       return data.keys().hasAll(['rating', 'comment', 'deviceId', 'timestamp'])
-        && data.rating is number && data.rating >= 1 && data.rating <= 5
+        && (data.rating is int || data.rating is float) && data.rating >= 1 && data.rating <= 5
         && data.comment is string && data.comment.size() <= 5000
         && data.deviceId is string && data.deviceId.size() <= 128
         && data.timestamp is timestamp;
@@ -97,18 +97,18 @@ service cloud.firestore {
     function isValidGalleryImage(data) {
       return data.keys().hasAll(['url', 'createdAt', 'order'])
         && data.url is string && data.url.size() <= 1048000
-        && data.createdAt is number
-        && data.order is number;
+        && (data.createdAt is int || data.createdAt is float)
+        && (data.order is int || data.order is float);
     }
 
     function isValidProduct(data) {
       return data.keys().hasAll(['name', 'price', 'currency', 'status', 'createdAt', 'order', 'updatedAt'])
         && data.name is string && data.name.size() <= 200
-        && data.price is number
+        && (data.price is int || data.price is float)
         && data.currency is string && data.currency.size() <= 10
         && data.status in ['active', 'sold_out', 'hidden']
         && data.createdAt is string
-        && data.order is number
+        && (data.order is int || data.order is float)
         && data.updatedAt is timestamp
         && (!data.keys().hasAny(['description']) || (data.description is string && data.description.size() <= 2000))
         && (!data.keys().hasAny(['imageUrl']) || (data.imageUrl is string && data.imageUrl.size() <= 2000000))
@@ -124,7 +124,7 @@ service cloud.firestore {
         && (!data.keys().hasAny(['imageUrl']) || (data.imageUrl is string && data.imageUrl.size() <= 1048000))
         && (!data.keys().hasAny(['instagram']) || (data.instagram is string && data.instagram.size() <= 200))
         && (!data.keys().hasAny(['twitter']) || (data.twitter is string && data.twitter.size() <= 200))
-        && (!data.keys().hasAny(['likesCount']) || data.likesCount is number);
+        && (!data.keys().hasAny(['likesCount']) || data.likesCount is int || data.likesCount is float);
     }
 
     function isValidReferral(data) {
@@ -132,7 +132,7 @@ service cloud.firestore {
         && data.creatorId is string && data.creatorId.size() <= 128
         && data.introducerName is string && data.introducerName.size() <= 200
         && data.reason is string && data.reason.size() <= 2000
-        && data.conversationCount is number
+        && (data.conversationCount is int || data.conversationCount is float)
         && data.createdAt is timestamp
         && (!data.keys().hasAny(['introducerContact']) || (data.introducerContact is string && data.introducerContact.size() <= 200))
         && (!data.keys().hasAny(['icebreakers']) || data.icebreakers is list);
@@ -144,15 +144,15 @@ service cloud.firestore {
         && data.youtubeUrl is string && data.youtubeUrl.size() <= 1000
         && data.createdAt is timestamp
         && (!data.keys().hasAny(['description']) || (data.description is string && data.description.size() <= 5000))
-        && (!data.keys().hasAny(['likesCount']) || data.likesCount is number)
-        && (!data.keys().hasAny(['tipsCount']) || data.tipsCount is number)
-        && (!data.keys().hasAny(['tipsTotalYen']) || data.tipsTotalYen is number);
+        && (!data.keys().hasAny(['likesCount']) || data.likesCount is int || data.likesCount is float)
+        && (!data.keys().hasAny(['tipsCount']) || data.tipsCount is int || data.tipsCount is float)
+        && (!data.keys().hasAny(['tipsTotalYen']) || data.tipsTotalYen is int || data.tipsTotalYen is float);
     }
 
     function isValidTipTransaction(data) {
       return data.keys().hasAll(['contentId', 'amount', 'backerName', 'createdAt'])
         && data.contentId is string && data.contentId.size() <= 128
-        && data.amount is number
+        && (data.amount is int || data.amount is float)
         && data.backerName is string && data.backerName.size() <= 200
         && data.createdAt is timestamp
         && (!data.keys().hasAny(['cheerMessage']) || (data.cheerMessage is string && data.cheerMessage.size() <= 1000));
@@ -173,8 +173,7 @@ service cloud.firestore {
       allow update: if (isAdmin() && isValidEvent(incoming()))
                       || (isValidId(eventId) && 
                           incoming().diff(existing()).affectedKeys().hasOnly(['likesCount']) &&
-                          (incoming().likesCount == (existing().get('likesCount', 0) + 1) ||
-                           (incoming().likesCount == (existing().get('likesCount', 0) - 1) && incoming().likesCount >= 0)));
+                          (incoming().likesCount is int || incoming().likesCount is float));
       
       allow delete: if isAdmin() && isValidId(eventId);
 
@@ -229,8 +228,7 @@ service cloud.firestore {
       allow update: if (isAdmin() && isValidCreatorCard(incoming()))
                       || (isValidId(creatorId) && 
                           incoming().diff(existing()).affectedKeys().hasOnly(['likesCount']) &&
-                          (incoming().likesCount == (existing().get('likesCount', 0) + 1) ||
-                           (incoming().likesCount == (existing().get('likesCount', 0) - 1) && incoming().likesCount >= 0)));
+                          (incoming().likesCount is int || incoming().likesCount is float));
     }
 
     match /referrals/{referralId} {
