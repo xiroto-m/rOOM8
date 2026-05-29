@@ -551,14 +551,14 @@ function MainSite() {
 
           // Start observing sections - periodically check for new elements (e.g. after data load)
           const observeSections = () => {
-             ['home', 'about', 'event-info', 'archive', 'location', 'youtube-registration', 'party-connect', 'gallery', 'feedback', 'products', 'contact'].forEach(id => {
+             ['home', 'about', 'event-info', 'location', 'youtube-registration', 'party-connect', 'gallery', 'feedback', 'products', 'contact'].forEach(id => {
               const el = document.getElementById(id);
               if (el) observer.observe(el);
             });
           };
           
           observeSections();
-          const observeInterval = setInterval(observeSections, 3000); // Check every 3s for new sections (like archive)
+          const observeInterval = setInterval(observeSections, 3000); // Check every 3s for new sections
 
           const sendFinalActivity = sendTrackingUpdate;
 
@@ -1824,33 +1824,6 @@ function MainSite() {
         </Section>
       )}
 
-      {/* Archived / Past Events */}
-      {!loading && archivedEvents.length > 0 && (
-        <Section id="archive" className="py-12 bg-stone-100/50">
-          <h2 className="text-2xl font-black mb-10 flex items-center gap-3 opacity-60">
-            <Calendar className="text-gray-400" size={20} /> 過去イベント (アーカイブ)
-          </h2>
-          <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-5 gap-4">
-            {archivedEvents.map((ev, i) => (
-              <motion.div
-                key={ev.id || i}
-                initial={{ opacity: 0 }}
-                whileInView={{ opacity: 1 }}
-                viewport={{ once: true }}
-                className="bg-white/60 border border-artistic-text/20 p-4 rounded-2xl grayscale hover:grayscale-0 transition-all cursor-default"
-              >
-                <div className="text-[10px] font-black opacity-40 mb-1">{ev.date}</div>
-                <p className="font-black text-xs truncate mb-1">{ev.title || ev.locationName}</p>
-                <div className="flex items-center gap-1 text-[10px] text-artistic-pink font-bold">
-                  <Heart size={10} fill="currentColor" />
-                  <span>{ev.likesCount || 0}</span>
-                </div>
-              </motion.div>
-            ))}
-          </div>
-        </Section>
-      )}
-      
       {loading && (
         <Section className="py-12">
           <div className="h-10 w-48 bg-gray-200 animate-pulse mb-12 rounded-lg" />
