@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
-import { Heart, Search, HelpCircle, Mail, MessageSquare, Sparkles, Check, Bookmark, Calendar, ArrowUpRight, Award, Trash2 } from 'lucide-react';
+import { Heart, Search, HelpCircle, Mail, MessageSquare, Sparkles, Check, Bookmark, Calendar, ArrowUpRight, Award, Trash2, Share2 } from 'lucide-react';
 import { db, auth, handleFirestoreError, OperationType } from '../lib/firebase';
 import { collection, onSnapshot, query, updateDoc, doc, increment, addDoc, serverTimestamp } from 'firebase/firestore';
 import { LostItem } from '../types';
@@ -16,8 +16,30 @@ export default function LostItemsGallery() {
   const [filter, setFilter] = useState<'all' | 'exhibiting' | 'claimed'>('all');
   const [searchTerm, setSearchTerm] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [highlightedItemId, setHighlightedItemId] = useState<string | null>(null);
+  const [copiedItemId, setCopiedItemId] = useState<string | null>(null);
 
   const [isAdmin] = useState(localStorage.getItem('room8_is_admin') === 'true' || !!auth.currentUser);
+
+  // Parse direct targeting link parameters
+  useEffect(() => {
+    const getParam = (name: string) => {
+      const searchParams = new URLSearchParams(window.location.search);
+      if (searchParams.has(name)) return searchParams.get(name);
+      
+      const hashParts = window.location.hash.split('?');
+      if (hashParts.length > 1) {
+        const hashParams = new URLSearchParams(hashParts[1]);
+        if (hashParams.has(name)) return hashParams.get(name);
+      }
+      return null;
+    };
+
+    const itemId = getParam('item') || getParam('lost-item');
+    if (itemId) {
+      setHighlightedItemId(itemId);
+    }
+  }, []);
 
   // Load liked lost items from local storage
   useEffect(() => {
@@ -88,6 +110,17 @@ export default function LostItemsGallery() {
         console.error(error);
       }
     }
+  };
+
+  const handleCopyLink = (itemId: string, e: React.MouseEvent) => {
+    e.stopPropagation();
+    const shareUrl = `${window.location.origin}${window.location.pathname}?item=${itemId}#lost-items`;
+    navigator.clipboard.writeText(shareUrl).then(() => {
+      setCopiedItemId(itemId);
+      setTimeout(() => setCopiedItemId(null), 2000);
+    }).catch(err => {
+      console.error('Failed to copy: ', err);
+    });
   };
 
   const handleClaimSubmit = async (e: React.FormEvent) => {
@@ -187,7 +220,7 @@ export default function LostItemsGallery() {
   };
 
   return (
-    <Section id="lost-items" className="py-24 bg-artistic-bg select-none">
+    <Section id="lost-items" className="py-24 bg-artistic-bg">
       <div className="flex flex-col md:flex-row justify-between items-start md:items-end mb-16 gap-6">
         <div>
           <span className="bg-artistic-accent text-artistic-text font-black px-4 py-1.5 rounded-full text-xs uppercase tracking-widest border-2 border-artistic-text shadow-[2px_2px_0px_0px_rgba(42,42,42,1)] inline-block mb-4">
@@ -249,19 +282,25 @@ export default function LostItemsGallery() {
           {filteredItems.map((item) => {
             const isClaimed = item.status === 'claimed';
             const isLiked = likedIds.includes(item.id || '');
+            const isHighlighted = highlightedItemId === item.id;
             
             return (
               <motion.div
                 key={item.id}
+                id={`lost-item-${item.id}`}
                 layout
                 initial={{ opacity: 0, scale: 0.9 }}
-                animate={{ opacity: 1, scale: 1 }}
-                className="flex flex-col group"
+                animate={{ 
+                  opacity: 1, 
+                  scale: isHighlighted ? 1.03 : 1,
+                  boxShadow: isHighlighted ? "0px 0px 30px rgba(255,107,107,0.35)" : "none"
+                }}
+                className={`flex flex-col group transition-all duration-700 rounded-[2.5rem] p-1.5 ${isHighlighted ? 'ring-4 ring-artistic-primary bg-artistic-primary/5' : ''}`}
               >
                 {/* Frame Container */}
                 {renderFrame(
                   item.frameStyle || 'gold',
-                  <div className="w-full flex flex-col select-none">
+                  <div className="w-full flex flex-col">
                     {/* Artwork image with optional Claimed Ribbon */}
                     <div className="relative aspect-[4/3] w-full rounded-lg overflow-hidden border border-stone-200 bg-stone-100 flex items-center justify-center">
                       <img
@@ -324,7 +363,7 @@ export default function LostItemsGallery() {
                   isClaimed
                 )}
 
-                {/* Frame Bottom Actions (Likes and Claim buttons) */}
+                {/* Frame Bottom Actions (Likes, Copy URL and Claim buttons) */}
                 <div className="mt-4 flex gap-3 w-full px-2">
                   <button
                     onClick={(e) => handleLike(item.id || '', e)}
@@ -332,6 +371,28 @@ export default function LostItemsGallery() {
                   >
                     <Heart size={18} fill={isLiked ? 'currentColor' : 'none'} className={isLiked ? 'scale-110' : ''} />
                     <span>{item.likesCount || 0}</span>
+                  </button>
+
+                  <button
+                    onClick={(e) => handleCopyLink(item.id || '', e)}
+                    className={`h-11 px-3.5 rounded-xl border-2 border-artistic-text flex items-center justify-center gap-1.5 font-black transition-all ${
+                      copiedItemId === item.id 
+                        ? 'bg-emerald-500 text-white border-emerald-500 shadow-none' 
+                        : 'bg-white text-artistic-text shadow-[4px_4px_0px_0px_rgba(42,42,42,1)] active:translate-x-[2px] active:translate-y-[2px] active:shadow-none'
+                    }`}
+                    title="共有リンクをコピー"
+                  >
+                    {copiedItemId === item.id ? (
+                      <>
+                        <Check size={16} />
+                        <span className="text-xs">コピー済!</span>
+                      </>
+                    ) : (
+                      <>
+                        <Share2 size={16} />
+                        <span className="text-xs hidden sm:inline">共有</span>
+                      </>
+                    )}
                   </button>
 
                   {!isClaimed ? (

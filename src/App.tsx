@@ -1364,6 +1364,58 @@ function MainSite() {
     }
   }, [loadingProgress]);
 
+  // Handle direct scroll to a section or specific lost item once loading screen is removed
+  useEffect(() => {
+    if (!showLoadingScreen) {
+      const getParam = (name: string) => {
+        const searchParams = new URLSearchParams(window.location.search);
+        if (searchParams.has(name)) return searchParams.get(name);
+        
+        const hashParts = window.location.hash.split('?');
+        if (hashParts.length > 1) {
+          const hashParams = new URLSearchParams(hashParts[1]);
+          if (hashParams.has(name)) return hashParams.get(name);
+        }
+        return null;
+      };
+
+      const lostItemId = getParam('item') || getParam('lost-item');
+      const hash = window.location.hash;
+      const isLostItemsHash = hash.includes('lost-items');
+
+      let targetId = null;
+      if (lostItemId) {
+        targetId = `lost-item-${lostItemId}`;
+      } else if (isLostItemsHash) {
+        targetId = 'lost-items';
+      } else if (hash && hash !== '#/' && hash !== '#') {
+        targetId = hash.replace(/^#\/?/, '').split('?')[0];
+      }
+
+      if (targetId) {
+        const timer = setTimeout(() => {
+          const element = document.getElementById(targetId);
+          if (element) {
+            const headerOffset = 100;
+            const elementPosition = element.getBoundingClientRect().top;
+            const offsetPosition = elementPosition + window.pageYOffset - headerOffset;
+            window.scrollTo({ top: offsetPosition, behavior: "smooth" });
+          } else if (lostItemId) {
+            // Fallback to general lost-items gallery if the specific item card is not rendered
+            const galleryElement = document.getElementById('lost-items');
+            if (galleryElement) {
+              const headerOffset = 100;
+              const elementPosition = galleryElement.getBoundingClientRect().top;
+              const offsetPosition = elementPosition + window.pageYOffset - headerOffset;
+              window.scrollTo({ top: offsetPosition, behavior: "smooth" });
+            }
+          }
+        }, 600); // Allow sufficient time for DOM paint and dynamic layout
+        return () => clearTimeout(timer);
+      }
+    }
+  }, [showLoadingScreen]);
+
   // Safety timeout: if loading takes too long, force it to finish
   useEffect(() => {
     if (loading) {
