@@ -808,6 +808,12 @@ const CreatorEditModal = ({ creator, onSave, onClose, saving }: { creator: Creat
 export default function AdminDashboard() {
   const [user, setUser] = useState<User | null>(null);
   const [loading, setLoading] = useState(true);
+
+  const handleGoHome = (e: React.MouseEvent) => {
+    e.preventDefault();
+    // Clear any extra parameters and force clean path back to home page
+    window.location.href = window.location.origin + window.location.pathname + '#/';
+  };
   const [isMobile, setIsMobile] = useState(false);
   const [events, setEvents] = useState<EventItem[]>([]);
   const [products, setProducts] = useState<Product[]>([]);
@@ -2137,7 +2143,7 @@ export default function AdminDashboard() {
             >
               ログアウトして別のアカウントで試す
             </button>
-            <Link to="/" className="text-artistic-text/40 font-black hover:text-artistic-text transition-colors">
+            <Link to="/" onClick={handleGoHome} className="text-artistic-text/40 font-black hover:text-artistic-text transition-colors">
               メインサイトへ戻る
             </Link>
           </div>
@@ -2151,7 +2157,7 @@ export default function AdminDashboard() {
       <div className="max-w-7xl mx-auto">
         <div className="flex flex-col md:flex-row md:items-center justify-between gap-10 mb-20">
           <div className="flex items-center gap-8">
-            <Link to="/" className="p-4 border-2 border-artistic-text rounded-full hover:bg-artistic-blue transition-all shadow-[4px_4px_0px_0px_rgba(42,42,42,1)] active:translate-x-[2px] active:translate-y-[2px] active:shadow-none hover:scale-105">
+            <Link to="/" onClick={handleGoHome} className="p-4 border-2 border-artistic-text rounded-full hover:bg-artistic-blue transition-all shadow-[4px_4px_0px_0px_rgba(42,42,42,1)] active:translate-x-[2px] active:translate-y-[2px] active:shadow-none hover:scale-105">
               <ArrowLeft size={28} />
             </Link>
             <h1 className="text-5xl md:text-7xl font-black tracking-tighter italic">ダッシュボード</h1>
