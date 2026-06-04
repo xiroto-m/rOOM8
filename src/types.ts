@@ -50,3 +50,17 @@ export interface TipTransaction {
   likesCount?: number;
   createdAt: any;
 }
+
+export interface LostItem {
+  id?: string;
+  title: string;
+  artist: string;
+  description: string;
+  imageUrl: string;
+  foundDate: string;
+  frameStyle: 'gold' | 'wood' | 'brutalist' | 'neon' | 'none';
+  status: 'exhibiting' | 'claimed' | 'archived';
+  likesCount?: number;
+  createdAt: any;
+}
+

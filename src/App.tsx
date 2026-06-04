@@ -23,12 +23,14 @@ import {
   Download,
   Check,
   Sparkles,
-  Tv
+  Tv,
+  Award
 } from "lucide-react";
 import { QRCodeSVG } from "qrcode.react";
 import { EVENT_INFO, SECTIONS, FALLBACK_EVENTS } from "./constants";
 import AdminDashboard from "./components/AdminDashboard";
 import PrivacyGallery from "./components/PrivacyGallery";
+import LostItemsGallery from "./components/LostItemsGallery";
 import Shop from "./components/Shop";
 import ReferralSection from "./components/ReferralSection";
 import MediaSection from "./components/MediaSection";
@@ -1551,6 +1553,14 @@ function MainSite() {
                 他己紹介
               </a>
 
+              <a 
+                href="#lost-items" 
+                onClick={(e) => scrollToSection(e, 'lost-items')}
+                className="text-[10px] font-black uppercase tracking-widest text-[#D4AF37] hover:text-artistic-primary transition-colors cursor-pointer flex items-center gap-1"
+              >
+                <Award size={12} /> 忘れ物
+              </a>
+
               <Link
                 to="/shop"
                 onClick={() => trackAction('click_header_shop')}
@@ -2217,6 +2227,9 @@ function MainSite() {
       <Section className="py-12" id="gallery">
         <PrivacyGallery />
       </Section>
+
+      {/* Lost Items Gallery Section */}
+      <LostItemsGallery />
 
       {/* Feedback Section */}
       <Section id="feedback" className="py-12">

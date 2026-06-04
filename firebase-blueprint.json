@@ -166,6 +166,23 @@
         "createdAt": { "type": "string", "format": "date-time" }
       },
       "required": ["contentId", "amount", "backerName", "createdAt"]
+    },
+    "LostItem": {
+      "title": "Lost Item Artwork",
+      "description": "Lost and found items exhibited as art pieces on the site",
+      "type": "object",
+      "properties": {
+        "title": { "type": "string" },
+        "artist": { "type": "string" },
+        "description": { "type": "string" },
+        "imageUrl": { "type": "string" },
+        "foundDate": { "type": "string" },
+        "frameStyle": { "type": "string", "enum": ["gold", "wood", "brutalist", "neon", "none"] },
+        "status": { "type": "string", "enum": ["exhibiting", "claimed", "archived"] },
+        "likesCount": { "type": "number" },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["title", "artist", "description", "imageUrl", "foundDate", "frameStyle", "status", "createdAt"]
     }
   },
   "firestore": {
@@ -212,6 +229,10 @@
     "/media/{mediaId}/tips/{tipId}": {
       "schema": "TipTransaction",
       "description": "Tip transactions showing public support and cheerful notes"
+    },
+    "/lost_items/{itemId}": {
+      "schema": "LostItem",
+      "description": "Lost and found items exhibited creatively with custom picture frames"
     }
   }
 }

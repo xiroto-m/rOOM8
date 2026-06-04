@@ -39,7 +39,7 @@ import { EVENT_INFO } from '../constants';
 import { formatEventDate, isPastEvent } from '../lib/dateUtils';
 import { ensureSeedData } from '../lib/seedData';
 import { Link } from 'react-router-dom';
-import { LogIn, LogOut, Save, AlertCircle, CheckCircle, ArrowLeft, ArrowRight, ArrowUp, ArrowDown, Plus, Trash2, Edit2, Calendar, Settings, Copy, Heart, BarChart3, Download, Upload, Monitor, Clock, Users, ShoppingBag } from 'lucide-react';
+import { LogIn, LogOut, Save, AlertCircle, CheckCircle, ArrowLeft, ArrowRight, ArrowUp, ArrowDown, Plus, Trash2, Edit2, Calendar, Settings, Copy, Heart, BarChart3, Download, Upload, Monitor, Clock, Users, ShoppingBag, Award } from 'lucide-react';
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, PieChart, Pie, Cell, Legend, BarChart, Bar } from 'recharts';
 import Papa from 'papaparse';
 
@@ -407,6 +407,129 @@ const ImageUpload = ({ onUpload, currentUrl, label = "画像" }: { onUpload: (ur
   );
 };
 
+const LostItemEditModal = ({ lostItem, onSave, onClose, saving }: { lostItem: any, onSave: (item: any) => void, onClose: () => void, saving: boolean }) => {
+  const [formData, setFormData] = useState<any>(lostItem);
+
+  const handleSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    onSave(formData);
+  };
+
+  return (
+    <div className="fixed inset-0 bg-artistic-text/80 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+      <div className="bg-white border-4 border-artistic-text w-full max-w-2xl rounded-[2.5rem] shadow-[12px_12px_0px_0px_rgba(42,42,42,1)] overflow-hidden flex flex-col max-h-[90vh]">
+        <div className="p-8 border-b-4 border-artistic-text flex justify-between items-center bg-artistic-accent/20">
+          <h3 className="text-2xl font-black text-[#1c1917]">{formData.id ? '忘れものアートを編集' : '新規忘れものアート登録'}</h3>
+          <button onClick={onClose} className="font-black text-2xl text-[#1c1917] hover:scale-110 active:scale-90 transition-transform">×</button>
+        </div>
+        
+        <form onSubmit={handleSubmit} className="p-8 space-y-6 overflow-y-auto text-stone-900">
+          <div className="space-y-2">
+            <label className="text-xs font-black uppercase opacity-60">作品タイトル (例: 忘れられた黒き盾)</label>
+            <input 
+              type="text" 
+              required
+              value={formData.title || ''} 
+              onChange={e => setFormData({...formData, title: e.target.value})}
+              className="w-full border-2 border-artistic-text p-3 rounded-xl font-bold outline-none"
+              placeholder="傘立てに置かれたビニール傘..."
+            />
+          </div>
+
+          <div className="grid md:grid-cols-2 gap-6">
+            <div className="space-y-2">
+              <label className="text-xs font-black uppercase opacity-60">作家名 / 落とし主 (例: 匿名希望、ある音楽の旅人)</label>
+              <input 
+                type="text" 
+                required
+                value={formData.artist || ''} 
+                onChange={e => setFormData({...formData, artist: e.target.value})}
+                className="w-full border-2 border-artistic-text p-3 rounded-xl font-bold outline-none"
+                placeholder="匿名希望"
+              />
+            </div>
+            <div className="space-y-2">
+              <label className="text-xs font-black uppercase opacity-60">発見された日/イベント (例: 2026.05.15 (ボードゲームの夜))</label>
+              <input 
+                type="text" 
+                required
+                value={formData.foundDate || ''} 
+                onChange={e => setFormData({...formData, foundDate: e.target.value})}
+                className="w-full border-2 border-artistic-text p-3 rounded-xl font-bold outline-none"
+                placeholder="2026.05.15"
+              />
+            </div>
+            <div className="space-y-2">
+              <label className="text-xs font-black uppercase opacity-60">額縁スタイル (Frame Style)</label>
+              <select
+                value={formData.frameStyle || 'gold'}
+                onChange={e => setFormData({...formData, frameStyle: e.target.value})}
+                className="w-full border-2 border-artistic-text p-3 rounded-xl font-bold outline-none bg-white"
+              >
+                <option value="gold">黄金のクラシックフレーム (Gold Museum)</option>
+                <option value="wood">木製のナチュラルフレーム (Wood Rustic)</option>
+                <option value="brutalist">極太の黒フレーム (Black Brutalist)</option>
+                <option value="neon">サイバーネオン (Vaporwave Neon)</option>
+                <option value="none">マウントシートのみ (None / Minimal)</option>
+              </select>
+            </div>
+            <div className="space-y-2">
+              <label className="text-xs font-black uppercase opacity-60">展示ステータス</label>
+              <select
+                value={formData.status || 'exhibiting'}
+                onChange={e => setFormData({...formData, status: e.target.value})}
+                className="w-full border-2 border-artistic-text p-3 rounded-xl font-bold outline-none bg-white"
+              >
+                <option value="exhibiting">展示中 (Currently Exhibiting)</option>
+                <option value="claimed">返却完了・SOLD OUT (Claimed & Returned)</option>
+                <option value="archived">書庫・非公開 (Archived/Hidden)</option>
+              </select>
+            </div>
+          </div>
+
+          <div className="space-y-2">
+            <label className="text-xs font-black uppercase opacity-60">おもしろ作品解説 (Art description, curatorial statement)</label>
+            <textarea 
+              value={formData.description || ''} 
+              onChange={e => setFormData({...formData, description: e.target.value})}
+              rows={4}
+              className="w-full border-2 border-artistic-text p-3 rounded-xl font-bold outline-none"
+              placeholder="作品風の詩的な、またはユーモラスな解説文を入力してください..."
+            />
+          </div>
+
+          {/* Simple Image Upload integrated with our pre-existing image handling */}
+          <div className="space-y-2">
+            <ImageUpload 
+              label="忘れものの画像"
+              currentUrl={formData.imageUrl || ''}
+              onUpload={url => setFormData({...formData, imageUrl: url})}
+            />
+          </div>
+
+          <div className="flex gap-4 pt-4 border-t border-dashed border-stone-200">
+            <button 
+              type="button"
+              onClick={onClose}
+              disabled={saving}
+              className="flex-1 py-4 border-2 border-artistic-text font-black rounded-xl hover:bg-neutral-50"
+            >
+              キャンセル
+            </button>
+            <button 
+              type="submit"
+              disabled={saving || !formData.imageUrl}
+              className="flex-1 bg-artistic-primary text-white border-2 border-artistic-text rounded-xl font-black py-4 hover:scale-102 shadow-[4px_4px_0px_0px_rgba(42,42,42,1)]"
+            >
+              {saving ? '保存中...' : '保存する'}
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
+  );
+};
+
 const ProductEditModal = ({ product, onSave, onClose, saving }: { product: Product, onSave: (product: Product) => void, onClose: () => void, saving: boolean }) => {
   const [formData, setFormData] = useState<Product>(product);
 
@@ -687,7 +810,7 @@ export default function AdminDashboard() {
   const [engagementStats, setEngagementStats] = useState({ avgDuration: 0, medianDuration: 0, avgScroll: 0, medianScroll: 0, completionRate: 0, completionCount: 0 });
   const [feedback, setFeedback] = useState<any[]>([]);
   const [analysisPeriod, setAnalysisPeriod] = useState<number>(14);
-  const [activeTab, setActiveTab] = useState<'events' | 'shop' | 'settings' | 'analytics' | 'feedback' | 'creators'>('events');
+  const [activeTab, setActiveTab] = useState<'events' | 'shop' | 'settings' | 'analytics' | 'feedback' | 'creators' | 'lost_items'>('events');
   const [globalSettings, setGlobalSettings] = useState({
     instagram: EVENT_INFO.instagram,
     youtube: EVENT_INFO.youtube,
@@ -697,11 +820,14 @@ export default function AdminDashboard() {
   const [editingEvent, setEditingEvent] = useState<EventItem | null>(null);
   const [editingProduct, setEditingProduct] = useState<Product | null>(null);
   const [editingCreator, setEditingCreator] = useState<Creator | null>(null);
+  const [editingLostItem, setEditingLostItem] = useState<any | null>(null);
   const [deletingEventId, setDeletingEventId] = useState<string | null>(null);
   const [deletingProductId, setDeletingProductId] = useState<string | null>(null);
   const [deletingCreatorId, setDeletingCreatorId] = useState<string | null>(null);
+  const [deletingLostItemId, setDeletingLostItemId] = useState<string | null>(null);
   const [deletingFeedbackId, setDeletingFeedbackId] = useState<string | null>(null);
   const [creators, setCreators] = useState<Creator[]>([]);
+  const [lostItems, setLostItems] = useState<any[]>([]);
   const [status, setStatus] = useState<{ type: 'success' | 'error' | null, message: string }>({ type: null, message: '' });
   const [saving, setSaving] = useState(false);
   const [fetchingAnalytics, setFetchingAnalytics] = useState(false);
@@ -1317,6 +1443,19 @@ export default function AdminDashboard() {
       })) as Creator[];
       setCreators(creatorsList.sort((a, b) => (a.order || 0) - (b.order || 0)));
 
+      // Fetch lost items
+      try {
+        const lostItemsRef = collection(db, 'lost_items');
+        const lostItemsSnapshot = await getDocs(lostItemsRef);
+        const lostItemsList = lostItemsSnapshot.docs.map(doc => ({
+          id: doc.id,
+          ...doc.data()
+        }));
+        setLostItems(lostItemsList);
+      } catch (err) {
+        console.error("Failed to fetch lost items", err);
+      }
+
       // Fetch global settings
       const settingsRef = doc(db, 'settings', 'global');
       const settingsSnap = await getDoc(settingsRef);
@@ -1605,6 +1744,57 @@ export default function AdminDashboard() {
     }
   };
 
+  const handleSaveLostItem = async (lostData: any) => {
+    setSaving(true);
+    setStatus({ type: null, message: '' });
+    try {
+      const data = {
+        title: lostData.title,
+        artist: lostData.artist || 'Unknown',
+        description: lostData.description || '',
+        imageUrl: lostData.imageUrl || '',
+        foundDate: lostData.foundDate || '',
+        frameStyle: lostData.frameStyle || 'gold',
+        status: lostData.status || 'exhibiting',
+        likesCount: lostData.likesCount || 0,
+        createdAt: lostData.createdAt ? lostData.createdAt : serverTimestamp()
+      };
+
+      if (lostData.id) {
+        await setDoc(doc(db, 'lost_items', lostData.id), data);
+      } else {
+        await addDoc(collection(db, 'lost_items'), data);
+      }
+
+      setStatus({ type: 'success', message: '忘れものを保存しました！' });
+      setEditingLostItem(null);
+      await fetchData();
+      setTimeout(() => setStatus({ type: null, message: '' }), 3000);
+    } catch (err) {
+      console.error(err);
+      handleLocalFirestoreError(err, OperationType.WRITE, 'lost_items');
+      setStatus({ type: 'error', message: '忘れものの保存に失敗しました。' });
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const handleDeleteLostItem = async (id: string) => {
+    setSaving(true);
+    setStatus({ type: null, message: '' });
+    try {
+      await deleteDoc(doc(db, 'lost_items', id));
+      await fetchData();
+      setStatus({ type: 'success', message: '忘れものを削除しました。' });
+      setTimeout(() => setStatus({ type: null, message: '' }), 3000);
+    } catch (err) {
+      console.error(err);
+      setStatus({ type: 'error', message: '削除に失敗しました。' });
+    } finally {
+      setSaving(false);
+    }
+  };
+
   const moveProductOrder = async (index: number, direction: 'up' | 'down') => {
     if (direction === 'up' && index === 0) return;
     if (direction === 'down' && index === products.length - 1) return;
@@ -1882,40 +2072,46 @@ export default function AdminDashboard() {
         )}
 
         {/* Tab Navigation */}
-        <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4 mb-20 overflow-x-auto pb-4 snap-x">
+        <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-7 gap-4 mb-20 overflow-x-auto pb-4 snap-x text-stone-900">
           <button 
             onClick={() => setActiveTab('events')}
-            className={`min-w-0 justify-center px-4 md:px-10 py-4 md:py-5 rounded-[1.5rem] font-black flex items-center gap-2 md:gap-4 transition-all border-4 shadow-[6px_6px_0px_0px_rgba(42,42,42,1)] active:translate-x-[2px] active:translate-y-[2px] active:shadow-none snap-start whitespace-nowrap text-sm md:text-base ${activeTab === 'events' ? 'bg-artistic-text text-white border-artistic-text' : 'bg-white text-artistic-text border-artistic-text/10 hover:border-artistic-text'}`}
+            className={`min-w-0 justify-center px-4 md:px-10 py-4 md:py-5 rounded-[1.5rem] font-black flex items-center gap-2 md:gap-4 transition-all border-4 shadow-[6px_6px_0px_0px_rgba(42,42,42,1)] active:translate-x-[2px] active:translate-y-[2px] active:shadow-none snap-start whitespace-nowrap text-sm ${activeTab === 'events' ? 'bg-artistic-text text-white border-artistic-text' : 'bg-white text-artistic-text border-artistic-text/10 hover:border-artistic-text'}`}
           >
             <Calendar size={isMobile ? 18 : 24} /> イベント管理
           </button>
           <button 
             onClick={() => setActiveTab('shop')}
-            className={`min-w-0 justify-center px-4 md:px-10 py-4 md:py-5 rounded-[1.5rem] font-black flex items-center gap-2 md:gap-4 transition-all border-4 shadow-[6px_6px_0px_0px_rgba(42,42,42,1)] active:translate-x-[2px] active:translate-y-[2px] active:shadow-none snap-start whitespace-nowrap text-sm md:text-base ${activeTab === 'shop' ? 'bg-artistic-text text-white border-artistic-text' : 'bg-white text-artistic-text border-artistic-text/10 hover:border-artistic-text'}`}
+            className={`min-w-0 justify-center px-4 md:px-10 py-4 md:py-5 rounded-[1.5rem] font-black flex items-center gap-2 md:gap-4 transition-all border-4 shadow-[6px_6px_0px_0px_rgba(42,42,42,1)] active:translate-x-[2px] active:translate-y-[2px] active:shadow-none snap-start whitespace-nowrap text-sm ${activeTab === 'shop' ? 'bg-artistic-text text-white border-artistic-text' : 'bg-white text-artistic-text border-artistic-text/10 hover:border-artistic-text'}`}
           >
             <ShoppingBag size={isMobile ? 18 : 24} /> ショップ管理
           </button>
           <button 
             onClick={() => setActiveTab('creators')}
-            className={`min-w-0 justify-center px-4 md:px-10 py-4 md:py-5 rounded-[1.5rem] font-black flex items-center gap-2 md:gap-4 transition-all border-4 shadow-[6px_6px_0px_0px_rgba(42,42,42,1)] active:translate-x-[2px] active:translate-y-[2px] active:shadow-none snap-start whitespace-nowrap text-sm md:text-base ${activeTab === 'creators' ? 'bg-artistic-text text-white border-artistic-text' : 'bg-white text-artistic-text border-artistic-text/10 hover:border-artistic-text'}`}
+            className={`min-w-0 justify-center px-4 md:px-10 py-4 md:py-5 rounded-[1.5rem] font-black flex items-center gap-2 md:gap-4 transition-all border-4 shadow-[6px_6px_0px_0px_rgba(42,42,42,1)] active:translate-x-[2px] active:translate-y-[2px] active:shadow-none snap-start whitespace-nowrap text-sm ${activeTab === 'creators' ? 'bg-artistic-text text-white border-artistic-text' : 'bg-white text-artistic-text border-artistic-text/10 hover:border-artistic-text'}`}
           >
             <Users size={isMobile ? 18 : 24} /> クリエイター管理
           </button>
           <button 
+            onClick={() => setActiveTab('lost_items')}
+            className={`min-w-0 justify-center px-4 md:px-10 py-4 md:py-5 rounded-[1.5rem] font-black flex items-center gap-2 md:gap-4 transition-all border-4 shadow-[6px_6px_0px_0px_rgba(42,42,42,1)] active:translate-x-[2px] active:translate-y-[2px] active:shadow-none snap-start whitespace-nowrap text-sm ${activeTab === 'lost_items' ? 'bg-artistic-text text-white border-artistic-text' : 'bg-white text-artistic-text border-artistic-text/10 hover:border-artistic-text'}`}
+          >
+            <Award size={isMobile ? 18 : 24} /> 忘れ物管理
+          </button>
+          <button 
             onClick={() => setActiveTab('analytics')}
-            className={`min-w-0 justify-center px-4 md:px-10 py-4 md:py-5 rounded-[1.5rem] font-black flex items-center gap-2 md:gap-4 transition-all border-4 shadow-[6px_6px_0px_0px_rgba(42,42,42,1)] active:translate-x-[2px] active:translate-y-[2px] active:shadow-none snap-start whitespace-nowrap text-sm md:text-base ${activeTab === 'analytics' ? 'bg-artistic-text text-white border-artistic-text' : 'bg-white text-artistic-text border-artistic-text/10 hover:border-artistic-text'}`}
+            className={`min-w-0 justify-center px-4 md:px-10 py-4 md:py-5 rounded-[1.5rem] font-black flex items-center gap-2 md:gap-4 transition-all border-4 shadow-[6px_6px_0px_0px_rgba(42,42,42,1)] active:translate-x-[2px] active:translate-y-[2px] active:shadow-none snap-start whitespace-nowrap text-sm ${activeTab === 'analytics' ? 'bg-artistic-text text-white border-artistic-text' : 'bg-white text-artistic-text border-artistic-text/10 hover:border-artistic-text'}`}
           >
             <BarChart3 size={isMobile ? 18 : 24} /> アクセス分析
           </button>
           <button 
             onClick={() => setActiveTab('feedback')}
-            className={`min-w-0 justify-center px-4 md:px-10 py-4 md:py-5 rounded-[1.5rem] font-black flex items-center gap-2 md:gap-4 transition-all border-4 shadow-[6px_6px_0px_0px_rgba(42,42,42,1)] active:translate-x-[2px] active:translate-y-[2px] active:shadow-none snap-start whitespace-nowrap text-sm md:text-base ${activeTab === 'feedback' ? 'bg-artistic-text text-white border-artistic-text' : 'bg-white text-artistic-text border-artistic-text/10 hover:border-artistic-text'}`}
+            className={`min-w-0 justify-center px-4 md:px-10 py-4 md:py-5 rounded-[1.5rem] font-black flex items-center gap-2 md:gap-4 transition-all border-4 shadow-[6px_6px_0px_0px_rgba(42,42,42,1)] active:translate-x-[2px] active:translate-y-[2px] active:shadow-none snap-start whitespace-nowrap text-sm ${activeTab === 'feedback' ? 'bg-artistic-text text-white border-artistic-text' : 'bg-white text-artistic-text border-artistic-text/10 hover:border-artistic-text'}`}
           >
             <Heart size={isMobile ? 18 : 24} /> フィードバック
           </button>
           <button 
             onClick={() => setActiveTab('settings')}
-            className={`min-w-0 justify-center px-4 md:px-10 py-4 md:py-5 rounded-[1.5rem] font-black flex items-center gap-2 md:gap-4 transition-all border-4 shadow-[6px_6px_0px_0px_rgba(42,42,42,1)] active:translate-x-[2px] active:translate-y-[2px] active:shadow-none snap-start whitespace-nowrap text-sm md:text-base ${activeTab === 'settings' ? 'bg-artistic-text text-white border-artistic-text' : 'bg-white text-artistic-text border-artistic-text/10 hover:border-artistic-text'}`}
+            className={`min-w-0 justify-center px-4 md:px-10 py-4 md:py-5 rounded-[1.5rem] font-black flex items-center gap-2 md:gap-4 transition-all border-4 shadow-[6px_6px_0px_0px_rgba(42,42,42,1)] active:translate-x-[2px] active:translate-y-[2px] active:shadow-none snap-start whitespace-nowrap text-sm ${activeTab === 'settings' ? 'bg-artistic-text text-white border-artistic-text' : 'bg-white text-artistic-text border-artistic-text/10 hover:border-artistic-text'}`}
           >
             <Settings size={isMobile ? 18 : 24} /> 全般設定
           </button>
@@ -2060,6 +2256,115 @@ export default function AdminDashboard() {
                       <tr>
                         <td colSpan={7} className="py-12 text-center text-gray-400 font-bold italic">
                           クリエイターが登録されていません。「クリエイターを追加」から新しく登録してください。
+                        </td>
+                      </tr>
+                    )}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Lost Items Management Section */}
+        {activeTab === 'lost_items' && (
+          <div className="animate-in fade-in slide-in-from-bottom-4 space-y-12">
+            <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-6">
+              <div>
+                <h2 className="text-3xl font-black flex items-center gap-3 italic">
+                  <Award size={32} className="text-artistic-primary" /> 忘れ物常設展（忘れ物アート）管理
+                </h2>
+                <p className="text-sm font-bold opacity-60">
+                  忘れ物を額縁でキュレーションし、おもしろい現代アートとして登録・編集・返却ステータスの管理をします。
+                </p>
+              </div>
+              <button 
+                onClick={() => setEditingLostItem({
+                  title: '',
+                  artist: '匿名希望',
+                  description: '',
+                  imageUrl: '',
+                  foundDate: new Date().toLocaleDateString('ja-JP'),
+                  frameStyle: 'gold',
+                  status: 'exhibiting',
+                  likesCount: 0
+                })}
+                className="bg-artistic-primary text-white h-14 px-8 rounded-2xl flex items-center justify-center gap-3 border-4 border-artistic-text shadow-[6px_6px_0px_0px_rgba(42,42,42,1)] hover:scale-105 active:scale-95 transition-all font-black text-lg shrink-0"
+              >
+                <Plus size={24} /> 忘れ物を追加する
+              </button>
+            </div>
+
+            <div className="bg-white border-4 border-artistic-text rounded-[2rem] overflow-hidden shadow-[8px_8px_0px_0px_rgba(42,42,42,1)] font-mono">
+              <div className="overflow-x-auto">
+                <table className="w-full text-left border-collapse">
+                  <thead>
+                    <tr className="border-b-4 border-artistic-text bg-artistic-accent/20">
+                      <th className="p-5 font-black text-xs md:text-sm uppercase tracking-wider text-stone-800">画像</th>
+                      <th className="p-5 font-black text-xs md:text-sm uppercase tracking-wider text-stone-800">タイトル / 作家名</th>
+                      <th className="p-5 font-black text-xs md:text-sm uppercase tracking-wider text-stone-800">発見日</th>
+                      <th className="p-5 font-black text-xs md:text-sm uppercase tracking-wider text-stone-800">額縁 / Likes</th>
+                      <th className="p-5 font-black text-xs md:text-sm uppercase tracking-wider text-stone-800">ステータス</th>
+                      <th className="p-5 font-black text-xs md:text-sm uppercase tracking-wider text-stone-800 text-right">編集・削除</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {lostItems.map((item) => (
+                      <tr key={item.id} className="border-b-2 border-artistic-text/10 hover:bg-stone-50 transition-colors">
+                        <td className="p-5">
+                          <img 
+                            src={item.imageUrl || "https://images.unsplash.com/photo-1543163521-1bf539c55dd2?w=100&auto=format&fit=crop"} 
+                            alt={item.title} 
+                            className="w-16 h-12 object-cover rounded-lg border-2 border-artistic-text"
+                            referrerPolicy="no-referrer"
+                          />
+                        </td>
+                        <td className="p-5">
+                          <div className="font-black text-stone-900">{item.title}</div>
+                          <div className="text-xs text-stone-500 font-bold">Artist: {item.artist}</div>
+                        </td>
+                        <td className="p-5 font-bold text-stone-700 text-sm">{item.foundDate}</td>
+                        <td className="p-5">
+                          <div className="text-xs font-bold text-stone-600 bg-stone-100 border border-stone-200 px-2 py-0.5 rounded inline-block">
+                            {item.frameStyle}
+                          </div>
+                          <div className="text-xs font-bold text-artistic-pink mt-1 flex items-center gap-1">
+                            <Heart size={12} fill="currentColor" /> {item.likesCount || 0}
+                          </div>
+                        </td>
+                        <td className="p-5">
+                          <span className={`px-3 py-1 rounded-full text-xs font-black uppercase inline-block border ${
+                            item.status === 'exhibiting' ? 'bg-green-100 text-green-800 border-green-300' : 
+                            item.status === 'claimed' ? 'bg-red-100 text-red-800 border-red-300' : 'bg-stone-100 text-stone-600 border-stone-300'
+                          }`}>
+                            {item.status === 'exhibiting' ? '展示中' : 
+                             item.status === 'claimed' ? '返却完了 🔴' : '非公開'}
+                          </span>
+                        </td>
+                        <td className="p-5 text-right">
+                          <div className="flex gap-2 justify-end">
+                            <button 
+                              onClick={() => setEditingLostItem(item)}
+                              className="p-2 border-2 border-artistic-text rounded-xl hover:bg-artistic-blue hover:text-stone-900 transition-colors"
+                              title="編集"
+                            >
+                              <Edit2 size={16} />
+                            </button>
+                            <button 
+                              onClick={() => item.id && setDeletingLostItemId(item.id)}
+                              className="p-2 border-2 border-artistic-text rounded-xl hover:bg-artistic-pink hover:text-white transition-colors"
+                              title="削除"
+                            >
+                              <Trash2 size={16} />
+                            </button>
+                          </div>
+                        </td>
+                      </tr>
+                    ))}
+                    {lostItems.length === 0 && (
+                      <tr>
+                        <td colSpan={6} className="py-12 text-center text-gray-400 font-bold italic">
+                          登録された忘れものはまだありません。「忘れ物を追加する」から最初のアートピースを展示しましょう！
                         </td>
                       </tr>
                     )}
@@ -3174,6 +3479,51 @@ export default function AdminDashboard() {
             onClose={() => setEditingCreator(null)} 
             saving={saving} 
           />
+        )}
+
+        {/* Edit/Add Lost Item Form */}
+        {editingLostItem && (
+          <LostItemEditModal 
+            lostItem={editingLostItem} 
+            onSave={handleSaveLostItem} 
+            onClose={() => setEditingLostItem(null)} 
+            saving={saving} 
+          />
+        )}
+
+        {/* Lost Item Deleting Modal */}
+        {deletingLostItemId && (
+          <div className="fixed inset-0 bg-neutral-900/50 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+            <div className="bg-white border-4 border-artistic-text rounded-[2rem] shadow-[12px_12px_0px_0px_rgba(42,42,42,1)] w-full max-w-md overflow-hidden">
+              <div className="p-8 border-b-4 border-artistic-text bg-artistic-pink/20">
+                <h3 className="text-2xl font-black text-artistic-text">忘れもの展示を削除</h3>
+              </div>
+              <div className="p-8 space-y-6">
+                <p className="font-bold text-lg text-[#1c1917]">この忘れものアート展示を削除してもよろしいですか？</p>
+                <p className="text-sm opacity-70 text-stone-600">※この操作は取り消せません。</p>
+                <div className="pt-4 flex gap-4">
+                  <button 
+                    onClick={() => {
+                      handleDeleteLostItem(deletingLostItemId);
+                      setDeletingLostItemId(null);
+                    }}
+                    disabled={saving}
+                    className="flex-1 bg-artistic-pink text-white font-black py-4 rounded-xl flex items-center justify-center gap-3 hover:opacity-90 disabled:opacity-50"
+                  >
+                    <Trash2 size={20} />
+                    {saving ? '削除中...' : '削除する'}
+                  </button>
+                  <button 
+                    onClick={() => setDeletingLostItemId(null)}
+                    disabled={saving}
+                    className="px-8 border-2 border-artistic-text font-black rounded-xl hover:bg-neutral-100 text-stone-900"
+                  >
+                    キャンセル
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
         )}
 
         {/* Product Deleting Modal */}

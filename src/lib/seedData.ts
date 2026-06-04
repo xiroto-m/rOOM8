@@ -255,4 +255,60 @@ export async function ensureSeedData() {
   } catch (error) {
     console.warn("Seeding products failed (likely lacks permission if not logged in as Admin):", error);
   }
+
+  // 5. Seed Lost Items if empty
+  try {
+    const lostItemsRef = collection(db, "lost_items");
+    const snapshot = await getDocs(lostItemsRef);
+    if (snapshot.empty) {
+      console.log("Seeding initial lost items as gallery artwork...");
+      const batch = writeBatch(db);
+      const seedLostItems = [
+        {
+          id: "lost_black_shield",
+          title: "忘れられた黒き盾 (The Forgotten Black Shield)",
+          artist: "匿名希望 (Anonymous Exhibitor)",
+          description: "雨の日、傘立ての隅に静かに置かれていた漆黒の傘。親密な撥水テクノロジーと親和性を重ねる、どこか孤高の存在感を放つコンセプチュアル・オブジェクト。",
+          imageUrl: "https://images.unsplash.com/photo-1543163521-1bf539c55dd2?w=600&auto=format&fit=crop&q=80",
+          foundDate: "2026.05.15 (ボードゲームの夜)",
+          frameStyle: "gold",
+          status: "exhibiting",
+          likesCount: 14,
+          createdAt: serverTimestamp()
+        },
+        {
+          id: "lost_white_line",
+          title: "失策のデジタル・ライン (The Errant Digital Thread)",
+          artist: "落とし主 (Unknown Guest)",
+          description: "ソファの隙間に美しくコイル状に巻かれたまま遺されていたUSBケーブル。急速な電子のやり取りと電力供給という日常を遮断され、一筋のコンテンポラリー線画アートへと昇華された。",
+          imageUrl: "https://images.unsplash.com/photo-1541667590925-440536c356d5?w=600&auto=format&fit=crop&q=80",
+          foundDate: "2026.05.31 (屋上スカイバー)",
+          frameStyle: "neon",
+          status: "exhibiting",
+          likesCount: 8,
+          createdAt: serverTimestamp()
+        },
+        {
+          id: "lost_silent_earbud",
+          title: "静寂の片翼 (The Solitary Silent Earbud)",
+          artist: "ある音楽の旅人 (Anonymous Traveler)",
+          description: "スピーカーの上で片方だけ自立していた、真っ白なワイヤレスイヤホン。一対の音像体験を失った今、沈黙それ自体を鳴らし続けるという深遠なミニマリズムを表現している。",
+          imageUrl: "https://images.unsplash.com/photo-1590658268037-6bf12165a8df?w=600&auto=format&fit=crop&q=80",
+          foundDate: "2026.05.31 (屋上スカイバー)",
+          frameStyle: "wood",
+          status: "exhibiting",
+          likesCount: 21,
+          createdAt: serverTimestamp()
+        }
+      ];
+
+      for (const item of seedLostItems) {
+        batch.set(doc(db, "lost_items", item.id), item);
+      }
+      await batch.commit();
+      console.log("Seeding lost items completed!");
+    }
+  } catch (error) {
+    console.warn("Seeding lost items failed:", error);
+  }
 }

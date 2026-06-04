@@ -154,6 +154,18 @@ service cloud.firestore {
         && (!data.keys().hasAny(['cheerMessage']) || (data.cheerMessage is string && data.cheerMessage.size() <= 1000));
     }
 
+    function isValidLostItem(data) {
+      return data.keys().hasAll(['title', 'artist', 'description', 'imageUrl', 'foundDate', 'frameStyle', 'status', 'createdAt'])
+        && data.title is string && data.title.size() <= 200
+        && data.artist is string && data.artist.size() <= 200
+        && data.description is string && data.description.size() <= 10000
+        && data.imageUrl is string && data.imageUrl.size() <= 2000000
+        && data.foundDate is string && data.foundDate.size() <= 100
+        && data.frameStyle in ['gold', 'wood', 'brutalist', 'neon', 'none']
+        && data.status in ['exhibiting', 'claimed', 'archived']
+        && (!data.keys().hasAny(['likesCount']) || data.likesCount is int || data.likesCount is float);
+    }
+
     // --- COLLECTION RULES ---
     match /settings/{docId} {
       allow read: if true;
@@ -256,6 +268,16 @@ service cloud.firestore {
                         (existing().get('authorDeviceId', '') != '' && existing().get('authorDeviceId', '') == incoming().get('authorDeviceId', '')) ||
                         (existing().get('authorIP', '') != '' && existing().get('authorIP', '') == incoming().get('authorIP', ''));
       }
+    }
+
+    match /lost_items/{itemId} {
+      allow read: if true;
+      allow create: if isAdmin() && isValidId(itemId) && isValidLostItem(incoming());
+      allow delete: if isAdmin() && isValidId(itemId);
+      allow update: if (isAdmin() && isValidLostItem(incoming()))
+                      || (isValidId(itemId) && 
+                          incoming().diff(existing()).affectedKeys().hasOnly(['likesCount']) &&
+                          (incoming().likesCount is int || incoming().likesCount is float));
     }
   }
 }

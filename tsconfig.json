@@ -24,5 +24,7 @@
     "resolveJsonModule": true,
     "noEmit": true,
     "types": ["vite/client"]
-  }
+  },
+  "include": ["src/**/*"],
+  "exclude": ["node_modules", "dist", "test-client.ts", "test-event.ts", "seed2.ts", "seed_products.ts"]
 }
