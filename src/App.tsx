@@ -358,6 +358,13 @@ function MainSite() {
   };
 
   useEffect(() => {
+    if (typeof window !== 'undefined') {
+      try {
+        window.history.scrollRestoration = 'manual';
+      } catch (e) {
+        console.warn("Unable to set scrollRestoration to manual:", e);
+      }
+    }
     // Handle initial hash in URL (e.g. on direct load or back from Admin)
     const hash = window.location.hash;
     if (hash && hash !== '#/' && hash !== '#') {
@@ -1393,25 +1400,43 @@ function MainSite() {
       }
 
       if (targetId) {
-        const timer = setTimeout(() => {
+        let attempts = 0;
+        const maxAttempts = 40; // Poll for up to 6 seconds (150ms * 40) for database documents to settle in DOM
+        
+        const pollInterval = setInterval(() => {
+          attempts++;
           const element = document.getElementById(targetId);
+          
           if (element) {
-            const headerOffset = 100;
-            const elementPosition = element.getBoundingClientRect().top;
-            const offsetPosition = elementPosition + window.pageYOffset - headerOffset;
-            window.scrollTo({ top: offsetPosition, behavior: "smooth" });
-          } else if (lostItemId) {
-            // Fallback to general lost-items gallery if the specific item card is not rendered
+            clearInterval(pollInterval);
+            
+            // Give 100ms for dynamic styles and other elements to paint so offsetHeight stabilizes
+            setTimeout(() => {
+              const headerOffset = 100;
+              const elementPosition = element.getBoundingClientRect().top;
+              const offsetPosition = elementPosition + window.pageYOffset - headerOffset;
+              
+              window.scrollTo({ top: offsetPosition, behavior: "smooth" });
+              
+              // Force resize dispatch so any lazy components, images, or layout observers refresh dynamically
+              window.dispatchEvent(new Event('resize'));
+            }, 100);
+          } else if (attempts >= maxAttempts) {
+            clearInterval(pollInterval);
+            
+            // Fallback to gallery main container if specific ID wasn't rendered under current filters/limits
             const galleryElement = document.getElementById('lost-items');
             if (galleryElement) {
               const headerOffset = 100;
               const elementPosition = galleryElement.getBoundingClientRect().top;
               const offsetPosition = elementPosition + window.pageYOffset - headerOffset;
               window.scrollTo({ top: offsetPosition, behavior: "smooth" });
+              window.dispatchEvent(new Event('resize'));
             }
           }
-        }, 600); // Allow sufficient time for DOM paint and dynamic layout
-        return () => clearTimeout(timer);
+        }, 150);
+        
+        return () => clearInterval(pollInterval);
       }
     }
   }, [showLoadingScreen]);
@@ -1430,119 +1455,128 @@ function MainSite() {
     }
   }, [loading]);
 
-  if (showLoadingScreen) {
-    return (
-      <div className="fixed inset-0 z-[100] bg-artistic-bg flex flex-col items-center justify-center p-6 overflow-hidden">
-        {/* Animated Background Grids */}
-        <div className="absolute inset-0 opacity-[0.05] pointer-events-none" 
-             style={{ backgroundImage: 'radial-gradient(circle, #2a2a2a 1px, transparent 1px)', backgroundSize: '32px 32px' }} />
-        
-        <motion.div 
-          initial={{ opacity: 0, scale: 0.9 }}
-          animate={{ opacity: 1, scale: 1 }}
-          className="relative z-10 w-full max-w-lg px-4"
-        >
-          <div className="bg-white border-4 border-artistic-text p-8 md:p-12 rounded-[2.5rem] shadow-[16px_16px_0px_0px_rgba(42,42,42,1)] md:shadow-[24px_24px_0px_0px_rgba(42,42,42,1)] relative overflow-hidden">
-            <div className="w-full flex justify-center mb-8 h-24 md:h-32 lg:h-40 relative">
-              <img
-                src="https://lh3.googleusercontent.com/d/13uUJp8IusBZmEpYpJlamALpv6vFwJ2lh"
-                alt="rOOM8 Logo"
-                className="h-full w-auto object-contain transition-opacity duration-700 opacity-0"
-                onLoad={(e) => {
-                  e.currentTarget.classList.remove('opacity-0');
-                  const fallback = document.getElementById('loading-logo-fallback');
-                  if (fallback) fallback.classList.add('hidden');
-                }}
-                onError={(e) => {
-                  e.currentTarget.style.display = 'none';
-                  const fallback = document.getElementById('loading-logo-fallback');
-                  if (fallback) fallback.classList.remove('hidden');
-                }}
-              />
-              <h1 id="loading-logo-fallback" className="text-6xl font-black tracking-[-0.06em] leading-none flex items-center justify-center absolute inset-0">
-                rOOM<span className="text-artistic-primary underline decoration-artistic-accent decoration-8 underline-offset-[8px]">8</span>
-              </h1>
-            </div>
-            
-            <div className="text-[10px] font-black uppercase tracking-[0.5em] opacity-40 mb-4 block text-center">System Initializing...</div>
-            
-            <h1 className="text-6xl md:text-8xl font-black italic tracking-tighter text-center mb-8">
-              {Math.floor(loadingProgress)}<span className="text-artistic-primary">%</span>
-            </h1>
-            
-            <div className="h-10 w-full bg-stone-100 border-2 border-artistic-text rounded-2xl overflow-hidden mb-6 relative">
-              <motion.div 
-                className="h-full bg-artistic-accent"
-                initial={{ width: 0 }}
-                animate={{ width: `${loadingProgress}%` }}
-                transition={{ type: "spring", bounce: 0, duration: 0.5 }}
-              />
-              <div className="absolute inset-0 flex items-center justify-center">
-                 <div className="w-full h-full flex items-center justify-center opacity-10 font-black text-[8px] overflow-hidden whitespace-nowrap">
-                   LOADING rOOM8 LOADING rOOM8 LOADING rOOM8 LOADING rOOM8 LOADING rOOM8
-                 </div>
-              </div>
-            </div>
-            
-            <div className="flex items-center gap-3 justify-center mb-4">
-              <motion.div
-                animate={{ rotate: 360 }}
-                transition={{ repeat: Infinity, duration: 2, ease: "linear" }}
-                className="text-artistic-pink"
-              >
-                <SettingsIcon size={20} />
-              </motion.div>
-              <p className="font-black text-sm md:text-base animate-pulse">{loadingMessage}</p>
-            </div>
-
-            {error && (
-              <div className="bg-red-50 border-2 border-red-200 p-4 rounded-xl text-center">
-                <p className="text-red-500 font-black text-xs">{error}</p>
-                <button 
-                  onClick={() => window.location.reload()}
-                  className="mt-2 text-[10px] font-black underline opacity-50 hover:opacity-100"
-                >
-                  再読み込み
-                </button>
-              </div>
-            )}
-          </div>
-          
-          <div className="mt-12 flex justify-center gap-4 opacity-20">
-            <Music size={24} />
-            <Palette size={24} />
-            <Monitor size={24} />
-            <Heart size={24} />
-          </div>
-        </motion.div>
-        
-        {/* Abstract shapes floating around */}
-        <motion.div 
-           animate={{ 
-             y: [0, -20, 0], 
-             rotate: [0, 10, -10, 0],
-             scale: [1, 1.1, 1]
-           }} 
-           transition={{ duration: 5, repeat: Infinity }}
-           className="absolute top-20 left-[10%] w-32 h-32 bg-artistic-primary/20 rounded-full blur-3xl" 
-        />
-        <motion.div 
-           animate={{ 
-             y: [0, 20, 0], 
-             rotate: [0, -15, 15, 0],
-             scale: [1, 1.2, 1]
-           }} 
-           transition={{ duration: 7, repeat: Infinity }}
-           className="absolute bottom-20 right-[15%] w-48 h-48 bg-artistic-accent/20 rounded-full blur-3xl" 
-        />
-      </div>
-    );
-  }
-
   return (
-    <div className="min-h-screen bg-artistic-bg text-artistic-text font-sans relative overflow-x-hidden">
-      {/* Decorative Background Elements */}
-      <div className="fixed inset-0 pointer-events-none opacity-[0.03] z-0 overflow-hidden">
+    <div className="relative min-h-screen bg-artistic-bg text-artistic-text font-sans">
+      {/* Dynamic Animated Loading Screen Overlay */}
+      <AnimatePresence>
+        {showLoadingScreen && (
+          <motion.div 
+            key="room8-loading-screen"
+            initial={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            transition={{ duration: 0.6, ease: "easeInOut" }}
+            className="fixed inset-0 z-[100] bg-artistic-bg flex flex-col items-center justify-center p-6 overflow-hidden"
+          >
+            {/* Animated Background Grids */}
+            <div className="absolute inset-0 opacity-[0.05] pointer-events-none" 
+                 style={{ backgroundImage: 'radial-gradient(circle, #2a2a2a 1px, transparent 1px)', backgroundSize: '32px 32px' }} />
+            
+            <motion.div 
+              initial={{ opacity: 0, scale: 0.9 }}
+              animate={{ opacity: 1, scale: 1 }}
+              className="relative z-10 w-full max-w-lg px-4"
+            >
+              <div className="bg-white border-4 border-artistic-text p-8 md:p-12 rounded-[2.5rem] shadow-[16px_16px_0px_0px_rgba(42,42,42,1)] md:shadow-[24px_24px_0px_0px_rgba(42,42,42,1)] relative overflow-hidden">
+                <div className="w-full flex justify-center mb-8 h-24 md:h-32 lg:h-40 relative">
+                  <img
+                    src="https://lh3.googleusercontent.com/d/13uUJp8IusBZmEpYpJlamALpv6vFwJ2lh"
+                    alt="rOOM8 Logo"
+                    className="h-full w-auto object-contain transition-opacity duration-700 opacity-0"
+                    onLoad={(e) => {
+                      e.currentTarget.classList.remove('opacity-0');
+                      const fallback = document.getElementById('loading-logo-fallback');
+                      if (fallback) fallback.classList.add('hidden');
+                    }}
+                    onError={(e) => {
+                      e.currentTarget.style.display = 'none';
+                      const fallback = document.getElementById('loading-logo-fallback');
+                      if (fallback) fallback.classList.remove('hidden');
+                    }}
+                  />
+                  <h1 id="loading-logo-fallback" className="text-6xl font-black tracking-[-0.06em] leading-none flex items-center justify-center absolute inset-0">
+                    rOOM<span className="text-artistic-primary underline decoration-artistic-accent decoration-8 underline-offset-[8px]">8</span>
+                  </h1>
+                </div>
+                
+                <div className="text-[10px] font-black uppercase tracking-[0.5em] opacity-40 mb-4 block text-center">System Initializing...</div>
+                
+                <h1 className="text-6xl md:text-8xl font-black italic tracking-tighter text-center mb-8">
+                  {Math.floor(loadingProgress)}<span className="text-artistic-primary">%</span>
+                </h1>
+                
+                <div className="h-10 w-full bg-stone-100 border-2 border-artistic-text rounded-2xl overflow-hidden mb-6 relative">
+                  <motion.div 
+                    className="h-full bg-artistic-accent"
+                    initial={{ width: 0 }}
+                    animate={{ width: `${loadingProgress}%` }}
+                    transition={{ type: "spring", bounce: 0, duration: 0.5 }}
+                  />
+                  <div className="absolute inset-0 flex items-center justify-center">
+                     <div className="w-full h-full flex items-center justify-center opacity-10 font-black text-[8px] overflow-hidden whitespace-nowrap">
+                       LOADING rOOM8 LOADING rOOM8 LOADING rOOM8 LOADING rOOM8 LOADING rOOM8
+                     </div>
+                  </div>
+                </div>
+                
+                <div className="flex items-center gap-3 justify-center mb-4">
+                  <motion.div
+                    animate={{ rotate: 360 }}
+                    transition={{ repeat: Infinity, duration: 2, ease: "linear" }}
+                    className="text-artistic-pink"
+                  >
+                    <SettingsIcon size={20} />
+                  </motion.div>
+                  <p className="font-black text-sm md:text-base animate-pulse">{loadingMessage}</p>
+                </div>
+
+                {error && (
+                  <div className="bg-red-50 border-2 border-red-200 p-4 rounded-xl text-center">
+                    <p className="text-red-500 font-black text-xs">{error}</p>
+                    <button 
+                      onClick={() => window.location.reload()}
+                      className="mt-2 text-[10px] font-black underline opacity-50 hover:opacity-100"
+                    >
+                      再読み込み
+                    </button>
+                  </div>
+                )}
+              </div>
+              
+              <div className="mt-12 flex justify-center gap-4 opacity-20">
+                <Music size={24} />
+                <Palette size={24} />
+                <Monitor size={24} />
+                <Heart size={24} />
+              </div>
+            </motion.div>
+            
+            {/* Abstract shapes floating around */}
+            <motion.div 
+               animate={{ 
+                 y: [0, -20, 0], 
+                 rotate: [0, 10, -10, 0],
+                 scale: [1, 1.1, 1]
+               }} 
+               transition={{ duration: 5, repeat: Infinity }}
+               className="absolute top-20 left-[10%] w-32 h-32 bg-artistic-primary/20 rounded-full blur-3xl" 
+            />
+            <motion.div 
+               animate={{ 
+                 y: [0, 20, 0], 
+                 rotate: [0, -15, 15, 0],
+                 scale: [1, 1.2, 1]
+               }} 
+               transition={{ duration: 7, repeat: Infinity }}
+               className="absolute bottom-20 right-[15%] w-48 h-48 bg-artistic-accent/20 rounded-full blur-3xl" 
+            />
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* Main Core Site (Rendered in background, prevents interaction during loading) */}
+      <div className={showLoadingScreen ? "fixed inset-0 overflow-hidden pointer-events-none opacity-0 invisible" : "opacity-100 transition-opacity duration-700 relative overflow-x-hidden"}>
+        {/* Decorative Background Elements */}
+        <div className="fixed inset-0 pointer-events-none opacity-[0.03] z-0 overflow-hidden">
         <motion.div 
           animate={{ rotate: 360, x: [0, 100, 0], y: [0, -50, 0] }} 
           transition={{ duration: 60, repeat: Infinity, ease: "linear" }}
@@ -2491,6 +2525,7 @@ function MainSite() {
           onClose={() => setSelectedEvent(null)} 
         />
       )}
+      </div>
     </div>
   );
 }
