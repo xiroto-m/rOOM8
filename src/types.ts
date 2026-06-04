@@ -64,3 +64,14 @@ export interface LostItem {
   createdAt: any;
 }
 
+export interface LostClaim {
+  id?: string;
+  itemId: string;
+  itemTitle: string;
+  claimName: string;
+  claimContact: string;
+  claimNotes?: string;
+  status: 'pending' | 'resolved' | 'rejected';
+  createdAt: any;
+}
+

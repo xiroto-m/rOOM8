@@ -33,13 +33,15 @@ import {
   where,
   orderBy,
   limit,
-  serverTimestamp 
+  serverTimestamp,
+  updateDoc,
+  onSnapshot
 } from 'firebase/firestore';
 import { EVENT_INFO } from '../constants';
 import { formatEventDate, isPastEvent } from '../lib/dateUtils';
 import { ensureSeedData } from '../lib/seedData';
 import { Link } from 'react-router-dom';
-import { LogIn, LogOut, Save, AlertCircle, CheckCircle, ArrowLeft, ArrowRight, ArrowUp, ArrowDown, Plus, Trash2, Edit2, Calendar, Settings, Copy, Heart, BarChart3, Download, Upload, Monitor, Clock, Users, ShoppingBag, Award } from 'lucide-react';
+import { LogIn, LogOut, Save, AlertCircle, CheckCircle, ArrowLeft, ArrowRight, ArrowUp, ArrowDown, Plus, Trash2, Edit2, Calendar, Settings, Copy, Heart, BarChart3, Download, Upload, Monitor, Clock, Users, ShoppingBag, Award, Sparkles } from 'lucide-react';
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, PieChart, Pie, Cell, Legend, BarChart, Bar } from 'recharts';
 import Papa from 'papaparse';
 
@@ -67,6 +69,17 @@ interface Creator {
   order?: number;
   isExhibitingToday?: boolean;
   isPastExhibitor?: boolean;
+  createdAt?: any;
+}
+
+interface LostClaim {
+  id?: string;
+  itemId: string;
+  itemTitle: string;
+  claimName: string;
+  claimContact: string;
+  claimNotes?: string;
+  status: 'pending' | 'resolved' | 'rejected';
   createdAt?: any;
 }
 
@@ -826,8 +839,10 @@ export default function AdminDashboard() {
   const [deletingCreatorId, setDeletingCreatorId] = useState<string | null>(null);
   const [deletingLostItemId, setDeletingLostItemId] = useState<string | null>(null);
   const [deletingFeedbackId, setDeletingFeedbackId] = useState<string | null>(null);
+  const [deletingClaimId, setDeletingClaimId] = useState<string | null>(null);
   const [creators, setCreators] = useState<Creator[]>([]);
   const [lostItems, setLostItems] = useState<any[]>([]);
+  const [lostClaims, setLostClaims] = useState<LostClaim[]>([]);
   const [status, setStatus] = useState<{ type: 'success' | 'error' | null, message: string }>({ type: null, message: '' });
   const [saving, setSaving] = useState(false);
   const [fetchingAnalytics, setFetchingAnalytics] = useState(false);
@@ -1366,6 +1381,56 @@ export default function AdminDashboard() {
     };
   }, []);
 
+  useEffect(() => {
+    let unsubClaims: (() => void) | null = null;
+    let unsubItems: (() => void) | null = null;
+
+    const isAdmin = localStorage.getItem('room8_is_admin') === 'true' || !!auth.currentUser;
+    if (isAdmin) {
+      try {
+        const claimsRef = collection(db, 'lost_claims');
+        unsubClaims = onSnapshot(claimsRef, (snapshot) => {
+          const list = snapshot.docs.map(doc => ({
+            id: doc.id,
+            ...doc.data()
+          })) as LostClaim[];
+
+          // Sort by createdAt desc
+          list.sort((a, b) => {
+            const timeA = a.createdAt?.seconds ? a.createdAt.seconds * 1000 : (Number(a.createdAt) || 0);
+            const timeB = b.createdAt?.seconds ? b.createdAt.seconds * 1000 : (Number(b.createdAt) || 0);
+            return timeB - timeA;
+          });
+          setLostClaims(list);
+        }, (err) => {
+          console.error("Failed to sync lost claims:", err);
+        });
+      } catch (err) {
+        console.error("Failed to setup lost claims snapshot:", err);
+      }
+
+      try {
+        const itemsRef = collection(db, 'lost_items');
+        unsubItems = onSnapshot(itemsRef, (snapshot) => {
+          const list = snapshot.docs.map(doc => ({
+            id: doc.id,
+            ...doc.data()
+          }));
+          setLostItems(list);
+        }, (err) => {
+          console.error("Failed to sync lost items:", err);
+        });
+      } catch (err) {
+        console.error("Failed to setup lost items snapshot:", err);
+      }
+    }
+
+    return () => {
+      if (unsubClaims) unsubClaims();
+      if (unsubItems) unsubItems();
+    };
+  }, [user]);
+
   const handleLogin = async () => {
     setStatus({ type: null, message: '' });
     try {
@@ -1443,18 +1508,8 @@ export default function AdminDashboard() {
       })) as Creator[];
       setCreators(creatorsList.sort((a, b) => (a.order || 0) - (b.order || 0)));
 
-      // Fetch lost items
-      try {
-        const lostItemsRef = collection(db, 'lost_items');
-        const lostItemsSnapshot = await getDocs(lostItemsRef);
-        const lostItemsList = lostItemsSnapshot.docs.map(doc => ({
-          id: doc.id,
-          ...doc.data()
-        }));
-        setLostItems(lostItemsList);
-      } catch (err) {
-        console.error("Failed to fetch lost items", err);
-      }
+      // lost_items and lost_claims are now synchronized in real-time via onSnapshot below.
+      // So we do not need to fetch them statically here to prevent state overwrite race conditions.
 
       // Fetch global settings
       const settingsRef = doc(db, 'settings', 'global');
@@ -1786,6 +1841,49 @@ export default function AdminDashboard() {
       await deleteDoc(doc(db, 'lost_items', id));
       await fetchData();
       setStatus({ type: 'success', message: '忘れものを削除しました。' });
+      setTimeout(() => setStatus({ type: null, message: '' }), 3000);
+    } catch (err) {
+      console.error(err);
+      setStatus({ type: 'error', message: '削除に失敗しました。' });
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const handleClaimStatusChange = async (claimId: string, itemId: string, newStatus: 'resolved' | 'rejected' | 'pending') => {
+    setSaving(true);
+    setStatus({ type: null, message: '' });
+    try {
+      // 1. Update Claim Status
+      await updateDoc(doc(db, 'lost_claims', claimId), {
+        status: newStatus
+      });
+
+      // 2. If 'resolved', we can automatically update the associated lost item status to 'claimed'!
+      if (newStatus === 'resolved' && itemId) {
+        await updateDoc(doc(db, 'lost_items', itemId), {
+          status: 'claimed'
+        });
+      }
+
+      setStatus({ type: 'success', message: '申請ステータスを更新しました。' });
+      await fetchData();
+      setTimeout(() => setStatus({ type: null, message: '' }), 3000);
+    } catch (err) {
+      console.error(err);
+      setStatus({ type: 'error', message: 'ステータスの更新に失敗しました。' });
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const handleDeleteClaim = async (claimId: string) => {
+    setSaving(true);
+    setStatus({ type: null, message: '' });
+    try {
+      await deleteDoc(doc(db, 'lost_claims', claimId));
+      setStatus({ type: 'success', message: '返却申請を削除しました。' });
+      await fetchData();
       setTimeout(() => setStatus({ type: null, message: '' }), 3000);
     } catch (err) {
       console.error(err);
@@ -2370,6 +2468,135 @@ export default function AdminDashboard() {
                     )}
                   </tbody>
                 </table>
+              </div>
+            </div>
+
+            {/* Claims (私のものです！) Section */}
+            <div className="mt-16 space-y-6 pt-12 border-t-4 border-dashed border-artistic-text/15">
+              <div>
+                <h3 className="text-3xl font-black flex items-center gap-3 italic text-stone-900">
+                  <Sparkles size={32} className="text-artistic-primary animate-pulse" /> 「私のものです！」返却申請一覧
+                </h3>
+                <p className="text-sm font-bold opacity-60">
+                  来場者が「私のものです！」フォームから送信した忘れものの引き取り申請を確認・処理します。申請を解決にすると該当アートピースのステータスは自動的に「返却完了」に更新されます。
+                </p>
+              </div>
+
+              <div className="bg-white border-4 border-artistic-text rounded-[2rem] overflow-hidden shadow-[8px_8px_0px_0px_rgba(42,42,42,1)] font-mono">
+                <div className="overflow-x-auto">
+                  <table className="w-full text-left border-collapse">
+                    <thead>
+                      <tr className="border-b-4 border-artistic-text bg-artistic-accent/20">
+                        <th className="p-5 font-black text-xs md:text-sm uppercase tracking-wider text-stone-800">アートピース</th>
+                        <th className="p-5 font-black text-xs md:text-sm uppercase tracking-wider text-stone-800">申請者名 / 連絡先</th>
+                        <th className="p-5 font-black text-xs md:text-sm uppercase tracking-wider text-stone-800">特徴・備考 (ユーザー入力)</th>
+                        <th className="p-5 font-black text-xs md:text-sm uppercase tracking-wider text-stone-800">申請日時</th>
+                        <th className="p-5 font-black text-xs md:text-sm uppercase tracking-wider text-stone-800">処理ステータス</th>
+                        <th className="p-5 font-black text-xs md:text-sm uppercase tracking-wider text-stone-800 text-right">アクション</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {lostClaims.map((claim) => {
+                        // Find the original item image if it exists in local state
+                        const originItem = lostItems.find(i => i.id === claim.itemId);
+                        const displayImg = originItem?.imageUrl || '';
+                        
+                        // Parse timestamp
+                        let timeStr = '不明';
+                        if (claim.createdAt) {
+                          const dateObj = claim.createdAt.toDate ? claim.createdAt.toDate() : new Date(claim.createdAt);
+                          timeStr = dateObj.toLocaleString('ja-JP', { month: 'numeric', day: 'numeric', hour: '2-digit', minute: '2-digit' });
+                        }
+
+                        return (
+                          <tr key={claim.id} className="border-b-2 border-artistic-text/10 hover:bg-stone-50 transition-colors">
+                            <td className="p-5 flex items-center gap-3">
+                              {displayImg && (
+                                <img 
+                                  src={displayImg} 
+                                  alt={claim.itemTitle} 
+                                  className="w-12 h-10 object-cover rounded-md border border-neutral-300"
+                                  referrerPolicy="no-referrer"
+                                />
+                              )}
+                              <div>
+                                <div className="font-bold text-sm text-stone-900">{claim.itemTitle}</div>
+                                <div className="text-[10px] text-stone-500 font-bold">ID: #{claim.itemId?.substring(0, 8)}</div>
+                              </div>
+                            </td>
+                            <td className="p-5">
+                              <div className="font-black text-sm text-stone-900">{claim.claimName}</div>
+                              <div className="text-xs text-stone-600 bg-neutral-100 border border-neutral-300 px-1.5 py-0.5 rounded mt-1 font-mono break-all inline-block">
+                                {claim.claimContact}
+                              </div>
+                            </td>
+                            <td className="p-5 text-sm text-stone-700 max-w-xs break-words font-sans">
+                              {claim.claimNotes || (
+                                <span className="opacity-40 italic font-medium">特になし</span>
+                              )}
+                            </td>
+                            <td className="p-5 font-bold text-stone-500 text-xs">{timeStr}</td>
+                            <td className="p-5">
+                              <span className={`px-2.5 py-0.5 rounded-full text-xs font-black inline-block border ${
+                                claim.status === 'resolved' ? 'bg-emerald-100 text-emerald-800 border-emerald-300' :
+                                claim.status === 'rejected' ? 'bg-red-100 text-red-800 border-red-300' :
+                                'bg-amber-100 text-amber-800 border-amber-300 animate-pulse'
+                              }`}>
+                                {claim.status === 'resolved' ? '返却完了' :
+                                 claim.status === 'rejected' ? '却下' : '未対応'}
+                              </span>
+                            </td>
+                            <td className="p-5 text-right">
+                              <div className="flex gap-2 justify-end">
+                                {claim.status === 'pending' && (
+                                  <>
+                                    <button
+                                      onClick={() => handleClaimStatusChange(claim.id || '', claim.itemId, 'resolved')}
+                                      className="px-3 py-1 bg-emerald-600 text-white font-black text-xs rounded-lg hover:bg-emerald-700 transition-colors border border-emerald-700 shadow-sm"
+                                      title="返却済みにする"
+                                    >
+                                      返却完了
+                                    </button>
+                                    <button
+                                      onClick={() => handleClaimStatusChange(claim.id || '', claim.itemId, 'rejected')}
+                                      className="px-3 py-1 bg-neutral-200 text-neutral-700 font-black text-xs rounded-lg hover:bg-neutral-300 transition-colors border border-neutral-400"
+                                      title="申請を却下する"
+                                    >
+                                      却下
+                                    </button>
+                                  </>
+                                )}
+                                {claim.status !== 'pending' && (
+                                  <button
+                                    onClick={() => handleClaimStatusChange(claim.id || '', claim.itemId, 'pending')}
+                                    className="px-3 py-1 bg-stone-100 text-stone-600 font-black text-xs rounded-lg hover:bg-stone-200 transition-colors border border-stone-300"
+                                    title="ステータスを未対応に戻す"
+                                  >
+                                    未対応に戻す
+                                  </button>
+                                )}
+                                <button
+                                  onClick={() => claim.id && setDeletingClaimId(claim.id)}
+                                  className="p-1 border-2 border-artistic-text/10 hover:border-artistic-pink hover:text-artistic-pink rounded-lg transition-colors text-stone-400"
+                                  title="削除"
+                                >
+                                  <Trash2 size={14} />
+                                </button>
+                              </div>
+                            </td>
+                          </tr>
+                        );
+                      })}
+                      {lostClaims.length === 0 && (
+                        <tr>
+                          <td colSpan={6} className="py-12 text-center text-gray-400 font-bold italic">
+                            受信した返却申請はまだありません。
+                          </td>
+                        </tr>
+                      )}
+                    </tbody>
+                  </table>
+                </div>
               </div>
             </div>
           </div>
@@ -3655,6 +3882,41 @@ export default function AdminDashboard() {
                     onClick={() => setDeletingCreatorId(null)}
                     disabled={saving}
                     className="px-8 border-2 border-artistic-text font-black rounded-xl hover:bg-neutral-100"
+                  >
+                    キャンセル
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Claim Deleting Modal */}
+        {deletingClaimId && (
+          <div className="fixed inset-0 bg-neutral-900/50 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+            <div className="bg-white border-4 border-artistic-text rounded-[2rem] shadow-[12px_12px_0px_0px_rgba(42,42,42,1)] w-full max-w-md overflow-hidden">
+              <div className="p-8 border-b-4 border-artistic-text bg-artistic-pink/20">
+                <h3 className="text-2xl font-black text-artistic-text">返却申請を削除</h3>
+              </div>
+              <div className="p-8 space-y-6">
+                <p className="font-bold text-lg text-[#1c1917]">この返却申請を削除してもよろしいですか？</p>
+                <p className="text-sm opacity-70 text-stone-600">※この操作は取り消せません。</p>
+                <div className="pt-4 flex gap-4">
+                  <button 
+                    onClick={async () => {
+                      await handleDeleteClaim(deletingClaimId);
+                      setDeletingClaimId(null);
+                    }}
+                    disabled={saving}
+                    className="flex-1 bg-artistic-pink text-white border-2 border-artistic-pink font-black py-4 rounded-xl flex items-center justify-center gap-3 hover:opacity-90 disabled:opacity-50"
+                  >
+                    <Trash2 size={20} />
+                    {saving ? '削除中...' : '削除する'}
+                  </button>
+                  <button 
+                    onClick={() => setDeletingClaimId(null)}
+                    disabled={saving}
+                    className="px-8 border-2 border-artistic-text font-black rounded-xl hover:bg-neutral-100 text-stone-900"
                   >
                     キャンセル
                   </button>

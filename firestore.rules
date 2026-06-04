@@ -166,6 +166,17 @@ service cloud.firestore {
         && (!data.keys().hasAny(['likesCount']) || data.likesCount is int || data.likesCount is float);
     }
 
+    function isValidLostClaim(data) {
+      return data.keys().hasAll(['itemId', 'itemTitle', 'claimName', 'claimContact', 'status', 'createdAt'])
+        && data.itemId is string && data.itemId.size() <= 128
+        && data.itemTitle is string && data.itemTitle.size() <= 200
+        && data.claimName is string && data.claimName.size() <= 200
+        && data.claimContact is string && data.claimContact.size() <= 200
+        && (!data.keys().hasAny(['claimNotes']) || (data.claimNotes is string && data.claimNotes.size() <= 4000))
+        && data.status in ['pending', 'resolved', 'rejected']
+        && data.createdAt is timestamp;
+    }
+
     // --- COLLECTION RULES ---
     match /settings/{docId} {
       allow read: if true;
@@ -278,6 +289,12 @@ service cloud.firestore {
                       || (isValidId(itemId) && 
                           incoming().diff(existing()).affectedKeys().hasOnly(['likesCount']) &&
                           (incoming().likesCount is int || incoming().likesCount is float));
+    }
+
+    match /lost_claims/{claimId} {
+      allow read: if isAdmin();
+      allow create: if isValidId(claimId) && isValidLostClaim(incoming());
+      allow update, delete: if isAdmin();
     }
   }
 }

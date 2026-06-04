@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { Heart, Search, HelpCircle, Mail, MessageSquare, Sparkles, Check, Bookmark, Calendar, ArrowUpRight, Award, Trash2 } from 'lucide-react';
 import { db, auth, handleFirestoreError, OperationType } from '../lib/firebase';
-import { collection, onSnapshot, query, updateDoc, doc, increment } from 'firebase/firestore';
+import { collection, onSnapshot, query, updateDoc, doc, increment, addDoc, serverTimestamp } from 'firebase/firestore';
 import { LostItem } from '../types';
 
 export default function LostItemsGallery() {
@@ -15,6 +15,7 @@ export default function LostItemsGallery() {
   const [claimName, setClaimName] = useState('');
   const [filter, setFilter] = useState<'all' | 'exhibiting' | 'claimed'>('all');
   const [searchTerm, setSearchTerm] = useState('');
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
   const [isAdmin] = useState(localStorage.getItem('room8_is_admin') === 'true' || !!auth.currentUser);
 
@@ -89,19 +90,37 @@ export default function LostItemsGallery() {
     }
   };
 
-  const handleClaimSubmit = (e: React.FormEvent) => {
+  const handleClaimSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!claimName || !claimContact) return;
+    if (!claimName || !claimContact || !selectedClaimItem || isSubmitting) return;
 
-    // We can simulate claim sent or put a message/notify room admins
-    setClaimSuccess(true);
-    setTimeout(() => {
-      setSelectedClaimItem(null);
-      setClaimSuccess(false);
-      setClaimName('');
-      setClaimContact('');
-      setClaimNotes('');
-    }, 2500);
+    setIsSubmitting(true);
+    try {
+      const claimData = {
+        itemId: selectedClaimItem.id || '',
+        itemTitle: selectedClaimItem.title || '',
+        claimName: claimName,
+        claimContact: claimContact,
+        claimNotes: claimNotes || '',
+        status: 'pending',
+        createdAt: serverTimestamp()
+      };
+
+      await addDoc(collection(db, 'lost_claims'), claimData);
+      setClaimSuccess(true);
+      
+      setTimeout(() => {
+        setSelectedClaimItem(null);
+        setClaimSuccess(false);
+        setClaimName('');
+        setClaimContact('');
+        setClaimNotes('');
+        setIsSubmitting(false);
+      }, 2500);
+    } catch (error) {
+      setIsSubmitting(false);
+      handleFirestoreError(error, OperationType.CREATE, 'lost_claims');
+    }
   };
 
   const filteredItems = lostItems.filter(item => {
@@ -455,8 +474,8 @@ export default function LostItemsGallery() {
                     <p className="text-[10px] font-bold text-stone-400 leading-relaxed pt-2">
                       ※この情報はrOOM8の管理者のみに安全に送信されます。<br />
                       また、Instagram（
-                      <a href="https://instagram.com/wood_masa_yoyogi" target="_blank" rel="noopener noreferrer" className="text-artistic-primary underline">
-                        @wood_masa_yoyogi
+                      <a href="https://www.instagram.com/room8_a_home_gallery_tokyo?igsh=MWdoc28wNXRlczRlbQ%3D%3D&utm_source=qr" target="_blank" rel="noopener noreferrer" className="text-artistic-primary underline">
+                        @room8_a_home_gallery_tokyo
                       </a>
                       ）のDMから直接お問い合わせいただくことも可能です。
                     </p>
@@ -465,15 +484,17 @@ export default function LostItemsGallery() {
                       <button
                         type="button"
                         onClick={() => setSelectedClaimItem(null)}
-                        className="flex-1 py-3 px-4 border-2 border-artistic-text rounded-xl font-black text-sm hover:bg-neutral-50"
+                        disabled={isSubmitting}
+                        className="flex-1 py-3 px-4 border-2 border-artistic-text rounded-xl font-black text-sm hover:bg-neutral-50 disabled:opacity-50"
                       >
                         キャンセル
                       </button>
                       <button
                         type="submit"
-                        className="flex-1 bg-artistic-primary text-white border-2 border-artistic-text rounded-xl font-black text-sm py-3 px-4 hover:scale-102 shadow-[4px_4px_0px_0px_rgba(42,42,42,1)] transition-transform"
+                        disabled={isSubmitting}
+                        className="flex-1 bg-artistic-primary text-white border-2 border-artistic-text rounded-xl font-black text-sm py-3 px-4 hover:scale-102 shadow-[4px_4px_0px_0px_rgba(42,42,42,1)] transition-transform disabled:opacity-50 disabled:cursor-not-allowed"
                       >
-                        返却を申請する
+                        {isSubmitting ? '送信中...' : '返却を申請する'}
                       </button>
                     </div>
                   </form>

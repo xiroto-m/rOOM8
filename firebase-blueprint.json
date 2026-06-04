@@ -183,6 +183,21 @@
         "createdAt": { "type": "string", "format": "date-time" }
       },
       "required": ["title", "artist", "description", "imageUrl", "foundDate", "frameStyle", "status", "createdAt"]
+    },
+    "LostClaim": {
+      "title": "Lost Item Claim",
+      "description": "Claim submission request from owner claiming a lost item",
+      "type": "object",
+      "properties": {
+        "itemId": { "type": "string" },
+        "itemTitle": { "type": "string" },
+        "claimName": { "type": "string" },
+        "claimContact": { "type": "string" },
+        "claimNotes": { "type": "string" },
+        "status": { "type": "string", "enum": ["pending", "resolved", "rejected"] },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["itemId", "itemTitle", "claimName", "claimContact", "status", "createdAt"]
     }
   },
   "firestore": {
@@ -233,6 +248,10 @@
     "/lost_items/{itemId}": {
       "schema": "LostItem",
       "description": "Lost and found items exhibited creatively with custom picture frames"
+    },
+    "/lost_claims/{claimId}": {
+      "schema": "LostClaim",
+      "description": "Returns or claims filed by attendees identifying lost artworks"
     }
   }
 }
