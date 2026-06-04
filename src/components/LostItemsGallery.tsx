@@ -6,7 +6,17 @@ import { collection, onSnapshot, query, updateDoc, doc, increment, addDoc, serve
 import { LostItem } from '../types';
 
 export default function LostItemsGallery() {
-  const [lostItems, setLostItems] = useState<LostItem[]>([]);
+  const [lostItems, setLostItems] = useState<LostItem[]>(() => {
+    const cached = localStorage.getItem('room8_cached_lost_items');
+    if (cached) {
+      try {
+        return JSON.parse(cached);
+      } catch (e) {
+        console.warn("Failed to parse cached lost items:", e);
+      }
+    }
+    return [];
+  });
   const [likedIds, setLikedIds] = useState<string[]>([]);
   const [selectedClaimItem, setSelectedClaimItem] = useState<LostItem | null>(null);
   const [claimSuccess, setClaimSuccess] = useState(false);
@@ -18,6 +28,7 @@ export default function LostItemsGallery() {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [highlightedItemId, setHighlightedItemId] = useState<string | null>(null);
   const [copiedItemId, setCopiedItemId] = useState<string | null>(null);
+  const [isLoading, setIsLoading] = useState(true);
 
   const [isAdmin] = useState(localStorage.getItem('room8_is_admin') === 'true' || !!auth.currentUser);
 
@@ -68,8 +79,11 @@ export default function LostItemsGallery() {
         return timeB - timeA;
       });
       setLostItems(items);
+      localStorage.setItem('room8_cached_lost_items', JSON.stringify(items));
+      setIsLoading(false);
     }, (error) => {
       handleFirestoreError(error, OperationType.LIST, 'lost_items');
+      setIsLoading(false);
     });
 
     return () => unsubscribe();
@@ -277,7 +291,38 @@ export default function LostItemsGallery() {
         )}
       </div>
 
-      {filteredItems.length > 0 ? (
+      {isLoading && filteredItems.length === 0 ? (
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-12">
+          {[1, 2, 3].map((index) => {
+            const frameStyle = index === 1 ? 'gold' : index === 2 ? 'wood' : 'brutalist';
+            return (
+              <div key={`skeleton-${index}`} className="flex flex-col animate-pulse rounded-[2.5rem] p-1.5">
+                {renderFrame(
+                  frameStyle,
+                  <div className="w-full flex flex-col gap-4">
+                    {/* Artwork image loader */}
+                    <div className="relative aspect-[4/3] w-full rounded-lg bg-stone-100 flex items-center justify-center">
+                      <div className="w-6 h-6 rounded-full border-2 border-stone-300 border-t-stone-500 animate-spin" />
+                    </div>
+                    {/* Caption / Title loader */}
+                    <div className="w-full space-y-2 py-2">
+                      <div className="h-6 bg-stone-200 rounded-md w-2/3" />
+                      <div className="h-4 bg-stone-200 rounded-md w-full" />
+                      <div className="h-4 bg-stone-200 rounded-md w-5/6" />
+                    </div>
+                  </div>,
+                  false
+                )}
+                {/* Actions loader */}
+                <div className="mt-4 flex gap-3 w-full px-2">
+                  <div className="h-11 bg-stone-200 rounded-xl flex-1" />
+                  <div className="h-11 bg-stone-200 rounded-xl flex-1" />
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      ) : filteredItems.length > 0 ? (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-12">
           {filteredItems.map((item) => {
             const isClaimed = item.status === 'claimed';
