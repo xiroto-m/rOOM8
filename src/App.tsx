@@ -2315,7 +2315,7 @@ function MainSite() {
       </Section>
 
       {/* Lost Items Gallery Section */}
-      <LostItemsGallery />
+      <LostItemsGallery userIP={userIP} deviceId={deviceId} />
 
       {/* Feedback Section */}
       <Section id="feedback" className="py-12">

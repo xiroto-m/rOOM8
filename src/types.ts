@@ -75,3 +75,15 @@ export interface LostClaim {
   createdAt: any;
 }
 
+export interface LostComment {
+  id?: string;
+  itemId: string;
+  commenterName: string;
+  commenterContact?: string;
+  commentText: string;
+  likesCount?: number;
+  authorDeviceId?: string;
+  authorIP?: string;
+  createdAt: any;
+}
+

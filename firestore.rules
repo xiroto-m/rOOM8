@@ -172,9 +172,21 @@ service cloud.firestore {
         && data.itemTitle is string && data.itemTitle.size() <= 200
         && data.claimName is string && data.claimName.size() <= 200
         && data.claimContact is string && data.claimContact.size() <= 200
-        && (!data.keys().hasAny(['claimNotes']) || (data.claimNotes is string && data.claimNotes.size() <= 4000))
+        && data.get('claimNotes', '') is string && data.get('claimNotes', '').size() <= 4000
         && data.status in ['pending', 'resolved', 'rejected']
         && data.createdAt is timestamp;
+    }
+
+    function isValidLostComment(data) {
+      return data.keys().hasAll(['itemId', 'commenterName', 'commentText', 'createdAt'])
+        && data.itemId is string && data.itemId.size() <= 128
+        && data.commenterName is string && data.commenterName.size() <= 200
+        && data.commentText is string && data.commentText.size() <= 2000
+        && data.createdAt is timestamp
+        && data.get('commenterContact', '') is string && data.get('commenterContact', '').size() <= 200
+        && data.get('authorDeviceId', '') is string && data.get('authorDeviceId', '').size() <= 128
+        && data.get('authorIP', '') is string && data.get('authorIP', '').size() <= 64
+        && (data.get('likesCount', 0) is int || data.get('likesCount', 0) is float);
     }
 
     // --- COLLECTION RULES ---
@@ -295,6 +307,20 @@ service cloud.firestore {
       allow read: if isAdmin();
       allow create: if isValidId(claimId) && isValidLostClaim(incoming());
       allow update, delete: if isAdmin();
+    }
+
+    match /lost_comments/{commentId} {
+      allow read: if true;
+      allow create: if isValidId(commentId) && isValidLostComment(incoming());
+      allow update: if (isAdmin() && isValidLostComment(incoming())) 
+                    || (isValidId(commentId) && 
+                        incoming().diff(existing()).affectedKeys().hasOnly(['likesCount']) &&
+                        (incoming().likesCount is int || incoming().likesCount is float))
+                    || (existing().get('authorDeviceId', '') != '' && existing().get('authorDeviceId', '') == incoming().get('authorDeviceId', ''))
+                    || (existing().get('authorIP', '') != '' && existing().get('authorIP', '') == incoming().get('authorIP', ''));
+      allow delete: if isAdmin() || 
+                    (existing().get('authorDeviceId', '') != '' && existing().get('authorDeviceId', '') == incoming().get('authorDeviceId', '')) ||
+                    (existing().get('authorIP', '') != '' && existing().get('authorIP', '') == incoming().get('authorIP', ''));
     }
   }
 }

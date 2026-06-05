@@ -198,6 +198,22 @@
         "createdAt": { "type": "string", "format": "date-time" }
       },
       "required": ["itemId", "itemTitle", "claimName", "claimContact", "status", "createdAt"]
+    },
+    "LostComment": {
+      "title": "Lost Item Comment",
+      "description": "An introductory recommendation message or comment written for a lost item",
+      "type": "object",
+      "properties": {
+        "itemId": { "type": "string" },
+        "commenterName": { "type": "string" },
+        "commenterContact": { "type": "string" },
+        "commentText": { "type": "string" },
+        "likesCount": { "type": "number" },
+        "authorDeviceId": { "type": "string" },
+        "authorIP": { "type": "string" },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["itemId", "commenterName", "commentText", "createdAt"]
     }
   },
   "firestore": {
@@ -252,6 +268,10 @@
     "/lost_claims/{claimId}": {
       "schema": "LostClaim",
       "description": "Returns or claims filed by attendees identifying lost artworks"
+    },
+    "/lost_comments/{commentId}": {
+      "schema": "LostComment",
+      "description": "Public comments / other-recommendation messages written for a lost item"
     }
   }
 }
