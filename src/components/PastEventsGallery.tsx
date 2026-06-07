@@ -90,7 +90,7 @@ export default function PastEventsGallery() {
 
         <div className="w-full max-w-md relative z-10 pt-2">
           <a
-            href="https://drive.google.com/file/d/14ptccZvUnEAfHwP3XT8Rx-lmXecIvaw0/view?usp=drive_link"
+            href="https://drive.google.com/drive/folders/1f0MbW0K8oi9A-JDgvfVvFezOPcQcfxrk?usp=drive_link"
             target="_blank"
             rel="noopener noreferrer"
             className="w-full text-center py-4 px-8 bg-artistic-primary text-white font-black text-base md:text-lg rounded-2xl border-2 border-artistic-text hover:translate-x-1 hover:translate-y-1 hover:shadow-none transition-all flex items-center justify-center gap-3 shadow-[6px_6px_0px_0px_rgba(42,42,42,1)] animate-bounce"

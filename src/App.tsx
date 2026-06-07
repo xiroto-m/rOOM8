@@ -25,7 +25,8 @@ import {
   Sparkles,
   Tv,
   Award,
-  Image as ImageIcon
+  Image as ImageIcon,
+  Menu
 } from "lucide-react";
 import { QRCodeSVG } from "qrcode.react";
 import { EVENT_INFO, SECTIONS, FALLBACK_EVENTS } from "./constants";
@@ -206,6 +207,7 @@ function MainSite() {
   const [deviceId, setDeviceId] = useState<string | null>(null);
   const [youtubeSubCount, setYoutubeSubCount] = useState<number>(10);
   const [activeCatalystTab, setActiveCatalystTab] = useState<"referral" | "media">("referral");
+  const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
 
   // Seed initial creators and media records if Firestore is blank
   useEffect(() => {
@@ -1598,26 +1600,45 @@ function MainSite() {
       {/* Top Header Navigation */}
       <header className={`sticky top-0 z-50 transition-all duration-300 border-artistic-text ${
         isScrolled 
-          ? 'bg-white/80 backdrop-blur-md py-3 border-b shadow-sm' 
-          : 'bg-transparent py-6 md:py-8 border-b-2'
+          ? 'bg-white/90 backdrop-blur-md border-b shadow-sm' 
+          : 'bg-transparent border-b-2'
       }`}>
-        <nav className="px-6 md:px-12 max-w-7xl mx-auto flex flex-col md:flex-row justify-between items-start md:items-center w-full">
+        {/* Highlight Announcement Strip */}
+        <div className="bg-artistic-accent text-artistic-text font-black text-[10px] md:text-xs py-2 px-4 border-b-2 border-artistic-text flex items-center justify-center gap-2">
+          <span className="bg-artistic-pink text-white px-2 py-0.5 rounded-[4px] text-[8px] font-black animate-pulse flex items-center gap-1">
+            NEW
+          </span>
+          <span>📸 過去のイベント写真アルバム（Google Drive）が公開されました！</span>
+          <a
+            href="#past-events"
+            onClick={(e) => scrollToSection(e, 'past-events')}
+            className="underline decoration-wavy decoration-artistic-primary hover:text-artistic-primary transition-all ml-1 text-artistic-primary"
+          >
+            今すぐ見る →
+          </a>
+        </div>
+
+        <nav className={`px-6 md:px-12 max-w-7xl mx-auto flex justify-between items-center w-full transition-all duration-300 ${
+          isScrolled ? 'py-2.5' : 'py-4 md:py-6'
+        }`}>
           <div className="flex flex-col">
             {!isScrolled && (
               <span className="text-[8px] md:text-[10px] tracking-[0.3em] font-black uppercase opacity-40 mb-2 md:mb-3 ml-1 block animate-fade-in">Yoyogi Community Gallery</span>
             )}
             <div className={`transition-all flex items-center group ${
-              isScrolled ? 'h-12 md:h-14' : 'h-20 md:h-28 lg:h-36'
+              isScrolled ? 'h-10 md:h-12' : 'h-16 md:h-24 lg:h-30'
             }`}>
               <a href="#home" onClick={(e) => scrollToSection(e, 'home')} className="h-full block">
                 <LogoElement isScrolled={isScrolled} />
               </a>
             </div>
           </div>
-          <div className="flex flex-col md:items-end gap-1 mt-4 md:mt-0">
+
+          {/* Desktop Navigation - Hidden on mobile, shown on md and larger */}
+          <div className="hidden md:flex flex-col md:items-end gap-1.5">
             {!isScrolled && (
-              <div className="text-left md:text-right hidden sm:block">
-                <p className="text-base md:text-lg font-black leading-tight tracking-tight">
+              <div className="text-right hidden lg:block">
+                <p className="text-sm md:text-base font-black leading-tight tracking-tight">
                   「好き」を持ち寄って<span className="bg-artistic-accent px-1">飾る！語る！繋がる！</span>
                 </p>
               </div>
@@ -1664,7 +1685,7 @@ function MainSite() {
               >
                 <ShoppingBag size={12} /> Shop
               </Link>
-              <div className="hidden md:flex flex-col items-end">
+              <div className="flex flex-col items-end">
                 <a 
                   href="#youtube-registration"
                   onClick={(e) => {
@@ -1676,23 +1697,157 @@ function MainSite() {
                   <Youtube size={12} /> YouTube
                 </a>
               </div>
-              <a 
-                href="#youtube-registration"
-                onClick={(e) => {
-                  scrollToSection(e, 'youtube-registration');
-                  trackAction('click_header_youtube_mobile');
-                }}
-                className="md:hidden flex items-center gap-1.5 px-3 py-1 bg-[#FF0000] text-white rounded-full text-[10px] font-black uppercase tracking-widest hover:scale-105 transition-all shadow-[2px_2px_0px_0px_rgba(42,42,42,1)]"
-              >
-                <Youtube size={12} />
-              </a>
               <Link to="/admin" className="text-[10px] font-black uppercase opacity-30 hover:opacity-100 transition-opacity flex items-center gap-1.5 px-2 py-1 border border-artistic-text/10 rounded-md">
                 <SettingsIcon size={10} /> Admin
               </Link>
             </div>
           </div>
+
+          {/* Hamburger Icon Trigger for Mobile/Tablet */}
+          <div className="md:hidden flex items-center gap-3">
+            <button
+              onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
+              className="p-2.5 bg-white border-2 border-artistic-text rounded-xl hover:scale-105 active:scale-95 transition-all shadow-[2px_2px_0px_0px_rgba(42,42,42,1)] flex items-center justify-center text-artistic-text z-50 relative"
+              aria-label="Toggle Menu"
+            >
+              {/* Pulsing indicator dot highlighting new item in the menu */}
+              {!isMobileMenuOpen && (
+                <span className="absolute -top-1.5 -right-1.5 flex h-3.5 w-3.5 z-50">
+                  <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-artistic-pink opacity-75" />
+                  <span className="relative inline-flex rounded-full h-3.5 w-3.5 bg-artistic-pink border border-white" />
+                </span>
+              )}
+              <AnimatePresence mode="wait" initial={false}>
+                <motion.div
+                  key={isMobileMenuOpen ? "close" : "menu"}
+                  initial={{ rotate: -45, opacity: 0 }}
+                  animate={{ rotate: 0, opacity: 1 }}
+                  exit={{ rotate: 45, opacity: 0 }}
+                  transition={{ duration: 0.15 }}
+                >
+                  {isMobileMenuOpen ? <X size={20} strokeWidth={3} /> : <Menu size={20} strokeWidth={3} />}
+                </motion.div>
+              </AnimatePresence>
+            </button>
+          </div>
         </nav>
       </header>
+
+      {/* Mobile Menu Slide-Out Drawer overlay */}
+      <AnimatePresence>
+        {isMobileMenuOpen && (
+          <div className="fixed inset-0 z-40 md:hidden">
+            {/* Backdrop cover */}
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              transition={{ duration: 0.2 }}
+              className="absolute inset-0 bg-artistic-text/40 backdrop-blur-sm"
+              onClick={() => setIsMobileMenuOpen(false)}
+            />
+            {/* Slide-out Panel */}
+            <motion.div
+              initial={{ x: "100%" }}
+              animate={{ x: 0 }}
+              exit={{ x: "100%" }}
+              transition={{ type: "spring", damping: 25, stiffness: 220 }}
+              className="absolute top-0 right-0 w-[80%] max-w-xs h-full bg-white border-l-4 border-artistic-text shadow-[-6px_0px_0px_0px_rgba(42,42,42,1)] p-6 pt-24 flex flex-col justify-between overflow-y-auto"
+            >
+              <div className="space-y-4">
+                <span className="text-[10px] font-black uppercase tracking-widest text-stone-400 block ml-1">Menu Navigation</span>
+                
+                <div className="flex flex-col gap-2">
+                  <a 
+                    href="#about" 
+                    onClick={(e) => {
+                      setIsMobileMenuOpen(false);
+                      scrollToSection(e, 'about');
+                    }}
+                    className="w-full text-left py-3 px-4 rounded-xl border-2 border-transparent hover:border-artistic-text hover:bg-artistic-accent hover:text-artistic-text transition-all font-black text-sm flex items-center justify-between"
+                  >
+                    <span>About Us</span>
+                    <span className="text-[9px] font-medium opacity-50">概要</span>
+                  </a>
+
+                  <a 
+                    href="#party-connect" 
+                    onClick={(e) => {
+                      setIsMobileMenuOpen(false);
+                      setActiveCatalystTab("referral");
+                      scrollToSection(e, 'party-connect');
+                    }}
+                    className="w-full text-left py-3 px-4 rounded-xl border-2 border-transparent hover:border-artistic-text hover:bg-artistic-accent hover:text-artistic-text transition-all font-black text-sm flex items-center justify-between"
+                  >
+                    <span>他己紹介</span>
+                    <span className="text-[9px] font-medium opacity-50">メンバー</span>
+                  </a>
+
+                  <a 
+                    href="#lost-items" 
+                    onClick={(e) => {
+                      setIsMobileMenuOpen(false);
+                      scrollToSection(e, 'lost-items');
+                    }}
+                    className="w-full text-left py-3 px-4 rounded-xl border-2 border-transparent hover:border-artistic-text hover:bg-white hover:text-artistic-text text-[#D4AF37] transition-all font-black text-sm flex items-center justify-between"
+                  >
+                    <span className="flex items-center gap-2"><Award size={16} /> 忘れ物</span>
+                    <span className="text-[9px] font-medium opacity-50">Lost & Found</span>
+                  </a>
+
+                  <a 
+                    href="#past-events" 
+                    onClick={(e) => {
+                      setIsMobileMenuOpen(false);
+                      scrollToSection(e, 'past-events');
+                    }}
+                    className="w-full text-left py-3 px-4 rounded-xl border-2 border-transparent hover:border-artistic-text hover:bg-white hover:text-artistic-text text-artistic-primary transition-all font-black text-sm flex items-center justify-between"
+                  >
+                    <span className="flex items-center gap-2"><ImageIcon size={16} /> イベント写真</span>
+                    <span className="text-[9px] font-medium opacity-50">Gallery</span>
+                  </a>
+
+                  <Link
+                    to="/shop"
+                    onClick={() => {
+                      setIsMobileMenuOpen(false);
+                      trackAction('click_header_shop');
+                    }}
+                    className="w-full text-left py-3 px-4 rounded-xl border-2 border-transparent hover:border-artistic-text hover:bg-white text-artistic-pink transition-all font-black text-sm flex items-center justify-between"
+                  >
+                    <span className="flex items-center gap-2"><ShoppingBag size={16} /> Shop</span>
+                    <span className="text-[9px] font-medium opacity-50">ストア</span>
+                  </Link>
+                </div>
+
+                <div className="pt-2 border-t border-stone-100">
+                  <a 
+                    href="#youtube-registration"
+                    onClick={(e) => {
+                      setIsMobileMenuOpen(false);
+                      scrollToSection(e, 'youtube-registration');
+                      trackAction('click_header_youtube_mobile');
+                    }}
+                    className="flex items-center justify-center gap-2 w-full py-3 bg-[#FF0000] text-white rounded-xl text-xs font-black uppercase tracking-wider hover:scale-[1.02] active:scale-100 transition-all shadow-[3px_3px_0px_0px_rgba(42,42,42,1)] border-2 border-artistic-text"
+                  >
+                    <Youtube size={16} /> YouTube チャンネル登録
+                  </a>
+                </div>
+              </div>
+
+              <div className="pt-4 border-t border-stone-100">
+                <Link 
+                  to="/admin" 
+                  onClick={() => setIsMobileMenuOpen(false)}
+                  className="text-[10px] font-black uppercase text-stone-400 hover:text-artistic-text transition-colors flex items-center justify-center gap-1.5 py-2.5 bg-stone-50 hover:bg-stone-100 border rounded-lg w-full"
+                >
+                  <SettingsIcon size={12} /> 管理者用設定 (Admin)
+                </Link>
+              </div>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
 
       {/* Hero Section */}
       <Section id="home" className="relative" innerClassName="grid lg:grid-cols-12 gap-6 pt-8 md:pt-16 pb-16 md:pb-24">
