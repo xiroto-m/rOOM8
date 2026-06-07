@@ -91,6 +91,19 @@
       },
       "required": ["url", "createdAt", "order"]
     },
+    "PastEventPhoto": {
+      "title": "Past Event Photo",
+      "description": "A photo taken at a past event",
+      "type": "object",
+      "properties": {
+        "eventId": { "type": "string" },
+        "url": { "type": "string" },
+        "caption": { "type": "string" },
+        "createdAt": { "type": "number" },
+        "order": { "type": "number" }
+      },
+      "required": ["eventId", "url", "createdAt", "order"]
+    },
     "Product": {
       "title": "Product",
       "description": "Artwork or goods for sale",
@@ -240,6 +253,10 @@
     "/gallery/{imageId}": {
       "schema": "GalleryImage",
       "description": "Gallery images"
+    },
+    "/past_event_photos/{photoId}": {
+      "schema": "PastEventPhoto",
+      "description": "Photos of past events"
     },
     "/products/{productId}": {
       "schema": "Product",

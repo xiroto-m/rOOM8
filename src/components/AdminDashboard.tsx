@@ -41,7 +41,7 @@ import { EVENT_INFO } from '../constants';
 import { formatEventDate, isPastEvent } from '../lib/dateUtils';
 import { ensureSeedData } from '../lib/seedData';
 import { Link } from 'react-router-dom';
-import { LogIn, LogOut, Save, AlertCircle, CheckCircle, ArrowLeft, ArrowRight, ArrowUp, ArrowDown, Plus, Trash2, Edit2, Calendar, Settings, Copy, Heart, BarChart3, Download, Upload, Monitor, Clock, Users, ShoppingBag, Award, Sparkles } from 'lucide-react';
+import { LogIn, LogOut, Save, AlertCircle, CheckCircle, ArrowLeft, ArrowRight, ArrowUp, ArrowDown, Plus, Trash2, Edit2, Calendar, Settings, Copy, Heart, BarChart3, Download, Upload, Monitor, Clock, Users, ShoppingBag, Award, Sparkles, Camera } from 'lucide-react';
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, PieChart, Pie, Cell, Legend, BarChart, Bar } from 'recharts';
 import Papa from 'papaparse';
 
@@ -841,6 +841,7 @@ export default function AdminDashboard() {
   const [editingCreator, setEditingCreator] = useState<Creator | null>(null);
   const [editingLostItem, setEditingLostItem] = useState<any | null>(null);
   const [deletingEventId, setDeletingEventId] = useState<string | null>(null);
+  const [managingPhotosEventId, setManagingPhotosEventId] = useState<string | null>(null);
   const [deletingProductId, setDeletingProductId] = useState<string | null>(null);
   const [deletingCreatorId, setDeletingCreatorId] = useState<string | null>(null);
   const [deletingLostItemId, setDeletingLostItemId] = useState<string | null>(null);

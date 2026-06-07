@@ -311,4 +311,57 @@ export async function ensureSeedData() {
   } catch (error) {
     console.warn("Seeding lost items failed:", error);
   }
+
+  // 6. Seed Past Event Photos if empty
+  try {
+    const photosRef = collection(db, "past_event_photos");
+    const snapshot = await getDocs(photosRef);
+    if (snapshot.empty) {
+      console.log("Seeding initial past event photos...");
+      const batch = writeBatch(db);
+      
+      const seedPhotos = [
+        {
+          id: "photo_boardgame_1",
+          eventId: "e1",
+          url: "https://lh3.googleusercontent.com/d/14ptccZvUnEAfHwP3XT8Rx-lmXecIvaw0", // User-provided photo of the past event
+          caption: "前回のボードゲームナイトの一コマ。みんな夢中にダイスを振って楽しんでいます！🎲",
+          createdAt: Date.now() - 3 * 24 * 60 * 60 * 1000,
+          order: 0
+        },
+        {
+          id: "photo_boardgame_2",
+          eventId: "e1",
+          url: "https://images.unsplash.com/photo-1610890716171-6b1bb98ffd09?w=800&auto=format&fit=crop&q=80",
+          caption: "ボードをずらりと並べて。ルール説明も盛り上がりました！🔥",
+          createdAt: Date.now() - 2 * 24 * 60 * 60 * 1000,
+          order: 1
+        },
+        {
+          id: "photo_skybar_1",
+          eventId: "e2",
+          url: "https://images.unsplash.com/photo-1543007630-9710e4a00a20?w=800&auto=format&fit=crop&q=80",
+          caption: "代々木の心地良い風を感じながら、持ち寄ったドリンクで乾杯！🥂",
+          createdAt: Date.now() - 1 * 24 * 60 * 60 * 1000,
+          order: 0
+        },
+        {
+          id: "photo_skybar_2",
+          eventId: "e2",
+          url: "https://images.unsplash.com/photo-1517457373958-b7bdd4587205?w=800&auto=format&fit=crop&q=80",
+          caption: "暮れゆく街並みを眺めながら、音楽と一緒にチルアウト。🌆",
+          createdAt: Date.now(),
+          order: 1
+        }
+      ];
+
+      for (const photo of seedPhotos) {
+        batch.set(doc(db, "past_event_photos", photo.id), photo);
+      }
+      await batch.commit();
+      console.log("Seeding past event photos completed!");
+    }
+  } catch (error) {
+    console.warn("Seeding past event photos failed:", error);
+  }
 }

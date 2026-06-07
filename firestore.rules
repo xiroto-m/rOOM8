@@ -97,6 +97,15 @@ service cloud.firestore {
         && (data.order is int || data.order is float);
     }
 
+    function isValidPastEventPhoto(data) {
+      return data.keys().hasAll(['eventId', 'url', 'createdAt', 'order'])
+        && data.eventId is string && data.eventId.size() <= 128
+        && data.url is string && data.url.size() <= 2000000
+        && (data.createdAt is int || data.createdAt is float)
+        && (data.order is int || data.order is float)
+        && (!data.keys().hasAny(['caption']) || (data.caption is string && data.caption.size() <= 1000));
+    }
+
     function isValidProduct(data) {
       return data.keys().hasAll(['name', 'price', 'currency', 'status', 'createdAt', 'order', 'updatedAt'])
         && data.name is string && data.name.size() <= 200
@@ -245,6 +254,12 @@ service cloud.firestore {
       allow read: if true;
       allow create, update: if isAdmin() && isValidId(imageId) && isValidGalleryImage(incoming());
       allow delete: if isAdmin() && isValidId(imageId);
+    }
+
+    match /past_event_photos/{photoId} {
+      allow read: if true;
+      allow create, update: if isAdmin() && isValidId(photoId) && isValidPastEventPhoto(incoming());
+      allow delete: if isAdmin() && isValidId(photoId);
     }
 
     match /products/{productId} {
