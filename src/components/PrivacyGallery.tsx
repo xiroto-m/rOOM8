@@ -321,12 +321,7 @@ export default function PrivacyGallery() {
               ギャラリーに写真を追加して公開できます。<br />
               アップロード前に顔などをなぞると、モザイク処理ができるプライバシーフィルター機能付きです。
             </p>
-          ) : (
-            <p className="text-artistic-text/70 font-bold max-w-xl">
-              ルームエイトの思い出ギャラリーです。<br />
-              （※プライバシー保護のため、一部画像を加工しています）
-            </p>
-          )}
+          ) : null}
         </div>
         
         {isEditMode && (
