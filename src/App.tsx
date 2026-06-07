@@ -37,6 +37,7 @@ import LostItemsGallery from "./components/LostItemsGallery";
 import Shop from "./components/Shop";
 import ReferralSection from "./components/ReferralSection";
 import MediaSection from "./components/MediaSection";
+import QuickNavMenu from "./components/QuickNavMenu";
 import { ensureSeedData } from "./lib/seedData";
 import { db, EventItem, auth } from "./lib/firebase";
 import { formatEventDate, isPastEvent } from "./lib/dateUtils";
@@ -1659,7 +1660,7 @@ function MainSite() {
                 }}
                 className="text-[10px] font-black uppercase tracking-widest hover:text-artistic-primary transition-colors cursor-pointer"
               >
-                他己紹介
+                クリエイター紹介
               </a>
 
               <a 
@@ -1683,7 +1684,7 @@ function MainSite() {
                 onClick={() => trackAction('click_header_shop')}
                 className="text-[10px] font-black uppercase tracking-widest text-artistic-pink hover:text-artistic-primary transition-colors flex items-center gap-1"
               >
-                <ShoppingBag size={12} /> Shop
+                <ShoppingBag size={12} /> TapTack (Shop)
               </Link>
               <div className="flex flex-col items-end">
                 <a 
@@ -1779,8 +1780,8 @@ function MainSite() {
                     }}
                     className="w-full text-left py-3 px-4 rounded-xl border-2 border-transparent hover:border-artistic-text hover:bg-artistic-accent hover:text-artistic-text transition-all font-black text-sm flex items-center justify-between"
                   >
-                    <span>他己紹介</span>
-                    <span className="text-[9px] font-medium opacity-50">メンバー</span>
+                    <span>クリエイター紹介</span>
+                    <span className="text-[9px] font-medium opacity-50">Creators</span>
                   </a>
 
                   <a 
@@ -1815,7 +1816,7 @@ function MainSite() {
                     }}
                     className="w-full text-left py-3 px-4 rounded-xl border-2 border-transparent hover:border-artistic-text hover:bg-white text-artistic-pink transition-all font-black text-sm flex items-center justify-between"
                   >
-                    <span className="flex items-center gap-2"><ShoppingBag size={16} /> Shop</span>
+                    <span className="flex items-center gap-2"><ShoppingBag size={16} /> TapTack (Shop)</span>
                     <span className="text-[9px] font-medium opacity-50">ストア</span>
                   </Link>
                 </div>
@@ -2510,11 +2511,11 @@ function MainSite() {
                   <div className="w-14 h-14 md:w-20 md:h-20 bg-white rounded-3xl flex items-center justify-center p-3 shadow-[8px_8px_0px_0px_rgba(255,107,107,1)] rotate-3 hover:-rotate-6 transition-transform group-hover:scale-110 duration-500">
                     <img src="https://lh3.googleusercontent.com/d/13uUJp8IusBZmEpYpJlamALpv6vFwJ2lh" alt="rOOM8" className="w-full h-full object-contain" />
                   </div>
-                  <span className="text-[10px] md:text-sm font-black tracking-[0.4em] text-artistic-accent">PRODUCT FROM rOOM8</span>
+                  <span className="text-[10px] md:text-sm font-black tracking-[0.4em] text-artistic-accent">JOINT DEVELOPMENT APP</span>
                 </div>
                 <h2 className="text-4xl md:text-6xl font-black mb-8 leading-tight tracking-[-0.04em]">
-                  コミュニティから生まれた<br />
-                  新しい体験。
+                  共同開発アプリ<br />
+                  TapTack
                 </h2>
                 
                 <div className="space-y-8 mt-12">
@@ -2695,6 +2696,9 @@ function MainSite() {
           onClose={() => setSelectedEvent(null)} 
         />
       )}
+
+      {/* Quick Access Section Navigation Guide */}
+      <QuickNavMenu onTrackAction={trackAction} />
       </div>
     </div>
   );

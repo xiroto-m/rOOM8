@@ -306,7 +306,7 @@ export default function PrivacyGallery() {
       <div className="flex flex-col md:flex-row justify-between items-end mb-10 gap-6">
         <div>
           <h2 className="text-3xl md:text-5xl font-black mb-4 flex items-center gap-3 tracking-tighter">
-            <Camera className="text-artistic-pink" size={36} strokeWidth={3} /> Collage Gallery
+            <Camera className="text-artistic-pink" size={36} strokeWidth={3} /> ROOM8's Atmosphere
             {isAdmin && (
               <button 
                 onClick={() => setIsEditMode(!isEditMode)}
