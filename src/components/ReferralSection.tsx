@@ -238,10 +238,10 @@ export default function ReferralSection({ userIP, deviceId }: { userIP: string |
       updatedPosted.delete(referralToDelete.id!);
       setMyPostedReferrals(updatedPosted);
       localStorage.setItem("rOOM8_posted_referrals", JSON.stringify(Array.from(updatedPosted)));
-      showToast("他己紹介を削除しました。");
+      showToast("作家紹介を削除しました。");
     } catch (err) {
       console.error("Failed to delete referral:", err);
-      showToast("他己紹介の削除に失敗しました。");
+      showToast("作家紹介の削除に失敗しました。");
     } finally {
       setReferralToDelete(null);
     }
@@ -279,7 +279,7 @@ export default function ReferralSection({ userIP, deviceId }: { userIP: string |
         updatedPosted.add(docRef.id);
         setMyPostedReferrals(updatedPosted);
         localStorage.setItem("rOOM8_posted_referrals", JSON.stringify(Array.from(updatedPosted)));
-        showToast("他己紹介の紹介状が爆誕しました！🎉");
+        showToast("作家紹介の紹介状が爆誕しました！🎉");
       }
 
       // Expand comments for this creator automatically so the user can see their review post!
@@ -320,10 +320,10 @@ export default function ReferralSection({ userIP, deviceId }: { userIP: string |
       {/* 1. Header / Intro Block */}
       <div className="text-center max-w-2xl mx-auto space-y-4">
         <span className="bg-artistic-pink text-white text-[11px] font-black uppercase tracking-[0.2em] px-4 py-1.5 rounded-full border border-artistic-text shadow-[2px_2px_0px_0px_rgba(42,42,42,1)] inline-block">
-          Other-Introduction Matching (他己紹介)
+          Artist Matching & Introduction (作家紹介)
         </span>
         <h2 className="text-4xl md:text-5xl font-black italic tracking-tighter text-artistic-text">
-          他己紹介ボード 🤝
+          作家紹介ボード 🤝
         </h2>
         <p className="font-bold text-stone-600 leading-relaxed text-sm md:text-base">
           「あのクリエイターの作品がめちゃくちゃ良かった！」「ぜひ他の人にも紹介したい！」<br className="hidden md:block" />
@@ -334,7 +334,7 @@ export default function ReferralSection({ userIP, deviceId }: { userIP: string |
       {/* 2. Primary Creators Grid & Interactive Referrals */}
       <div className="space-y-6">
         <h3 className="text-xl md:text-2xl font-black flex items-center gap-2 border-b-2 border-artistic-text pb-2">
-          <Sparkles className="text-artistic-accent" /> 1. クリエイターと他己紹介の一覧 ✨
+          <Sparkles className="text-artistic-accent" /> 1. 作家紹介の一覧 ✨
         </h3>
         {loading ? (
           <div className="grid md:grid-cols-3 gap-6">
@@ -679,7 +679,7 @@ export default function ReferralSection({ userIP, deviceId }: { userIP: string |
                 <X size={18} />
               </button>
 
-              <h4 className="font-black text-lg mb-2 italic">他己紹介をシェア！📱</h4>
+              <h4 className="font-black text-lg mb-2 italic">作家紹介をシェア！📱</h4>
               <p className="text-xs text-stone-500 font-bold mb-6">
                 会場にいる別のゲストがスマホカメラでスキャンすると、紹介内容とお喋りトリップ（アイスブレイク）がスタートします。
               </p>
@@ -744,7 +744,7 @@ export default function ReferralSection({ userIP, deviceId }: { userIP: string |
                     <span className="text-artistic-primary underline decoration-artistic-accent">{activeReferral.introducerName}</span> さん推薦！
                   </h4>
                   <p className="text-xs text-stone-500 font-bold mb-4">
-                    他己紹介状をスキャンし、おすすめの紹介を読み込みました！✨
+                    作家紹介状をスキャンし、おすすめの紹介を読み込みました！✨
                   </p>
                   
                   {/* Creator card inside */}
@@ -881,7 +881,7 @@ export default function ReferralSection({ userIP, deviceId }: { userIP: string |
                   本当に削除しますか？
                 </h4>
                 <p className="text-xs text-stone-500 font-bold leading-relaxed">
-                  この操作を実行すると、この他己紹介の紹介状データは完全に削除され、復元することはできません。
+                  この操作を実行すると、この作家紹介の紹介状データは完全に削除され、復元することはできません。
                 </p>
                 
                 <div className="flex gap-3 pt-4">

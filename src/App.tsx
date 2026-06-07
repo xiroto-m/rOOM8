@@ -26,7 +26,8 @@ import {
   Tv,
   Award,
   Image as ImageIcon,
-  Menu
+  Menu,
+  Smartphone
 } from "lucide-react";
 import { QRCodeSVG } from "qrcode.react";
 import { EVENT_INFO, SECTIONS, FALLBACK_EVENTS } from "./constants";
@@ -1660,7 +1661,7 @@ function MainSite() {
                 }}
                 className="text-[10px] font-black uppercase tracking-widest hover:text-artistic-primary transition-colors cursor-pointer"
               >
-                クリエイター紹介
+                作家紹介
               </a>
 
               <a 
@@ -1679,12 +1680,20 @@ function MainSite() {
                 <ImageIcon size={12} /> イベント写真
               </a>
 
+              <a 
+                href="#products" 
+                onClick={(e) => scrollToSection(e, 'products')}
+                className="text-[10px] font-black uppercase tracking-widest text-emerald-600 hover:text-artistic-primary transition-colors flex items-center gap-1 cursor-pointer"
+              >
+                <Smartphone size={12} /> TapTack
+              </a>
+
               <Link
                 to="/shop"
                 onClick={() => trackAction('click_header_shop')}
                 className="text-[10px] font-black uppercase tracking-widest text-artistic-pink hover:text-artistic-primary transition-colors flex items-center gap-1"
               >
-                <ShoppingBag size={12} /> TapTack (Shop)
+                <ShoppingBag size={12} /> ストア
               </Link>
               <div className="flex flex-col items-end">
                 <a 
@@ -1767,7 +1776,7 @@ function MainSite() {
                     }}
                     className="w-full text-left py-3 px-4 rounded-xl border-2 border-transparent hover:border-artistic-text hover:bg-artistic-accent hover:text-artistic-text transition-all font-black text-sm flex items-center justify-between"
                   >
-                    <span>About Us</span>
+                    <span className="flex items-center gap-2"><Heart size={16} /> About Us</span>
                     <span className="text-[9px] font-medium opacity-50">概要</span>
                   </a>
 
@@ -1780,8 +1789,8 @@ function MainSite() {
                     }}
                     className="w-full text-left py-3 px-4 rounded-xl border-2 border-transparent hover:border-artistic-text hover:bg-artistic-accent hover:text-artistic-text transition-all font-black text-sm flex items-center justify-between"
                   >
-                    <span>クリエイター紹介</span>
-                    <span className="text-[9px] font-medium opacity-50">Creators</span>
+                    <span className="flex items-center gap-2"><Users size={16} /> 作家紹介</span>
+                    <span className="text-[9px] font-medium opacity-50">Artists</span>
                   </a>
 
                   <a 
@@ -1808,6 +1817,18 @@ function MainSite() {
                     <span className="text-[9px] font-medium opacity-50">Gallery</span>
                   </a>
 
+                   <a
+                    href="#products"
+                    onClick={(e) => {
+                      setIsMobileMenuOpen(false);
+                      scrollToSection(e, 'products');
+                    }}
+                    className="w-full text-left py-3 px-4 rounded-xl border-2 border-transparent hover:border-artistic-text hover:bg-white text-emerald-600 transition-all font-black text-sm flex items-center justify-between"
+                  >
+                    <span className="flex items-center gap-2"><Smartphone size={16} /> TapTack</span>
+                    <span className="text-[9px] font-medium opacity-50">App</span>
+                  </a>
+
                   <Link
                     to="/shop"
                     onClick={() => {
@@ -1816,8 +1837,8 @@ function MainSite() {
                     }}
                     className="w-full text-left py-3 px-4 rounded-xl border-2 border-transparent hover:border-artistic-text hover:bg-white text-artistic-pink transition-all font-black text-sm flex items-center justify-between"
                   >
-                    <span className="flex items-center gap-2"><ShoppingBag size={16} /> TapTack (Shop)</span>
-                    <span className="text-[9px] font-medium opacity-50">ストア</span>
+                    <span className="flex items-center gap-2"><ShoppingBag size={16} /> ストア</span>
+                    <span className="text-[9px] font-medium opacity-50">Shop</span>
                   </Link>
                 </div>
 
@@ -2429,7 +2450,7 @@ function MainSite() {
                     : "text-stone-500 hover:text-artistic-text"
                 }`}
               >
-                <Users size={16} /> 他己紹介ボード
+                <Users size={16} /> 作家紹介ボード
               </button>
               <button
                 onClick={() => {
@@ -2514,7 +2535,6 @@ function MainSite() {
                   <span className="text-[10px] md:text-sm font-black tracking-[0.4em] text-artistic-accent">JOINT DEVELOPMENT APP</span>
                 </div>
                 <h2 className="text-4xl md:text-6xl font-black mb-8 leading-tight tracking-[-0.04em]">
-                  共同開発アプリ<br />
                   TapTack
                 </h2>
                 

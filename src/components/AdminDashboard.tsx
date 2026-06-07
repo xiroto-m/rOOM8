@@ -2233,14 +2233,14 @@ export default function AdminDashboard() {
           <div className="space-y-10 animate-in fade-in slide-in-from-bottom-4">
             <div className="flex flex-col md:flex-row md:items-center justify-between gap-6">
               <div>
-                <h2 className="text-4xl font-black italic">他己紹介クリエイター一覧</h2>
-                <p className="text-sm font-bold opacity-60">他己紹介ボードに表示されるクリエイターを登録・管理します。</p>
+                <h2 className="text-4xl font-black italic">紹介作家一覧</h2>
+                <p className="text-sm font-bold opacity-60">作家紹介ボードに表示される作家を登録・管理します。</p>
               </div>
               <button 
                 onClick={startNewCreator}
                 className="bg-artistic-accent text-artistic-text font-black px-8 py-4 rounded-xl border-2 border-artistic-text shadow-[4px_4px_0px_0px_rgba(42,42,42,1)] hover:scale-105 active:scale-95 transition-all flex items-center gap-2 justify-center"
               >
-                <Plus size={20} /> クリエイターを追加
+                <Plus size={20} /> 作家を追加
               </button>
             </div>
 
