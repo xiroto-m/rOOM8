@@ -50,6 +50,7 @@ export default function ReferralSection({ userIP, deviceId }: { userIP: string |
   const [targetReferralScan, setTargetReferralScan] = useState<Referral | null>(null);
   const [isScanningSim, setIsScanningSim] = useState(false);
   const [manualCode, setManualCode] = useState("");
+  const [showClearConfirm, setShowClearConfirm] = useState(false);
 
   // Account-free guest collections state
   const [metReferralIds, setMetReferralIds] = useState<Set<string>>(() => {
@@ -543,19 +544,42 @@ export default function ReferralSection({ userIP, deviceId }: { userIP: string |
                   QRスキャンやコード入力で出会った紹介状が、あなたのスマホに「名鑑」として自動ストックされます！💾
                 </p>
               </div>
-              {metList.length > 0 && (
+              {!showClearConfirm ? (
                 <button
+                  type="button"
                   onClick={() => {
-                    if (confirm("名鑑の履歴を全てクリアしますか？（ローカル保存）")) {
-                      setMetReferralIds(new Set());
-                      localStorage.removeItem("rOOM8_met_referrals");
-                      showToast("コレクションのあしあとをリセットしました。🧹");
-                    }
+                    setShowClearConfirm(true);
                   }}
-                  className="text-[10px] font-black text-stone-400 hover:text-red-500 border border-stone-200 hover:border-red-200 px-3 py-1.5 rounded-xl transition-colors shrink-0"
+                  className="text-[10px] font-black text-stone-400 hover:text-red-500 border border-stone-200 hover:border-red-200 px-3 py-2 rounded-xl transition-colors shrink-0 flex items-center gap-1 cursor-pointer bg-stone-50 hover:bg-stone-100"
                 >
-                  履歴をクリア
+                  🗑️ 履歴をクリア
                 </button>
+              ) : (
+                <div className="flex items-center gap-2 shrink-0">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setMetReferralIds(new Set());
+                      setLikedReferrals(new Set());
+                      setMyPostedReferrals(new Set());
+                      localStorage.removeItem("rOOM8_met_referrals");
+                      localStorage.removeItem("rOOM8_liked_referrals");
+                      localStorage.removeItem("rOOM8_posted_referrals");
+                      setShowClearConfirm(false);
+                      showToast("すべての体験履歴（あしあと・いいね・投稿キャッシュ）をリセットしました！✨");
+                    }}
+                    className="text-[10px] font-black text-white bg-red-600 hover:bg-red-700 px-3 py-2 rounded-xl transition-all cursor-pointer animate-pulse border border-red-800"
+                  >
+                    💥 本当に全てリセットする
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setShowClearConfirm(false)}
+                    className="text-[10px] font-black text-stone-500 hover:text-stone-700 bg-stone-100 hover:bg-stone-200 px-2.5 py-2 rounded-xl border border-stone-200 cursor-pointer"
+                  >
+                    キャンセル
+                  </button>
+                </div>
               )}
             </div>
 

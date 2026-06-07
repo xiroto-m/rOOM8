@@ -37,7 +37,6 @@ import PastEventsGallery from "./components/PastEventsGallery";
 import LostItemsGallery from "./components/LostItemsGallery";
 import Shop from "./components/Shop";
 import ReferralSection from "./components/ReferralSection";
-import MediaSection from "./components/MediaSection";
 import QuickNavMenu from "./components/QuickNavMenu";
 import { ensureSeedData } from "./lib/seedData";
 import { db, EventItem, auth } from "./lib/firebase";
@@ -208,7 +207,6 @@ function MainSite() {
   const [userIP, setUserIP] = useState<string | null>(null);
   const [deviceId, setDeviceId] = useState<string | null>(null);
   const [youtubeSubCount, setYoutubeSubCount] = useState<number>(10);
-  const [activeCatalystTab, setActiveCatalystTab] = useState<"referral" | "media">("referral");
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
 
   // Seed initial creators and media records if Firestore is blank
@@ -1655,10 +1653,7 @@ function MainSite() {
               </a>
               <a 
                 href="#party-connect" 
-                onClick={(e) => {
-                  setActiveCatalystTab("referral");
-                  scrollToSection(e, 'party-connect');
-                }}
+                onClick={(e) => scrollToSection(e, 'party-connect')}
                 className="text-[10px] font-black uppercase tracking-widest hover:text-artistic-primary transition-colors cursor-pointer"
               >
                 作家紹介
@@ -1784,7 +1779,6 @@ function MainSite() {
                     href="#party-connect" 
                     onClick={(e) => {
                       setIsMobileMenuOpen(false);
-                      setActiveCatalystTab("referral");
                       scrollToSection(e, 'party-connect');
                     }}
                     className="w-full text-left py-3 px-4 rounded-xl border-2 border-transparent hover:border-artistic-text hover:bg-artistic-accent hover:text-artistic-text transition-all font-black text-sm flex items-center justify-between"
@@ -2428,71 +2422,15 @@ function MainSite() {
         </motion.div>
       </Section>
 
-      {/* Conversation Catalysts Tab Board */}
+      {/* Conversation Catalysts (Creator Referral Card Scan) */}
       <Section id="party-connect" className="py-24 bg-[#FFFDF9] border-y-4 border-artistic-text relative overflow-hidden">
         {/* Abstract background decorative spark */}
         <div className="absolute top-10 right-10 opacity-10 animate-pulse text-artistic-pink">
           <Sparkles size={120} />
         </div>
         
-        <div className="max-w-5xl mx-auto space-y-12 relative z-10">
-          {/* Custom Neo-Brutalist Segmented Control */}
-          <div className="flex justify-center">
-            <div className="inline-flex bg-white border-4 border-artistic-text p-2 rounded-[2rem] shadow-[6px_6px_0px_0px_rgba(42,42,42,1)] overflow-hidden">
-              <button
-                onClick={() => {
-                  setActiveCatalystTab("referral");
-                  trackAction("click_catalyst_tab_referral");
-                }}
-                className={`px-6 md:px-10 py-3 md:py-4 rounded-[1.5rem] font-black text-xs md:text-sm transition-all flex items-center gap-2 ${
-                  activeCatalystTab === "referral"
-                    ? "bg-artistic-primary text-white border-2 border-artistic-text shadow-[2px_2px_0px_0px_rgba(42,42,42,1)]"
-                    : "text-stone-500 hover:text-artistic-text"
-                }`}
-              >
-                <Users size={16} /> 作家紹介ボード
-              </button>
-              <button
-                onClick={() => {
-                  setActiveCatalystTab("media");
-                  trackAction("click_catalyst_tab_media");
-                }}
-                className={`px-6 md:px-10 py-3 md:py-4 rounded-[1.5rem] font-black text-xs md:text-sm transition-all flex items-center gap-2 ${
-                  activeCatalystTab === "media"
-                    ? "bg-artistic-accent text-artistic-text border-2 border-artistic-text shadow-[2px_2px_0px_0px_rgba(42,42,42,1)]"
-                    : "text-stone-500 hover:text-artistic-text"
-                }`}
-              >
-                <Tv size={16} /> ミニ解説シアター & 投げ銭
-              </button>
-            </div>
-          </div>
-
-          <div className="bg-white/40 p-2 md:p-8 rounded-[3rem] border-2 border-dashed border-stone-200">
-            <AnimatePresence mode="wait">
-              {activeCatalystTab === "referral" ? (
-                <motion.div
-                  key="referral"
-                  initial={{ opacity: 0, y: 10 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  exit={{ opacity: 0, y: -10 }}
-                  transition={{ duration: 0.2 }}
-                >
-                  <ReferralSection userIP={userIP} deviceId={deviceId} />
-                </motion.div>
-              ) : (
-                <motion.div
-                  key="media"
-                  initial={{ opacity: 0, y: 10 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  exit={{ opacity: 0, y: -10 }}
-                  transition={{ duration: 0.2 }}
-                >
-                  <MediaSection userIP={userIP} deviceId={deviceId} />
-                </motion.div>
-              )}
-            </AnimatePresence>
-          </div>
+        <div className="max-w-5xl mx-auto z-10 relative">
+          <ReferralSection userIP={userIP} deviceId={deviceId} />
         </div>
       </Section>
 
