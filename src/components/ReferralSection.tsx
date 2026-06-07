@@ -19,9 +19,12 @@ import {
   MessageCircle,
   Clock,
   Edit2,
-  Trash2
+  Trash2,
+  Camera,
+  RefreshCw
 } from "lucide-react";
 import { QRCodeSVG } from "qrcode.react";
+import { Html5Qrcode } from "html5-qrcode";
 import { db, auth } from "../lib/firebase";
 import { onAuthStateChanged } from "firebase/auth";
 import { CreatorCard, Referral } from "../types";
@@ -51,6 +54,11 @@ export default function ReferralSection({ userIP, deviceId }: { userIP: string |
   const [isScanningSim, setIsScanningSim] = useState(false);
   const [manualCode, setManualCode] = useState("");
   const [showClearConfirm, setShowClearConfirm] = useState(false);
+
+  // REAL CAMERA QR SCANNER ENGINE
+  const [isScanningReal, setIsScanningReal] = useState(false);
+  const [cameraError, setCameraError] = useState<string | null>(null);
+  const [activeFacingMode, setActiveFacingMode] = useState<"environment" | "user">("environment");
 
   // Account-free guest collections state
   const [metReferralIds, setMetReferralIds] = useState<Set<string>>(() => {
@@ -128,6 +136,101 @@ export default function ReferralSection({ userIP, deviceId }: { userIP: string |
       showToast(`「${selected.introducerName}」さんの紹介をピピッ！と読み込み完了！🎨`);
     }, 1500); // 1.5s visual scanner animation
   };
+
+  const handleScannedCode = async (scannedText: string) => {
+    let cleanedId = scannedText.trim();
+    if (cleanedId.includes("referral_")) {
+      const match = cleanedId.match(/referral_([a-zA-Z0-9_\-]+)/);
+      if (match && match[1]) {
+        cleanedId = match[1];
+      }
+    }
+    
+    const found = referrals.find(r => r.id === cleanedId);
+    if (found) {
+      playScanSuccessSound();
+      setTargetReferralScan(found);
+      if (found.id) {
+        handleAddToMetList(found.id);
+      }
+      setIsScanningReal(false);
+      showToast(`「${found.introducerName}」さんの紹介をピピッ！と読み込み完了！🎨`);
+    } else {
+      // Direct Firestore fetching for production-grade reliability
+      try {
+        const docSnap = await getDoc(doc(db, "referrals", cleanedId));
+        if (docSnap.exists()) {
+          const referralData = { id: docSnap.id, ...docSnap.data() } as Referral;
+          playScanSuccessSound();
+          setTargetReferralScan(referralData);
+          handleAddToMetList(docSnap.id);
+          setIsScanningReal(false);
+          showToast(`「${referralData.introducerName}」さんの紹介をピピッ！と読み込み完了！🎨`);
+        } else {
+          showToast("指定された紹介カード（QRコード）が見つかりません。⚠️");
+        }
+      } catch (err) {
+        console.error("Firestore fetch error on scan", err);
+        showToast("紹介コードの読み込み中にエラーが発生しました。⚠️");
+      }
+    }
+  };
+
+  useEffect(() => {
+    let isMounted = true;
+    let activeScanner: Html5Qrcode | null = null;
+
+    if (isScanningReal) {
+      setCameraError(null);
+      // Wait slightly for modal transition & DOM mount
+      const timer = setTimeout(() => {
+        if (!isMounted) return;
+        const container = document.getElementById("qr-reader-element");
+        if (!container) {
+          setCameraError("スキャン画面の準備が整いませんでした。");
+          return;
+        }
+
+        try {
+          const qrScanner = new Html5Qrcode("qr-reader-element");
+          activeScanner = qrScanner;
+
+          qrScanner.start(
+            { facingMode: activeFacingMode },
+            {
+              fps: 12,
+              qrbox: (width, height) => {
+                const size = Math.min(width, height) * 0.72;
+                return { width: size, height: size };
+              }
+            },
+            (decodedText) => {
+              handleScannedCode(decodedText);
+            },
+            () => {
+              // Verbose frame scans - silent
+            }
+          ).catch(err => {
+            console.error("Start camera scanner failed", err);
+            setCameraError("カメラを起動できません。ブラウザのカメラ使用許可を確認し、もう一度お試しください。");
+          });
+        } catch (err) {
+          console.error("Initiate scanner error", err);
+          setCameraError("スキャナーの初期化に失敗しました。");
+        }
+      }, 300);
+
+      return () => {
+        isMounted = false;
+        clearTimeout(timer);
+        if (activeScanner) {
+          if (activeScanner.isScanning) {
+            activeScanner.stop().catch(err => console.error("Scanner cleanup error", err));
+          }
+        }
+      };
+    }
+  }, [isScanningReal, activeFacingMode]);
 
   const handleManualCodeSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -483,22 +586,34 @@ export default function ReferralSection({ userIP, deviceId }: { userIP: string |
             </h3>
             <p className="text-xs font-bold text-stone-600 max-w-xl leading-relaxed">
               会場ではお互いのスマホ画面の<strong>【QRコードマーク】</strong>を表示してスキャン！<br />
-              1台のスマホのみでテストしたい場合は、下の<strong>「スキャン擬似体験」</strong>、または各紹介カードのコードを<strong>「手動入力」</strong>して、ピッ！と体験できます。
+              カメラを使って本番のQRコードを読み取る事も、1台のスマホのみで検証できる「スキャン擬似体験」でピピッ！と試す事も可能です。
             </p>
           </div>
           
-          <div className="w-full md:w-auto shrink-0">
+          <div className="flex flex-col sm:flex-row gap-3 w-full md:w-auto shrink-0">
+            {/* Real Camera QR Scanner button */}
             <button
+               type="button"
+               onClick={() => setIsScanningReal(true)}
+               className="flex items-center justify-center gap-2 bg-artistic-green hover:bg-emerald-500 text-white border-2 border-artistic-text px-6 py-3.5 rounded-2xl font-black text-xs md:text-sm tracking-tight transition-all shadow-[4px_4px_0px_0px_rgba(42,42,42,1)] hover:shadow-none hover:translate-x-[2px] hover:translate-y-[2px] active:scale-95 cursor-pointer"
+            >
+              <Camera size={16} className="animate-pulse" />
+              QRコードをスキャン 📸
+            </button>
+
+            {/* Test Simulation scanner button */}
+            <button
+              type="button"
               onClick={selectRandomReferralForSim}
               disabled={isScanningSim}
-              className={`w-full md:w-auto flex items-center justify-center gap-2 bg-artistic-primary text-white border-2 border-artistic-text px-6 py-3.5 rounded-2xl font-black text-xs md:text-sm tracking-tight transition-all shadow-[4px_4px_0px_0px_rgba(42,42,42,1)] ${
+              className={`flex items-center justify-center gap-2 bg-white hover:bg-stone-50 text-artistic-text border-2 border-artistic-text px-6 py-3.5 rounded-2xl font-black text-xs md:text-sm tracking-tight transition-all shadow-[4px_4px_0px_0px_rgba(42,42,42,1)] ${
                 isScanningSim 
                   ? "opacity-50 cursor-wait shadow-none translate-x-[2px] translate-y-[2px]" 
                   : "hover:shadow-none hover:translate-x-[2px] hover:translate-y-[2px] active:scale-95 cursor-pointer"
               }`}
             >
-              <Sparkles size={16} className={isScanningSim ? "animate-spin text-artistic-accent" : "animate-pulse text-white"} />
-              {isScanningSim ? "スキャン解析中..." : "スキャン擬似体験 (SE音付き) ⚡️"}
+              <Sparkles size={16} className={isScanningSim ? "animate-spin text-artistic-primary" : "text-artistic-primary"} />
+              {isScanningSim ? "スキャン解析中..." : "スキャン擬似体験 (テスト) ⚡️"}
             </button>
           </div>
         </div>
@@ -1301,6 +1416,128 @@ export default function ReferralSection({ userIP, deviceId }: { userIP: string |
                 別の参加者のQRをロックオンしています 📱⚡️<br />
                 アイスブレイクのきっかけを生成中...
               </p>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
+
+      {/* Real Camera Scanner Overlay */}
+      <AnimatePresence>
+        {isScanningReal && (
+          <div className="fixed inset-0 z-[350] flex items-center justify-center p-4">
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              onClick={() => setIsScanningReal(false)}
+              className="absolute inset-0 bg-black/80 backdrop-blur-md"
+            />
+            
+            <motion.div
+              initial={{ scale: 0.9, opacity: 0 }}
+              animate={{ scale: 1, opacity: 1 }}
+              exit={{ scale: 0.9, opacity: 0 }}
+              className="relative z-50 text-center text-white max-w-md w-full bg-stone-900 border-4 border-artistic-text p-6 md:p-8 rounded-[2.5rem] shadow-[24px_24px_0px_0px_rgba(42,42,42,1)]"
+            >
+              <div className="flex justify-between items-center mb-6 border-b border-white/10 pb-4">
+                <div className="text-left">
+                  <h4 className="text-xl font-black italic text-white flex items-center gap-1.5">
+                    <Camera size={20} className="text-artistic-green animate-pulse" />
+                    本番 QRスキャナー 📸
+                  </h4>
+                  <p className="text-[10px] font-bold text-stone-400 mt-1">お互いの紹介状QRコードにかざしてください</p>
+                </div>
+                <button 
+                  onClick={() => setIsScanningReal(false)}
+                  className="text-stone-400 hover:text-white bg-white/5 hover:bg-white/10 border border-white/10 p-2 rounded-xl transition-all"
+                >
+                  <X size={18} />
+                </button>
+              </div>
+
+              {cameraError ? (
+                <div className="bg-red-950/40 border-2 border-red-900 p-5 rounded-2xl text-left space-y-4 my-6">
+                  <span className="text-red-400 font-extrabold text-xs block">⚠️ カメラを起動できません：</span>
+                  <p className="text-[11px] font-bold text-red-100 leading-relaxed">
+                    {cameraError}
+                  </p>
+                  <p className="text-[10px] font-medium text-stone-400">
+                    ※ ブラウザのアドレスバーのロック（鍵）マーク等から、本サイトへの「カメラアクセス権限」が許可されているかご確認ください。
+                  </p>
+                  <div className="pt-2 flex flex-col gap-2">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setCameraError(null);
+                        // Trigger hot reload of scanner
+                        setActiveFacingMode(prev => prev === "environment" ? "user" : "environment");
+                      }}
+                      className="w-full bg-white/10 hover:bg-white/20 border border-white/20 text-white py-2.5 rounded-xl font-black text-xs transition-colors flex items-center justify-center gap-1.5 cursor-pointer"
+                    >
+                      <RefreshCw size={12} />
+                      再試行する
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setIsScanningReal(false);
+                        selectRandomReferralForSim();
+                      }}
+                      className="w-full bg-artistic-primary border-2 border-artistic-text text-white py-2.5 rounded-xl font-black text-xs shadow-[2px_2px_0px_0px_rgba(0,0,0,1)] transition-all flex items-center justify-center gap-1.5 cursor-pointer"
+                    >
+                      <Sparkles size={12} />
+                      代わりにテストシミュレーターを起動する ⚡️
+                    </button>
+                  </div>
+                </div>
+              ) : (
+                <div className="space-y-6">
+                  {/* Camera Viewer Element */}
+                  <div className="relative w-full aspect-square max-w-[280px] mx-auto border-4 border-artistic-text rounded-3xl overflow-hidden bg-black shadow-inner">
+                    {/* HTML5 QR Code Mount Node */}
+                    <div id="qr-reader-element" className="w-full h-full object-cover [&_video]:object-cover [&_video]:w-full [&_video]:h-full" />
+                    
+                    {/* Scanner laser sweeping animation with custom CSS defined in index.css */}
+                    <div className="absolute top-4 left-4 right-4 h-[2px] bg-emerald-400 shadow-[0_0_12px_#10b981] pointer-events-none animate-scanline" />
+                    
+                    {/* Artistic L-shapes to overlay corners */}
+                    <div className="absolute top-4 left-4 w-6 h-6 border-t-4 border-l-4 border-emerald-400 rounded-tl pointer-events-none" />
+                    <div className="absolute top-4 right-4 w-6 h-6 border-t-4 border-r-4 border-emerald-400 rounded-tr pointer-events-none" />
+                    <div className="absolute bottom-4 left-4 w-6 h-6 border-b-4 border-l-4 border-emerald-400 rounded-bl pointer-events-none" />
+                    <div className="absolute bottom-4 right-4 w-6 h-6 border-b-4 border-r-4 border-emerald-400 rounded-br pointer-events-none" />
+                  </div>
+
+                  <div className="flex justify-between items-center bg-white/5 border border-white/10 p-3 rounded-2xl">
+                    <span className="text-[10px] text-stone-400 font-extrabold text-left leading-relaxed">
+                      背面カメラが起動しない場合や、前面カメラに切り替えたい場合はトグルしてください。
+                    </span>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setActiveFacingMode(prev => prev === "environment" ? "user" : "environment");
+                      }}
+                      className="shrink-0 bg-white/10 hover:bg-white/20 hover:scale-105 active:scale-95 text-white border border-white/20 px-3 py-2 rounded-xl transition-all font-black text-[11px] flex items-center gap-1 cursor-pointer"
+                    >
+                      <RefreshCw size={13} />
+                      切り替え
+                    </button>
+                  </div>
+
+                  {/* Fallback to test simulated scanner */}
+                  <div className="text-center pt-2">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setIsScanningReal(false);
+                        selectRandomReferralForSim();
+                      }}
+                      className="text-[10px] font-black text-stone-400 hover:text-artistic-accent bg-transparent border border-stone-800 hover:border-artistic-accent px-4 py-2 rounded-xl transition-all cursor-pointer"
+                    >
+                      🧪 カメラを使わずに「スキャン擬似体験 (シミュレーター)」を試す
+                    </button>
+                  </div>
+                </div>
+              )}
             </motion.div>
           </div>
         )}

@@ -12,6 +12,13 @@
   --color-artistic-pink: #EF476F;
   --color-artistic-green: #06D6A0;
   --color-artistic-blue: #E6F0FF;
+
+  --animate-scanline: scanline 2.5s ease-in-out infinite;
+
+  @keyframes scanline {
+    0%, 100% { transform: translateY(0); }
+    50% { transform: translateY(240px); }
+  }
 }
 
 @layer base {

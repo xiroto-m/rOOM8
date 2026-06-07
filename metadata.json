@@ -1,6 +1,6 @@
 {
   "name": "rOOM8",
   "description": "代々木のマンションの8号室。みんなの『好き』を持ち寄って飾る、語る、繋がる場所、rOOM8の公式サイト。",
-  "requestFramePermissions": [],
+  "requestFramePermissions": ["camera"],
   "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
 }
