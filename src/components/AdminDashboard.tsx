@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { 
   auth, 
   db, 
@@ -37,7 +37,7 @@ import {
   updateDoc,
   onSnapshot
 } from 'firebase/firestore';
-import { EVENT_INFO } from '../constants';
+import { EVENT_INFO, FALLBACK_EVENTS } from '../constants';
 import { formatEventDate, isPastEvent } from '../lib/dateUtils';
 import { ensureSeedData } from '../lib/seedData';
 import { Link } from 'react-router-dom';
@@ -816,6 +816,12 @@ export default function AdminDashboard() {
   };
   const [isMobile, setIsMobile] = useState(false);
   const [events, setEvents] = useState<EventItem[]>([]);
+  
+  // Replicate front-end logic: show database past events, or fallback to constants if empty
+  const archivedEvents = useMemo(() => {
+    const localPast = events.filter(e => isPastEvent(e.date));
+    return localPast.length > 0 ? localPast : FALLBACK_EVENTS;
+  }, [events]);
   const [products, setProducts] = useState<Product[]>([]);
   const [analyticsData, setAnalyticsData] = useState<{date: string, count: number}[]>([]);
   const [deviceData, setDeviceData] = useState<{name: string, value: number}[]>([]);
@@ -1117,7 +1123,7 @@ export default function AdminDashboard() {
         'contact': 'フッター/SNS'
       };
       
-      const hasArchive = events.some(e => isPastEvent(e.date));
+      const hasArchive = events.some(e => isPastEvent(e.date)) || FALLBACK_EVENTS.length > 0;
       const hasProducts = EVENT_INFO.apps && EVENT_INFO.apps.length > 0;
       
       const sectionReachCounts: {[key: string]: number} = {
@@ -3570,13 +3576,12 @@ export default function AdminDashboard() {
 
             <div className="space-y-4 pt-12">
               <h3 className="text-lg font-black bg-stone-200 inline-block px-3 py-1 rounded-lg opacity-60">アーカイブ済みイベント (終了)</h3>
-              {events.filter(e => isPastEvent(e.date)).length === 0 && (
+              {archivedEvents.length === 0 && (
                 <p className="text-center py-6 text-gray-400 font-bold italic">アーカイブはありません</p>
               )}
-              {events.map((event, index) => {
-                if (!isPastEvent(event.date)) return null;
+              {archivedEvents.map((event, index) => {
                 return (
-                  <div key={event.id} className="bg-stone-50 border-2 border-artistic-text/30 p-4 rounded-xl flex flex-col md:flex-row justify-between md:items-center gap-4 opacity-70 grayscale hover:opacity-100 hover:grayscale-0 transition-all">
+                  <div key={event.id || `fallback-${index}`} className="bg-stone-50 border-2 border-artistic-text/30 p-4 rounded-xl flex flex-col md:flex-row justify-between md:items-center gap-4 opacity-70 grayscale hover:opacity-100 hover:grayscale-0 transition-all">
                     <div className="flex-1">
                       <div className="text-xs font-black opacity-40 mb-1">{event.date}</div>
                       <p className="font-black text-lg">{event.title || event.locationName}</p>
