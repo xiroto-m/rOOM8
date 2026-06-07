@@ -100,7 +100,7 @@ export default function QuickNavMenu({ onTrackAction }: QuickNavMenuProps) {
     { id: "location", label: "場所・アクセス", englishLabel: "MAP & ACCESS", icon: MapPin, color: "bg-[#E6F0FF] text-artistic-text border-2 border-artistic-text" },
     { id: "youtube-registration", label: "YouTube 登録・設備", englishLabel: "YOUTUBE", icon: Tv, color: "bg-stone-100 text-artistic-text" },
     { id: "party-connect", label: "作家紹介", englishLabel: "ARTISTS", icon: Users, color: "bg-[#FFFDF9] text-artistic-text" },
-    { id: "gallery", label: "イベントの雰囲気", englishLabel: "ROOM8 MOOD", icon: Camera, color: "bg-artistic-pink/15 text-artistic-text" },
+    { id: "gallery", label: "イベントの雰囲気", englishLabel: "rOOM8 MOOD", icon: Camera, color: "bg-artistic-pink/15 text-artistic-text" },
     { id: "past-events", label: "イベント写真", englishLabel: "PHOTOS", icon: ImageIcon, color: "bg-[#FFD166]/30 text-artistic-text" },
     { id: "lost-items", label: "忘れ物 / 落とし物", englishLabel: "LOST & FOUND", icon: Award, color: "bg-artistic-accent text-artistic-text" },
     { id: "products", label: "TapTack", englishLabel: "TAPTACK APP", icon: Smartphone, color: "bg-[#06D6A0]/20 text-artistic-text" },
