@@ -1472,7 +1472,98 @@ export default function ReferralSection({ userIP, deviceId }: { userIP: string |
               className="absolute inset-0 cursor-zoom-out"
             />
             
-            <div className="relative z-50 flex flex-col xl:flex-row items-center justify-center gap-6 max-w-5xl w-full">
+            {/* 🌟 USER-PROPOSED FLOATING DOCK MODE SELECTOR (Always visible, handles simulation state and camera toggles beautifully) */}
+            <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-[480] flex flex-col items-center gap-2 w-[92%] max-w-[350px]">
+              <div className="bg-stone-950/95 backdrop-blur-md border-2 border-stone-800 p-2.5 rounded-[1.8rem] shadow-[0_12px_44px_rgba(0,0,0,0.85)] w-full">
+                {/* Header Label / Simple Control bar */}
+                <div className="flex justify-between items-center px-2 pb-2 border-b border-stone-900 mb-2">
+                  <div className="flex items-center gap-1.5">
+                    <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
+                    <span className="text-[10px] font-black tracking-wider text-stone-200 uppercase flex items-center gap-1">
+                      {activeFacingMode === "simulation" ? "🧪 模擬スキャン実施中" : "📸 カメラ起動中"}
+                    </span>
+                  </div>
+                  <button
+                    onClick={() => {
+                      setIsScanningReal(false);
+                      showToast("スキャナーを閉じました 🚪");
+                    }}
+                    className="text-[10px] font-black text-rose-400 hover:text-rose-300 transition-colors cursor-pointer flex items-center gap-0.5"
+                  >
+                    閉じる 🚪
+                  </button>
+                </div>
+
+                {/* Grid of modes */}
+                <div className="grid grid-cols-3 gap-1.5 bg-stone-900 p-1 rounded-2xl">
+                  {/* Option 1: environment camera */}
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setCameraError(null);
+                      setActiveFacingMode("environment");
+                      showToast("外カメラ（背面）を起動しました！📸");
+                    }}
+                    className={`py-2 px-1 rounded-xl font-black text-[10px] md:text-[11px] tracking-tight transition-all flex flex-col items-center justify-center gap-1 cursor-pointer ${
+                      activeFacingMode === "environment"
+                        ? "bg-emerald-400 text-stone-950 font-black shadow-md"
+                        : "text-stone-400 hover:text-white hover:bg-stone-850"
+                    }`}
+                  >
+                    <Camera size={13} />
+                    <span>背面カメラ</span>
+                  </button>
+
+                  {/* Option 2: user camera */}
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setCameraError(null);
+                      setActiveFacingMode("user");
+                      showToast("内カメラを起動しました！🤳");
+                    }}
+                    className={`py-2 px-1 rounded-xl font-black text-[10px] md:text-[11px] tracking-tight transition-all flex flex-col items-center justify-center gap-1 cursor-pointer ${
+                      activeFacingMode === "user"
+                        ? "bg-emerald-400 text-stone-950 font-black shadow-md"
+                        : "text-stone-400 hover:text-white hover:bg-stone-850"
+                    }`}
+                  >
+                    <UserCheck size={13} />
+                    <span>内カメラ</span>
+                  </button>
+
+                  {/* Option 3: Simulation option. If simulate is active, we display "模擬を解除" to allow instant camera recovery */}
+                  <button
+                    type="button"
+                    onClick={() => {
+                      if (activeFacingMode === "simulation") {
+                        // Toggle Simulation OFF -> go back to standard environment camera
+                        setCameraError(null);
+                        setActiveFacingMode("environment");
+                        showToast("模擬モードを解除し、外カメラを再起動しました！📸");
+                      } else {
+                        // Toggle Simulation ON
+                        setCameraError(null);
+                        setActiveFacingMode("simulation");
+                        showToast("模擬スキャンを開始しました！🧪");
+                      }
+                    }}
+                    className={`py-2 px-1 rounded-xl font-black text-[10px] tracking-tight transition-all flex flex-col items-center justify-center gap-1 cursor-pointer border ${
+                      activeFacingMode === "simulation"
+                        ? "bg-artistic-primary text-white border-white animate-pulse"
+                        : "text-stone-400 hover:text-white border-transparent hover:bg-stone-850"
+                    }`}
+                  >
+                    <Sparkles size={13} className={activeFacingMode === "simulation" ? "animate-spin" : ""} />
+                    <span>
+                      {activeFacingMode === "simulation" ? "模擬解除 🔌" : "仮想模擬 🧪"}
+                    </span>
+                  </button>
+                </div>
+              </div>
+            </div>
+
+            <div className="relative z-50 flex flex-col xl:flex-row items-center justify-center gap-6 max-w-5xl w-full pb-24 xl:pb-0">
               
               {/* LEFT SIDE: Immersive Mode Controller & Info Panel (Hidden on Mobile, elegant sidebar on desktop) */}
               <motion.div
@@ -1560,82 +1651,14 @@ export default function ReferralSection({ userIP, deviceId }: { userIP: string |
                 </div>
               </motion.div>
 
-              {/* RIGHT SIDE / CENTER COLLAPSED: High-fidelity Virtual Smartphone & Switch Selector */}
-              <div className="flex flex-col items-center gap-4 w-full max-w-[345px] shrink-0">
-                
-                {/* Responsive Inline Mode Controller (Always visible, perfectly placed right above the mobile frame!) */}
-                <div className="w-full flex flex-col gap-2 bg-stone-950/95 border-2 border-stone-800 p-2.5 rounded-[1.8rem] shadow-2xl">
-                  {/* Mode Label */}
-                  <div className="flex justify-between items-center px-2">
-                    <span className="text-[9px] font-black tracking-wider text-stone-400 uppercase flex items-center gap-1">
-                      <span className="w-1.5 h-1.5 rounded-full bg-artistic-accent animate-ping" />
-                      スキャナー切替
-                    </span>
-                    <button
-                      onClick={() => setIsScanningReal(false)}
-                      className="text-[9px] font-black text-rose-400 hover:underline flex items-center gap-0.5 cursor-pointer"
-                    >
-                      閉じる 🚪
-                    </button>
-                  </div>
-
-                  {/* Selector Tabs */}
-                  <div className="grid grid-cols-3 gap-1 bg-stone-900 p-1 rounded-xl">
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setCameraError(null);
-                        setActiveFacingMode("environment");
-                      }}
-                      className={`py-2 px-1 rounded-lg font-black text-[9px] md:text-[10px] tracking-tight transition-all flex flex-col items-center justify-center gap-0.5 cursor-pointer ${
-                        activeFacingMode === "environment"
-                          ? "bg-artistic-green text-stone-950 font-black shadow-md rounded-lg"
-                          : "text-stone-400 hover:text-white hover:bg-stone-800"
-                      }`}
-                    >
-                      <Camera size={11} />
-                      背面カメラ
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setCameraError(null);
-                        setActiveFacingMode("user");
-                      }}
-                      className={`py-2 px-1 rounded-lg font-black text-[9px] md:text-[10px] tracking-tight transition-all flex flex-col items-center justify-center gap-0.5 cursor-pointer ${
-                        activeFacingMode === "user"
-                          ? "bg-artistic-green text-stone-950 font-black shadow-md rounded-lg"
-                          : "text-stone-400 hover:text-white hover:bg-stone-800"
-                      }`}
-                    >
-                      <UserCheck size={11} />
-                      内カメラ
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setCameraError(null);
-                        setActiveFacingMode("simulation");
-                      }}
-                      className={`py-2 px-1 rounded-lg font-black text-[9px] md:text-[10px] tracking-tight transition-all flex flex-col items-center justify-center gap-0.5 cursor-pointer ${
-                        activeFacingMode === "simulation"
-                          ? "bg-artistic-primary text-white font-black shadow-md rounded-lg"
-                          : "text-stone-400 hover:text-white hover:bg-stone-800"
-                      }`}
-                    >
-                      <Sparkles size={11} className="animate-pulse" />
-                      模擬モード
-                    </button>
-                  </div>
-                </div>
-
-                <motion.div
-                  initial={{ scale: 0.9, opacity: 0 }}
-                  animate={{ scale: 1, opacity: 1 }}
-                  exit={{ scale: 0.9, opacity: 0 }}
-                  className="relative w-[345px] h-[690px] bg-stone-900 rounded-[3.2rem] border-[8px] border-stone-800 shadow-[0_24px_50px_rgba(0,0,0,0.8),0_0_80px_rgba(255,82,27,0.12)] flex flex-col overflow-hidden select-none"
-                  onClick={(e) => e.stopPropagation()}
-                >
+              {/* RIGHT SIDE / CENTER: High-fidelity Responsive Virtual Smartphone Mockup */}
+              <motion.div
+                initial={{ scale: 0.9, opacity: 0 }}
+                animate={{ scale: 1, opacity: 1 }}
+                exit={{ scale: 0.9, opacity: 0 }}
+                className="relative w-[310px] xs:w-[345px] h-[76vh] min-h-[560px] max-h-[690px] md:h-[690px] bg-stone-900 rounded-[2.5rem] xs:rounded-[3.2rem] border-[6px] xs:border-[8px] border-stone-800 shadow-[0_24px_50px_rgba(0,0,0,0.85),0_0_80px_rgba(255,82,27,0.12)] flex flex-col overflow-hidden select-none shrink-0"
+                onClick={(e) => e.stopPropagation()}
+              >
                 {/* 1. Device Hardware Details: Dynamic Speaker Notch */}
                 <div className="absolute top-2 left-1/2 -translate-x-1/2 w-32 h-6 bg-stone-950 rounded-full flex items-center justify-around px-4 z-50">
                   <div className="w-12 h-1.5 bg-stone-800 rounded-full" />
@@ -1947,8 +1970,6 @@ export default function ReferralSection({ userIP, deviceId }: { userIP: string |
                 </div>
 
               </motion.div>
-
-              </div>
 
             </div>
           </div>
