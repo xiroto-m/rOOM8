@@ -41,9 +41,10 @@ import {
   deleteDoc
 } from "firebase/firestore";
 
+
 // Highly detailed vector state-of-the-art smartphone illustration scanning QR code accurately
 const SmartphoneScanIllustration = () => (
-  <div className="absolute bottom-4 right-4 w-28 h-36 pointer-events-none opacity-90 hover:opacity-100 transition-opacity duration-300 transform -rotate-[15deg] z-10">
+  <div className="absolute bottom-4 right-4 w-28 h-36 pointer-events-none opacity-95 hover:opacity-100 transition-opacity duration-300 transform -rotate-[12deg] z-10">
     <svg viewBox="0 0 120 150" className="w-full h-full drop-shadow-[0_12px_24px_rgba(0,0,0,0.65)]">
       <defs>
         {/* Dynamic metallic edge borders */}
@@ -92,32 +93,37 @@ const SmartphoneScanIllustration = () => (
       <path d="M 37 102 L 32 102 L 32 97" fill="none" stroke="#10b981" strokeWidth="1.5" strokeLinecap="round" />
       <path d="M 83 102 L 88 102 L 88 97" fill="none" stroke="#10b981" strokeWidth="1.5" strokeLinecap="round" />
 
-      {/* High-Contrast Precise QR Code inside viewport */}
+      {/* 🛡️ Low-Contrast Neon Mock-QR Display (Ignore-risk 100% for physical QR readers) */}
       <g transform="translate(43, 57)">
-        <rect x="0" y="0" width="34" height="34" rx="2" fill="#ffffff" />
-        {/* Finder 1 */}
-        <rect x="3" y="3" width="9" height="9" fill="#000000" />
-        <rect x="5" y="5" width="5" height="5" fill="#ffffff" />
-        <rect x="6" y="6" width="3" height="3" fill="#000000" />
-        {/* Finder 2 */}
-        <rect x="22" y="3" width="9" height="9" fill="#000000" />
-        <rect x="24" y="5" width="5" height="5" fill="#ffffff" />
-        <rect x="25" y="6" width="3" height="3" fill="#000000" />
-        {/* Finder 3 */}
-        <rect x="3" y="22" width="9" height="9" fill="#000000" />
-        <rect x="5" y="24" width="5" height="5" fill="#ffffff" />
-        <rect x="6" y="25" width="3" height="3" fill="#000000" />
-        {/* Matrix Data Points */}
-        <rect x="14" y="14" width="3" height="3" fill="#000000" />
-        <rect x="18" y="14" width="3" height="3" fill="#000000" />
-        <rect x="14" y="20" width="3" height="3" fill="#000000" />
-        <rect x="24" y="14" width="3" height="3" fill="#000000" />
-        <rect x="28" y="16" width="3" height="3" fill="#000000" />
-        <rect x="20" y="20" width="3" height="3" fill="#000000" />
-        <rect x="24" y="21" width="3" height="3" fill="#000000" />
-        <rect x="14" y="25" width="4" height="4" fill="#000000" />
-        <rect x="26" y="26" width="4" height="4" fill="#000000" />
-        <rect x="20" y="27" width="4" height="3" fill="#000000" />
+        {/* Soft, dark emerald backing instead of high-contrast solid white */}
+        <rect x="0" y="0" width="34" height="34" rx="3" fill="#022c22" stroke="#047857" strokeWidth="0.8" opacity="0.9" />
+        
+        {/* Mock-Finder 1 (Emerald instead of Black/White concentric squares) */}
+        <rect x="3" y="3" width="9" height="9" fill="#10b981" rx="1.5" />
+        <rect x="5" y="5" width="5" height="5" fill="#022c22" />
+        <rect x="6" y="6" width="3" height="3" fill="#10b981" />
+        
+        {/* Mock-Finder 2 */}
+        <rect x="22" y="3" width="9" height="9" fill="#10b981" rx="1.5" />
+        <rect x="24" y="5" width="5" height="5" fill="#022c22" />
+        <rect x="25" y="6" width="3" height="3" fill="#10b981" />
+        
+        {/* Mock-Finder 3 */}
+        <rect x="3" y="22" width="9" height="9" fill="#10b981" rx="1.5" />
+        <rect x="5" y="24" width="5" height="5" fill="#022c22" />
+        <rect x="6" y="25" width="3" height="3" fill="#10b981" />
+        
+        {/* Scattered soft matrix points */}
+        <rect x="14" y="14" width="3" height="3" fill="#047857" />
+        <rect x="18" y="14" width="3" height="3" fill="#10b981" />
+        <rect x="14" y="20" width="3" height="3" fill="#10b981" />
+        <rect x="24" y="14" width="3" height="3" fill="#047857" />
+        <rect x="28" y="16" width="3" height="3" fill="#10b981" opacity="0.8" />
+        <rect x="20" y="20" width="3" height="3" fill="#10b981" />
+        <rect x="24" y="21" width="3" height="3" fill="#047857" />
+        <rect x="14" y="25" width="4" height="4" fill="#10b981" opacity="0.7" />
+        <rect x="26" y="26" width="4" height="4" fill="#10b981" opacity="0.7" />
+        <rect x="20" y="27" width="4" height="3" fill="#047857" opacity="0.7" />
       </g>
 
       {/* Cybernetic Sweep Line on Mini Viewport */}
@@ -125,8 +131,12 @@ const SmartphoneScanIllustration = () => (
       <line x1="29" y1="71.7" x2="91" y2="71.7" stroke="#10b981" strokeWidth="1" />
 
       {/* HUD Info Text inside display */}
-      <text x="60" y="112" fill="#10b981" fontSize="4.2" fontFamily="monospace" fontWeight="950" textAnchor="middle" opacity="0.9">scanning...</text>
-      <text x="60" y="119" fill="#9ca3af" fontSize="3.5" fontFamily="monospace" textAnchor="middle" opacity="0.6">MATCH 100%</text>
+      <text x="60" y="111" fill="#10b981" fontSize="4" fontFamily="monospace" fontWeight="950" textAnchor="middle" opacity="0.9">scanning...</text>
+      <text x="60" y="117" fill="#9ca3af" fontSize="3.5" fontFamily="monospace" textAnchor="middle" opacity="0.6">MATCH 100%</text>
+
+      {/* ⚠️ Explicit Watermark Red Banner on the illustrative phone display so humans don't scan it */}
+      <rect x="20" y="123" width="80" height="9" rx="2" fill="#ef4444" opacity="0.9" />
+      <text x="60" y="129.5" fill="#ffffff" fontSize="4.2" fontFamily="sans-serif" fontWeight="950" textAnchor="middle">※スキャン不可 (イラスト)</text>
 
       {/* Decorative Circular Scan rings */}
       <circle cx="60" cy="74" r="32" fill="none" stroke="#10b981" strokeWidth="0.4" strokeDasharray="1,4" opacity="0.5" />
@@ -153,10 +163,7 @@ export default function ReferralSection({ userIP, deviceId }: { userIP: string |
   const [cameraError, setCameraError] = useState<string | null>(null);
   const [activeFacingMode, setActiveFacingMode] = useState<"environment" | "user" | "simulation">("environment");
 
-  // Customized "My QR Code Pass" card
-  const [myPassName, setMyPassName] = useState("Hiroto Mizutani");
-  const [myPassHandle, setMyPassHandle] = useState("@hiroto_m");
-  const [showPassEdit, setShowPassEdit] = useState(false);
+
   const [simulatedArtIndex, setSimulatedArtIndex] = useState(0);
 
   // Account-free guest collections state
@@ -660,10 +667,7 @@ export default function ReferralSection({ userIP, deviceId }: { userIP: string |
   };
 
   const getRecommendationShareUrl = (referral: Referral) => {
-    // Dynamic URL detection
-    const protocol = window.location.protocol;
-    const host = window.location.host;
-    return `${protocol}//${host}/#referral_${referral.id}`;
+    return `https://xiroto-m.github.io/rOOM8/#referral_${referral.id}`;
   };
 
   return (
@@ -1400,74 +1404,10 @@ export default function ReferralSection({ userIP, deviceId }: { userIP: string |
         })()}
       </AnimatePresence>
 
-      {/* Neo-Brutalist Custom Toast Alert */}
-      <AnimatePresence>
-        {toastMessage && (
-          <motion.div
-            initial={{ opacity: 0, y: 50, scale: 0.9 }}
-            animate={{ opacity: 1, y: 0, scale: 1 }}
-            exit={{ opacity: 0, y: 20, scale: 0.9 }}
-            className="fixed bottom-6 right-6 z-[300] bg-white border-4 border-artistic-text px-6 py-4 rounded-2xl shadow-[6px_6px_0px_0px_rgba(42,42,42,1)] flex items-center gap-3 max-w-sm"
-          >
-            <span className="text-xl">✨</span>
-            <p className="text-xs font-black text-stone-800">{toastMessage}</p>
-          </motion.div>
-        )}
-      </AnimatePresence>
-
-      {/* Neo-Brutalist Custom Delete Confirmation Dialog Modal */}
-      <AnimatePresence>
-        {referralToDelete && (
-          <div className="fixed inset-0 z-[260] flex items-center justify-center p-4">
-            <motion.div 
-              initial={{ opacity: 0 }} 
-              animate={{ opacity: 1 }} 
-              exit={{ opacity: 0 }}
-              onClick={() => setReferralToDelete(null)}
-              className="absolute inset-0 bg-artistic-text/75 backdrop-blur-sm"
-            />
-            
-            <motion.div
-              initial={{ scale: 0.9, y: 15 }}
-              animate={{ scale: 1, y: 0 }}
-              exit={{ scale: 0.9, y: 15 }}
-              className="bg-white border-4 border-artistic-text rounded-[2.5rem] w-full max-w-md p-6 relative z-50 shadow-[18px_18px_0px_0px_rgba(42,42,42,1)]"
-            >
-              <div className="text-center space-y-4">
-                <div className="bg-red-50 text-red-500 w-12 h-12 rounded-2xl border-2 border-red-500 flex items-center justify-center mx-auto text-xl font-black">
-                  ⚠️
-                </div>
-                <h4 className="font-black text-xl text-stone-800">
-                  本当に削除しますか？
-                </h4>
-                <p className="text-xs text-stone-500 font-bold leading-relaxed">
-                  この操作を実行すると、この作家紹介の紹介状データは完全に削除され、復元することはできません。
-                </p>
-                
-                <div className="flex gap-3 pt-4">
-                  <button
-                    onClick={() => setReferralToDelete(null)}
-                    className="flex-1 bg-[#F5F5F5] hover:bg-stone-200 border-2 border-artistic-text py-3 rounded-xl text-xs font-black transition-all active:scale-95 text-stone-700"
-                  >
-                    キャンセル
-                  </button>
-                  <button
-                    onClick={executeDeleteReferral}
-                    className="flex-1 bg-red-500 hover:bg-red-600 text-white border-2 border-artistic-text py-3 rounded-xl text-xs font-black shadow-[2px_2px_0px_0px_rgba(0,0,0,1)] transition-all active:scale-95"
-                  >
-                    削除する
-                  </button>
-                </div>
-              </div>
-            </motion.div>
-          </div>
-        )}
-      </AnimatePresence>
-
-      {/* Real Camera Scanner Overlay (Ugraded to Immersive Smartphone Frame) */}
+      {/* Real Camera Scanner Overlay (Highly Simplified & Clean Mode) */}
       <AnimatePresence>
         {isScanningReal && (
-          <div className="fixed inset-0 z-[400] flex items-center justify-center p-4 bg-stone-950/85 backdrop-blur-xl overflow-y-auto">
+          <div className="fixed inset-0 z-[400] flex items-center justify-center p-4 bg-stone-950/85 backdrop-blur-xl">
             {/* Dark outer backdrop to click out of modal */}
             <motion.div
               initial={{ opacity: 0 }}
@@ -1477,488 +1417,205 @@ export default function ReferralSection({ userIP, deviceId }: { userIP: string |
               className="absolute inset-0 cursor-zoom-out"
             />
             
-            <div className="relative z-50 flex flex-col xl:flex-row items-center justify-center gap-6 max-w-5xl w-full pb-24 xl:pb-0">
-              
-              {/* LEFT SIDE: Immersive Mode Controller & Info Panel (Hidden on Mobile, elegant sidebar on desktop) */}
-              <motion.div
-                initial={{ opacity: 0, x: -30 }}
-                animate={{ opacity: 1, x: 0 }}
-                exit={{ opacity: 0, x: -30 }}
-                className="hidden xl:flex text-white max-w-md w-full shrink-0 flex-col space-y-6"
-              >
-                <div className="space-y-3">
-                  <span className="inline-flex items-center gap-1.5 bg-artistic-primary text-white text-[10px] font-black uppercase tracking-[0.2em] px-4 py-1.5 rounded-full border border-stone-800 shadow-md">
-                    <Sparkles size={12} className="animate-spin text-white" />
-                    rOOM8 High-Fidelity Scan Center
-                  </span>
-                  <h3 className="text-3xl md:text-4xl font-black italic tracking-tighter leading-none">
-                    QRコネクト・ハブ 📱✨
-                  </h3>
-                  <p className="text-xs font-bold text-stone-400 leading-relaxed">
-                    スマホ画面上部にあなたのデジタル招待パス（マイQRコード）が輝き、カメラ画面はアニメーションが流れるスキャナーへと繋がっています。
-                  </p>
+            <motion.div
+              initial={{ scale: 0.95, opacity: 0 }}
+              animate={{ scale: 1, opacity: 1 }}
+              exit={{ scale: 0.95, opacity: 0 }}
+              className="relative z-50 w-full max-w-md bg-stone-900 border border-stone-800 rounded-3xl shadow-[0_32px_64px_rgba(0,0,0,0.85)] flex flex-col overflow-hidden select-none"
+              onClick={(e) => e.stopPropagation()}
+            >
+              {/* Header block */}
+              <div className="p-4 border-b border-stone-850 flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <Camera size={18} className="text-emerald-400" />
+                  <h3 className="text-sm font-black text-white tracking-wider">QRコードリーダー</h3>
                 </div>
+                <button
+                  type="button"
+                  onClick={() => setIsScanningReal(false)}
+                  className="w-8 h-8 rounded-full bg-stone-800 hover:bg-stone-700 text-stone-300 flex items-center justify-center text-xs border-none cursor-pointer transition-colors"
+                >
+                  ✕
+                </button>
+              </div>
 
-                <div className="bg-stone-900/60 border border-stone-850 p-5 rounded-3xl space-y-4">
-                  <span className="text-[10px] uppercase font-black tracking-wider text-stone-500 block">モード切り替えコントローラー</span>
-                  <div className="grid grid-cols-2 gap-3">
+              {/* Content block */}
+              <div className="p-4 flex flex-col gap-4">
+                {/* Controller Bar */}
+                <div className="flex justify-between items-center bg-stone-950 p-1.5 rounded-xl border border-stone-850">
+                  <div className="flex items-center gap-1.5 pl-2">
+                    <span className={`w-1.5 h-1.5 rounded-full ${activeFacingMode === "simulation" ? "bg-amber-400 animate-pulse" : "bg-emerald-400 animate-ping"}`} />
+                    <span className="text-[10px] font-black tracking-widest text-[#D4AF37] uppercase font-mono">
+                      {activeFacingMode === "simulation" ? "模擬スキャン" : "カメラ稼働中"}
+                    </span>
+                  </div>
+
+                  <div className="flex gap-1">
                     <button
                       type="button"
                       onClick={() => {
                         setCameraError(null);
                         setActiveFacingMode("environment");
+                        showToast("背面カメラに切り替えました！📸");
                       }}
-                      className={`py-3 px-4 rounded-xl font-black text-xs transition-all flex items-center justify-center gap-1.5 border cursor-pointer ${
+                      className={`px-2.5 py-1.5 rounded-lg text-[10px] font-black tracking-tight transition-all cursor-pointer border-none ${
                         activeFacingMode === "environment"
-                          ? "bg-artistic-green text-stone-950 border-white shadow-md font-black"
-                          : "bg-stone-800 text-stone-300 border-stone-700 hover:bg-stone-750"
+                          ? "bg-emerald-400 text-stone-950 font-black shadow-sm"
+                          : "text-stone-400 hover:text-white bg-transparent"
                       }`}
                     >
-                      <Camera size={13} />
-                      背面カメラ 📸
+                      背面
                     </button>
+
                     <button
                       type="button"
                       onClick={() => {
                         setCameraError(null);
                         setActiveFacingMode("user");
+                        showToast("インカメラに切り替えました！🤳");
                       }}
-                      className={`py-3 px-4 rounded-xl font-black text-xs transition-all flex items-center justify-center gap-1.5 border cursor-pointer ${
+                      className={`px-2.5 py-1.5 rounded-lg text-[10px] font-black tracking-tight transition-all cursor-pointer border-none ${
                         activeFacingMode === "user"
-                          ? "bg-artistic-green text-stone-950 border-white shadow-md font-black"
-                          : "bg-stone-800 text-stone-300 border-stone-700 hover:bg-stone-750"
+                          ? "bg-emerald-400 text-stone-950 font-black shadow-sm"
+                          : "text-stone-400 hover:text-white bg-transparent"
                       }`}
                     >
-                      <UserCheck size={13} />
-                      インカメラ 🤳
+                      内カメ
                     </button>
-                  </div>
 
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setCameraError(null);
-                      setActiveFacingMode("simulation");
-                    }}
-                    className={`w-full py-3 px-4 rounded-xl font-black text-xs transition-all flex items-center justify-center gap-1.5 border cursor-pointer ${
-                      activeFacingMode === "simulation"
-                        ? "bg-artistic-primary text-white border-white shadow-md"
-                        : "bg-stone-800 text-stone-400 border-stone-700 hover:bg-stone-750"
-                    }`}
-                  >
-                    <Sparkles size={13} className="animate-pulse text-white" />
-                    シミュレータに切り替え (カメラ不使用) ⚡
-                  </button>
-
-                  <p className="text-[10px] font-bold text-stone-500 leading-relaxed">
-                    ※ iframe環境やカメラ不許可の場合は、<strong>「シミュレータ」</strong>をオンにするか、<strong>下部の作家アイコン</strong>をタップして一瞬で推薦スキャンをピピッ！と検証できます。
-                  </p>
-                </div>
-
-                <div className="flex justify-start gap-4">
-                  <button
-                    onClick={() => setIsScanningReal(false)}
-                    className="bg-white hover:bg-stone-100 text-stone-900 border-2 border-stone-800 px-6 py-2.5 rounded-xl font-black text-xs shadow-[3px_3px_0px_0px_rgba(255,255,255,0.1)] hover:translate-x-[1px] hover:translate-y-[1px] active:scale-95 transition-all cursor-pointer"
-                  >
-                    閉じる 🚪
-                  </button>
-                </div>
-              </motion.div>
-
-              {/* RIGHT SIDE / CENTER: High-fidelity Responsive Virtual Smartphone Mockup */}
-              <motion.div
-                initial={{ scale: 0.9, opacity: 0 }}
-                animate={{ scale: 1, opacity: 1 }}
-                exit={{ scale: 0.9, opacity: 0 }}
-                className="relative w-[310px] xs:w-[345px] h-[76vh] min-h-[560px] max-h-[690px] md:h-[690px] bg-stone-900 rounded-[2.5rem] xs:rounded-[3.2rem] border-[6px] xs:border-[8px] border-stone-800 shadow-[0_24px_50px_rgba(0,0,0,0.85),0_0_80px_rgba(255,82,27,0.12)] flex flex-col overflow-hidden select-none shrink-0"
-                onClick={(e) => e.stopPropagation()}
-              >
-                {/* 1. Device Hardware Details: Dynamic Speaker Notch */}
-                <div className="absolute top-2 left-1/2 -translate-x-1/2 w-32 h-6 bg-stone-950 rounded-full flex items-center justify-around px-4 z-50">
-                  <div className="w-12 h-1.5 bg-stone-800 rounded-full" />
-                  <div className="w-2.5 h-2.5 bg-stone-900 rounded-full border border-stone-800" />
-                </div>
-
-                {/* 2. Device Status Bar Indicators */}
-                <div className="h-11 pt-4 px-6 flex justify-between items-center text-[10px] font-black text-stone-400 z-40 bg-zinc-950/20">
-                  <span>18:53</span>
-                  <div className="flex items-center gap-1.5 bg-black/10 py-0.5 px-2 rounded-full">
-                    <span className="text-[7.5px] bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 px-1 py-0.2 rounded-sm font-extrabold flex items-center leading-none">
-                      ● 5G
-                    </span>
-                    <span>📶</span>
-                    <span>🔋 94%</span>
-                  </div>
-                </div>
-
-                {/* 3. Screen View Area */}
-                <div className="flex-1 flex flex-col justify-between p-4 pt-1 pb-4 relative z-30">
-                  
-                  {/* DESIGN REQUISITE A: PHONE SCREEN TOP DISPLAYED OWN PASS ("スマホ画面上部にその人のQRコードが付いているデザイン") */}
-                  <div className="bg-stone-950/90 border border-stone-850 rounded-2xl p-3 flex items-center gap-3 shadow-2xl relative mt-1 group/card transition-all hover:border-stone-700">
-                    <div className="shrink-0 relative">
-                      <QRCodeSVG 
-                        value={JSON.stringify({ 
-                          type: "room8_guest_pass", 
-                          name: myPassName, 
-                          handle: myPassHandle,
-                          timestamp: Date.now() 
-                        })} 
-                        size={64} 
-                        className="bg-white p-1 rounded-lg shadow-md border border-white"
-                      />
-                      <span className="absolute -bottom-1 -right-1 bg-artistic-pink text-[7px] text-white px-1.2 py-0.2 rounded font-black border border-stone-950 animate-bounce">
-                        PASS
-                      </span>
-                    </div>
-
-                    <div className="flex-1 text-left min-w-0">
-                      <div className="flex items-center gap-1">
-                        <span className="w-1.5 h-1.5 rounded-full bg-artistic-green animate-ping" />
-                        <span className="text-[8px] font-black text-artistic-green uppercase tracking-widest leading-none">
-                          rOOM8 ACTIVE MEMBER
-                        </span>
-                      </div>
-                      
-                      <h5 className="font-black text-sm text-white truncate leading-tight mt-1">
-                        {myPassName}
-                      </h5>
-                      <p className="text-[10px] font-black text-stone-400 font-mono tracking-tighter truncate leading-none mt-0.5">
-                        {myPassHandle}
-                      </p>
-
-                      <button
-                        type="button"
-                        onClick={() => setShowPassEdit(!showPassEdit)}
-                        className="text-[9px] font-black text-artistic-accent hover:underline mt-2 flex items-center gap-0.5 cursor-pointer bg-transparent border-none"
-                      >
-                        <Edit2 size={8} />
-                        パス情報を編集する ✍️
-                      </button>
-                    </div>
-                  </div>
-
-                  {/* Accordion sub-pane: Pass editing inputs */}
-                  {showPassEdit && (
-                    <motion.div 
-                      initial={{ height: 0, opacity: 0 }}
-                      animate={{ height: "auto", opacity: 1 }}
-                      className="bg-stone-950 border border-stone-850 p-3 rounded-xl mt-1 space-y-2 text-left z-40 relative shadow-inner"
-                    >
-                      <div className="space-y-1">
-                        <span className="text-[8px] font-black uppercase text-stone-500 block">表示名</span>
-                        <input
-                          type="text"
-                          value={myPassName}
-                          onChange={(e) => setMyPassName(e.target.value)}
-                          className="w-full bg-stone-900 border border-stone-800 rounded px-2.5 py-1 text-xs font-bold text-white outline-none focus:border-artistic-accent"
-                          placeholder="Your Name"
-                        />
-                      </div>
-                      <div className="space-y-1">
-                        <span className="text-[8px] font-black uppercase text-stone-500 block">SNSハンドル/メッセージ</span>
-                        <input
-                          type="text"
-                          value={myPassHandle}
-                          onChange={(e) => setMyPassHandle(e.target.value)}
-                          className="w-full bg-stone-900 border border-stone-800 rounded px-2.5 py-1 text-xs font-bold text-white outline-none focus:border-artistic-accent"
-                          placeholder="@handle"
-                        />
-                      </div>
-                    </motion.div>
-                  )}
-
-                  {/* DESIGN REQUISITE B: ACTIVE SCANNER VIEWPORT */}
-                  <div className="flex-1 relative my-3 border-4 border-stone-800 bg-black rounded-3xl overflow-hidden shadow-2xl flex flex-col justify-center items-center">
-                    
-                    {/* 🌟 UNIFIED ULTRA-COMPACT HUD BAR (Overlaid inside the phone screen, always fully visible and responsive!) */}
-                    <div className="absolute top-2.5 left-2.5 right-2.5 z-30 flex items-center justify-between bg-stone-950/95 backdrop-blur-md border border-stone-800 p-1.2 rounded-2xl shadow-[0_8px_24px_rgba(0,0,0,0.8)]">
-                      <div className="flex items-center gap-1.5 pl-2 max-w-[55px]">
-                        <span className={`w-1.5 h-1.5 rounded-full shrink-0 ${activeFacingMode === "simulation" ? "bg-amber-400 animate-pulse" : "bg-emerald-400 animate-ping"}`} />
-                        <span className="text-[7.5px] font-black tracking-widest text-[#D4AF37] uppercase font-mono truncate leading-none">
-                          {activeFacingMode === "simulation" ? "模擬" : "実写"}
-                        </span>
-                      </div>
-
-                      {/* Pill segmented controller tabs */}
-                      <div className="flex gap-0.5 bg-stone-900/90 p-0.5 rounded-xl border border-stone-850">
-                        {/* Environment Facing camera */}
-                        <button
-                          type="button"
-                          onClick={() => {
-                            setCameraError(null);
-                            setActiveFacingMode("environment");
-                            showToast("背面カメラに切り替えました！📸");
-                          }}
-                          className={`px-1.5 xs:px-2 py-1 rounded-lg text-[8px] font-black tracking-tight transition-all flex items-center gap-0.5 cursor-pointer border-none ${
-                            activeFacingMode === "environment"
-                              ? "bg-emerald-400 text-stone-950 font-black shadow-sm"
-                              : "text-stone-400 hover:text-white bg-transparent"
-                          }`}
-                        >
-                          背面
-                        </button>
-
-                        {/* Front Facing camera */}
-                        <button
-                          type="button"
-                          onClick={() => {
-                            setCameraError(null);
-                            setActiveFacingMode("user");
-                            showToast("インカメラに切り替えました！🤳");
-                          }}
-                          className={`px-1.5 xs:px-2 py-1 rounded-lg text-[8px] font-black tracking-tight transition-all flex items-center gap-0.5 cursor-pointer border-none ${
-                            activeFacingMode === "user"
-                              ? "bg-emerald-400 text-stone-950 font-black shadow-sm"
-                              : "text-stone-400 hover:text-white bg-transparent"
-                          }`}
-                        >
-                          内カメ
-                        </button>
-
-                        {/* Simulation trigger / toggle */}
-                        <button
-                          type="button"
-                          onClick={() => {
-                            if (activeFacingMode === "simulation") {
-                              setCameraError(null);
-                              setActiveFacingMode("environment");
-                              showToast("模擬を解除し、外カメラを起動しました！📸");
-                            } else {
-                              setCameraError(null);
-                              setActiveFacingMode("simulation");
-                              showToast("仮想スキャン模擬モードを開始しました 🧪");
-                            }
-                          }}
-                          className={`px-1.5 xs:px-2 py-1 rounded-lg text-[8px] font-black tracking-tight transition-all flex items-center gap-1 cursor-pointer border-none ${
-                            activeFacingMode === "simulation"
-                              ? "bg-artistic-primary text-white border-white/20 animate-pulse font-black"
-                              : "text-stone-400 hover:text-white bg-transparent"
-                          }`}
-                        >
-                          {activeFacingMode === "simulation" ? "模擬ON 🧪" : "模擬 🧪"}
-                        </button>
-                      </div>
-
-                      {/* Clean circular Close button */}
-                      <button
-                        type="button"
-                        onClick={() => {
-                          setIsScanningReal(false);
-                          showToast("スキャナーを閉じました 🚪");
-                        }}
-                        className="w-5 h-5 bg-white/10 hover:bg-stone-850 hover:text-rose-400 text-stone-300 rounded-lg flex items-center justify-center text-[8px] font-extrabold cursor-pointer transition-all border-none shrink-0"
-                        title="閉じる"
-                      >
-                        ✕
-                      </button>
-                    </div>
-
-                    {activeFacingMode === "simulation" || cameraError ? (
-                      // SIMULATION VIEWPORT OR FALLBACK PREVIEW
-                      <div className="absolute inset-0 flex flex-col justify-between p-4 pt-16 overflow-hidden">
-                        {/* Simulation background representation */}
-                        <div className="absolute inset-0 bg-stone-950/70" />
-                        {creators.length > 0 ? (
-                          <div className="absolute inset-0 z-0">
-                            <motion.img 
-                              key={simulatedArtIndex}
-                              initial={{ opacity: 0, scale: 1.15 }}
-                              animate={{ opacity: 0.6, scale: 1 }}
-                              transition={{ duration: 1 }}
-                              src={creators[simulatedArtIndex % creators.length].imageUrl || "https://images.unsplash.com/photo-1544816155-12df9643f363?auto=format&fit=crop&q=80&w=600"}
-                              className="w-full h-full object-cover blur-xs scale-102"
-                            />
-                            {/* Rotating overlay representing artworks */}
-                            <div className="absolute inset-0 bg-gradient-to-b from-transparent via-stone-950/20 to-stone-900" />
-                          </div>
-                        ) : (
-                          <div className="absolute inset-0 bg-stone-800 z-0 opacity-40" />
-                        )}
-
-                        {/* Middle Simulated scanner target info (Redefined to fit perfectly under the HUD) */}
-                        <div className="relative z-10 text-center py-4 space-y-1 my-auto">
-                          <span className="text-[8px] font-black text-rose-400 bg-rose-500/15 px-2 py-0.5 rounded border border-rose-500/20 inline-block tracking-wider uppercase font-mono">
-                            AI SCAN-LOCK F-08
-                          </span>
-                          <h6 className="text-[10px] xs:text-[11px] font-black text-white px-2 leading-tight">
-                            {creators.length > 0 
-                              ? `「${creators[simulatedArtIndex % creators.length].name}」さんのフライヤーを検出`
-                              : "スキャナー準備中..."}
-                          </h6>
-                          <div className="flex flex-col items-center justify-center gap-1.5 mt-2 bg-stone-950/50 p-2 rounded-xl border border-stone-900 max-w-[210px] mx-auto">
-                            <p className="text-[7.5px] font-bold text-stone-400 leading-normal">
-                              メンバーアイコンタップ、または「見回す」でアートを切り替えてスキャン
-                            </p>
-                            <button
-                              type="button"
-                              onClick={() => {
-                                setSimulatedArtIndex(prev => prev + 1);
-                                playScanSuccessSound();
-                              }}
-                              className="bg-white/10 hover:bg-white/25 text-white rounded-full px-2 py-0.6 text-[8px] font-black cursor-pointer border border-white/5 active:scale-95 transition-all w-full text-center"
-                            >
-                              別のアートを見回す 🔄
-                            </button>
-                          </div>
-                        </div>
-
-                        {/* Success triggers block */}
-                        {creators.length > 0 && (
-                          <div className="relative z-10 mt-auto bg-stone-950/80 backdrop-blur-sm border border-stone-850 p-2.5 rounded-2xl flex items-center justify-between gap-2 shadow-xl">
-                            <div className="text-left min-w-0">
-                              <span className="text-[7.5px] font-black text-stone-500 uppercase tracking-widest block">作品タイトル</span>
-                              <h5 className="font-extrabold text-[10px] text-white truncate leading-tight">
-                                {creators[simulatedArtIndex % creators.length].bio || "作品展示中"}
-                              </h5>
-                            </div>
-                            <button
-                              type="button"
-                              onClick={() => {
-                                const matchedReferral = referrals.find(r => r.creatorId === creators[simulatedArtIndex % creators.length].id);
-                                if (matchedReferral) {
-                                  playScanSuccessSound();
-                                  setTargetReferralScan(matchedReferral);
-                                  if (matchedReferral.id) {
-                                    handleAddToMetList(matchedReferral.id);
-                                  }
-                                  setIsScanningReal(false);
-                                  showToast(`「${matchedReferral.introducerName}」さんの紹介を擬似スキャン！🎨`);
-                                } else {
-                                  showToast("この作家の紹介状がまだ書かれていません✍️");
-                                }
-                              }}
-                              className="bg-artistic-accent text-artistic-text font-black text-[9px] px-2.5 py-1.5 rounded-lg shrink-0 border border-artistic-text shadow-sm cursor-pointer"
-                            >
-                              スキャン接続 ⚡️
-                            </button>
-                          </div>
-                        )}
-                      </div>
-                    ) : (
-                      // REAL CAM VIEW MOUNT CONTAINER
-                      <div className="absolute inset-0 w-full h-full bg-black">
-                        <div id="qr-reader-element" className="w-full h-full object-cover [&_video]:object-cover [&_video]:w-full [&_video]:h-full" />
-                      </div>
-                    )}
-
-                    {/* MOVEMENT LASER SCAN LINE (DESIGN REQUISITE C) */}
-                    <motion.div
-                      animate={{ translateY: [-110, 110, -110] }}
-                      transition={{ repeat: Infinity, duration: 2.2, ease: "linear" }}
-                      className="absolute left-4 right-4 h-0.5 bg-emerald-400 shadow-[0_0_15px_#10b981,0_0_5px_#10b981] pointer-events-none z-20"
-                    />
-
-                    {/* Cyberpunk corner tracking braces overlay */}
-                    <div className="absolute top-4 left-4 w-6 h-6 border-t-4 border-l-4 border-emerald-400 rounded-tl pointer-events-none z-20" />
-                    <div className="absolute top-4 right-4 w-6 h-6 border-t-4 border-r-4 border-emerald-400 rounded-tr pointer-events-none z-20" />
-                    <div className="absolute bottom-4 left-4 w-6 h-6 border-b-4 border-l-4 border-emerald-400 rounded-bl pointer-events-none z-20" />
-                    <div className="absolute bottom-4 right-4 w-6 h-6 border-b-4 border-r-4 border-emerald-400 rounded-br pointer-events-none z-20" />
-
-                    {/* DETAILED RECENT USER REQUIREMENT FEATURE: GLOWING SMARTPHONE ILLUSTRATION STYLED RE-DRAWN */}
-                    <SmartphoneScanIllustration />
-                  </div>
-
-                  {/* Mode details or errors indicators inside phone */}
-                  {cameraError && activeFacingMode !== "simulation" && (
-                    <div className="bg-red-950/20 border border-red-900/50 p-2 rounded-xl text-left">
-                      <span className="text-red-400 font-extrabold text-[8px] uppercase tracking-wider block">⚠️ CAMERA INACTIVE</span>
-                      <p className="text-[9px] text-stone-300 font-bold leading-tight mt-0.5">
-                        iframe制限やカメラ未対応のため、シミュレータが起動します。
-                      </p>
-                    </div>
-                  )}
-
-                  {/* DESIGN REQUISITE D: THE BOTTOM SMARTPHONE NAVIGATION BAR - Faithful duplication of layout */}
-                  <div className="h-16 border-t border-stone-850 bg-stone-950 -mx-4 -mb-4 px-4.5 flex items-center justify-between z-40 bg-zinc-950/95 shadow-2xl">
-                    
-                    {/* Left portion: circular thumbnails of members (tapping executes mock scans!) */}
-                    <div className="flex -space-x-1.5 items-center">
-                      {creators.slice(0, 3).map((c, idx) => (
-                        <button
-                          key={c.id || idx}
-                          type="button"
-                          onClick={() => {
-                            const matchedReferral = referrals.find(r => r.creatorId === c.id);
-                            if (matchedReferral) {
-                              playScanSuccessSound();
-                              setTargetReferralScan(matchedReferral);
-                              if (matchedReferral.id) {
-                                handleAddToMetList(matchedReferral.id);
-                              }
-                              setIsScanningReal(false);
-                              showToast(`「${matchedReferral.introducerName}」さんの紹介をピピッ！と読み込み完了！🎨`);
-                            } else {
-                              showToast(`作家「${c.name}」さんの推薦紹介状がまだありません✍️`);
-                            }
-                          }}
-                          className="w-8 h-8 rounded-full border-1.5 border-stone-800 hover:border-artistic-accent bg-stone-800 overflow-hidden transform hover:scale-115 active:scale-95 transition-all shadow-md shrink-0 flex items-center justify-center cursor-pointer hover:z-20 relative group/icon"
-                          title={`${c.name}さんの紹介を読み込む`}
-                        >
-                          {c.imageUrl ? (
-                            <img src={c.imageUrl} alt={c.name} className="w-full h-full object-cover group-hover/icon:brightness-110" />
-                          ) : (
-                            <span className="text-[10px]">👤</span>
-                          )}
-                        </button>
-                      ))}
-
-                      {/* Empty filler circle (as seen in image) */}
-                      <div className="w-8 h-8 rounded-full border-1.5 border-stone-800 bg-stone-900 shadow-md shrink-0 flex items-center justify-center opacity-40">
-                        <span className="text-[9px] text-stone-500 font-bold">●</span>
-                      </div>
-                    </div>
-
-                    {/* Middle portion: the central glowing gold QR selector active tab (activates scan chime) */}
                     <button
                       type="button"
                       onClick={() => {
-                        playScanSuccessSound();
-                        showToast("スキャナー自動キャリブレーション実行！⚡️");
+                        if (activeFacingMode === "simulation") {
+                          setCameraError(null);
+                          setActiveFacingMode("environment");
+                          showToast("背面カメラを起動しました！📸");
+                        } else {
+                          setCameraError(null);
+                          setActiveFacingMode("simulation");
+                          showToast("仮想スキャン模擬モードを開始しました 🧪");
+                        }
                       }}
-                      className="w-11 h-11 rounded-xl bg-gradient-to-tr from-amber-500 to-amber-300 hover:from-amber-400 hover:to-amber-200 border-2 border-stone-950 flex items-center justify-center text-stone-950 shadow-[0_0_12px_rgba(245,158,11,0.4)] hover:scale-105 active:scale-95 transition-all cursor-pointer z-25 shrink-0"
-                      title="リフレッシュ・スキャナー"
+                      className={`px-2.5 py-1.5 rounded-lg text-[10px] font-black tracking-tight transition-all cursor-pointer border-none ${
+                        activeFacingMode === "simulation"
+                          ? "bg-artistic-primary text-white border-white/20 animate-pulse font-black"
+                          : "text-stone-400 hover:text-white bg-transparent"
+                      }`}
                     >
-                      <QrCode size={18} strokeWidth={2.5} />
+                      {activeFacingMode === "simulation" ? "模擬解除" : "模擬 🧪"}
                     </button>
-
-                    {/* Right portion: User profile portrait circular placeholder (represented in user's image) */}
-                    <button
-                      type="button"
-                      onClick={() => setShowPassEdit(!showPassEdit)}
-                      className="w-9 h-9 rounded-full border-2 border-stone-800 overflow-hidden shrink-0 flex items-center justify-center bg-gradient-to-tr from-artistic-primary to-[#FF8C00] shadow-lg hover:scale-110 active:scale-95 transition-all relative group/profile cursor-pointer"
-                      title="マイプロフィール"
-                    >
-                      {/* Beautiful abstract geometric pattern SVG */}
-                      <svg viewBox="0 0 100 100" className="w-full h-full object-cover group-hover/profile:scale-110 group-hover/profile:rotate-45 transition-all duration-500">
-                        <defs>
-                          <linearGradient id="abstractGrad" x1="0%" y1="0%" x2="100%" y2="100%">
-                            <stop offset="0%" stopColor="#ff521b" />
-                            <stop offset="50%" stopColor="#ff7b00" />
-                            <stop offset="100%" stopColor="#ff007b" />
-                          </linearGradient>
-                          <radialGradient id="glowGrad" cx="50%" cy="50%" r="50%">
-                            <stop offset="0%" stopColor="#ffffff" stopOpacity="0.8" />
-                            <stop offset="100%" stopColor="#ffffff" stopOpacity="0" />
-                          </radialGradient>
-                        </defs>
-                        <rect width="100" height="100" fill="url(#abstractGrad)" />
-                        <circle cx="30" cy="30" r="22" fill="#ffffff" opacity="0.15" />
-                        <polygon points="50,15 85,75 15,75" fill="#ffffff" opacity="0.2" />
-                        <line x1="10" y1="90" x2="90" y2="10" stroke="#ffffff" strokeWidth="3.5" opacity="0.35" />
-                        <circle cx="75" cy="35" r="14" fill="url(#glowGrad)" />
-                      </svg>
-                      {/* Active green status dot indicator */}
-                      <span className="absolute bottom-0 right-0 w-2.5 h-2.5 bg-emerald-500 border border-zinc-950 rounded-full" />
-                    </button>
-
                   </div>
-
                 </div>
 
-              </motion.div>
+                {/* Viewport Frame */}
+                <div className="relative aspect-square w-full border-2 border-stone-850 bg-black rounded-2xl overflow-hidden shadow-inner flex flex-col justify-center items-center">
+                  {activeFacingMode === "simulation" || cameraError ? (
+                    // SIMULATION MODE VIEWPORT
+                    <div className="absolute inset-0 flex flex-col justify-between p-4 overflow-hidden">
+                      {creators.length > 0 ? (
+                        <div className="absolute inset-0 z-0">
+                          <motion.img 
+                            key={simulatedArtIndex}
+                            initial={{ opacity: 0, scale: 1.1 }}
+                            animate={{ opacity: 0.5, scale: 1 }}
+                            transition={{ duration: 0.8 }}
+                            src={creators[simulatedArtIndex % creators.length].imageUrl || "https://images.unsplash.com/photo-1544816155-12df9643f363?auto=format&fit=crop&q=80&w=600"}
+                            className="w-full h-full object-cover blur-xs"
+                          />
+                          <div className="absolute inset-0 bg-stone-950/40" />
+                        </div>
+                      ) : (
+                        <div className="absolute inset-0 bg-stone-850 z-0 opacity-40" />
+                      )}
 
-            </div>
+                      <div className="relative z-10 text-center py-4 my-auto space-y-2">
+                        <span className="text-[10px] font-black text-rose-400 bg-rose-500/15 px-2.5 py-1 rounded border border-rose-500/20 inline-block tracking-wider uppercase font-mono">
+                          SIMULATION MODE
+                        </span>
+                        <h6 className="text-xs font-black text-white px-2">
+                          {creators.length > 0 
+                            ? `「${creators[simulatedArtIndex % creators.length].name}」さんの会場看板を検出中`
+                            : "スキャナー準備中..."}
+                        </h6>
+                        
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setSimulatedArtIndex(prev => prev + 1);
+                            playScanSuccessSound();
+                          }}
+                          className="bg-white/10 hover:bg-white/20 text-white rounded-full px-3 py-1.2 text-xs font-black cursor-pointer border border-white/5 active:scale-95 transition-all mx-auto inline-block"
+                        >
+                          会場看板を切り替える 🔄
+                        </button>
+                      </div>
+
+                      {creators.length > 0 && (
+                        <div className="relative z-10 bg-stone-950/90 border border-stone-850 p-3 rounded-xl flex items-center justify-between gap-3 shadow-lg">
+                          <div className="text-left min-w-0">
+                            <span className="text-[8px] font-black text-stone-500 uppercase tracking-widest block font-sans">作品タイトル</span>
+                            <h5 className="font-extrabold text-[11px] text-white truncate leading-tight font-sans">
+                              {creators[simulatedArtIndex % creators.length].bio || "作品展示中"}
+                            </h5>
+                          </div>
+                          <button
+                            type="button"
+                            onClick={() => {
+                              const matchedReferral = referrals.find(r => r.creatorId === creators[simulatedArtIndex % creators.length].id);
+                              if (matchedReferral) {
+                                playScanSuccessSound();
+                                setTargetReferralScan(matchedReferral);
+                                if (matchedReferral.id) {
+                                  handleAddToMetList(matchedReferral.id);
+                                }
+                                setIsScanningReal(false);
+                                showToast(`「${matchedReferral.introducerName}」さんの紹介を擬似スキャン！🎨`);
+                              } else {
+                                showToast("この作家の紹介状がまだ書かれていません✍️");
+                              }
+                            }}
+                            className="bg-artistic-accent text-artistic-text font-black text-[10px] px-3 py-2 rounded-lg border border-artistic-text cursor-pointer font-sans"
+                          >
+                            読み込む ⚡️
+                          </button>
+                        </div>
+                      )}
+                    </div>
+                  ) : (
+                    // REAL CAMERA COMPONENT MOUNT CONTAINER
+                    <div className="absolute inset-0 w-full h-full bg-black">
+                      <div id="qr-reader-element" className="w-full h-full object-cover [&_video]:object-cover [&_video]:w-full [&_video]:h-full" />
+                    </div>
+                  )}
+
+                  {/* GREEN LASER SCAN OVERLAY */}
+                  <motion.div
+                    animate={{ translateY: [-120, 120, -120] }}
+                    transition={{ repeat: Infinity, duration: 2.2, ease: "linear" }}
+                    className="absolute left-6 right-6 h-0.5 bg-emerald-400 shadow-[0_0_15px_#10b981,0_0_5px_#10b981] pointer-events-none z-20"
+                  />
+
+                  {/* Cyber corners */}
+                  <div className="absolute top-6 left-6 w-8 h-8 border-t-4 border-l-4 border-emerald-400 rounded-tl pointer-events-none z-20" />
+                  <div className="absolute top-6 right-6 w-8 h-8 border-t-4 border-r-4 border-emerald-400 rounded-tr pointer-events-none z-20" />
+                  <div className="absolute bottom-6 left-6 w-8 h-8 border-b-4 border-l-4 border-emerald-400 rounded-bl pointer-events-none z-20" />
+                  <div className="absolute bottom-6 right-6 w-8 h-8 border-b-4 border-r-4 border-emerald-400 rounded-br pointer-events-none z-20" />
+
+                  {/* Smartphone scan visual illustration overlay (faithfully restored as requested) */}
+                  <SmartphoneScanIllustration />
+                </div>
+
+                {/* Error Banner */}
+                {cameraError && activeFacingMode !== "simulation" && (
+                  <div className="bg-red-950/20 border border-red-900/50 p-3 rounded-xl text-left">
+                    <span className="text-red-400 font-extrabold text-[10px] uppercase tracking-wider block">⚠️ カメラ設定エラー</span>
+                    <p className="text-[11px] text-stone-300 font-bold leading-tight mt-1">
+                      カメラへのアクセスに失敗しました。セキュア通信等が必要な場合があります。模擬ボタンを使ってスキャンをお試しください。
+                    </p>
+                  </div>
+                )}
+              </div>
+            </motion.div>
           </div>
         )}
       </AnimatePresence>
