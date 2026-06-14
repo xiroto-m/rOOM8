@@ -88,6 +88,35 @@ const ANALYTICS_START_DATE = new Date('2026-05-13T00:00:00+09:00');
 
 const EventEditModal = ({ event, onSave, onClose, saving }: { event: EventItem, onSave: (event: EventItem) => void, onClose: () => void, saving: boolean }) => {
   const [formData, setFormData] = useState<EventItem>(event);
+  const [pickerDate, setPickerDate] = useState<string>(() => {
+    if (!event.date) return '';
+    const clean = event.date.replace(/\(.*?\)/g, '').replace(/（.*?）/g, '').trim();
+    const parts = clean.split('.');
+    if (parts.length === 3) {
+      const yyyy = parts[0];
+      const mm = parts[1].padStart(2, '0');
+      const dd = parts[2].padStart(2, '0');
+      return `${yyyy}-${mm}-${dd}`;
+    }
+    return '';
+  });
+
+  const handleDateChange = (dateVal: string) => {
+    setPickerDate(dateVal);
+    if (!dateVal) {
+      setFormData(prev => ({ ...prev, date: '' }));
+      return;
+    }
+    const d = new Date(dateVal);
+    if (!isNaN(d.getTime())) {
+      const yyyy = d.getFullYear();
+      const mm = String(d.getMonth() + 1).padStart(2, '0');
+      const dd = String(d.getDate()).padStart(2, '0');
+      const weekdays = ['日', '月', '火', '水', '木', '金', '土'];
+      const weekday = weekdays[d.getDay()];
+      setFormData(prev => ({ ...prev, date: `${yyyy}.${mm}.${dd}（${weekday}）` }));
+    }
+  };
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -114,16 +143,30 @@ const EventEditModal = ({ event, onSave, onClose, saving }: { event: EventItem, 
             />
           </div>
           <div className="grid md:grid-cols-2 gap-6">
-            <div className="space-y-2">
-              <label className="text-xs font-black uppercase opacity-60">開催日 (例: 2026.05.25 (月))</label>
-              <input 
-                type="text" 
-                required
-                placeholder="YYYY.MM.DD (曜)"
-                value={formData.date} 
-                onChange={e => setFormData({...formData, date: e.target.value})}
-                className="w-full border-2 border-artistic-text p-3 rounded-xl font-bold outline-none"
-              />
+            <div className="space-y-4 md:col-span-2 border-2 border-dashed border-stone-200 p-4 rounded-2xl bg-stone-50">
+              <div className="space-y-2">
+                <label className="text-xs font-black uppercase opacity-60 text-stone-900">開催日を選択 (カレンダー)</label>
+                <input 
+                  type="date" 
+                  value={pickerDate} 
+                  onChange={e => handleDateChange(e.target.value)}
+                  className="w-full border-2 border-artistic-text p-2 rounded-xl font-bold bg-white text-stone-900 outline-none"
+                />
+              </div>
+              <div className="space-y-2">
+                <label className="text-xs font-black uppercase opacity-60 text-stone-700">生成される開催日表記</label>
+                <input 
+                  type="text" 
+                  readOnly
+                  required
+                  placeholder="カレンダーから日付を選択してください"
+                  value={formData.date} 
+                  className="w-full border-2 border-stone-200 p-3 rounded-xl font-bold outline-none bg-stone-100 text-stone-500 cursor-not-allowed"
+                />
+                <p className="text-[11px] text-stone-500 font-medium">
+                  ※ カレンダーから選択すると、自動的に「YYYY.MM.DD（曜）」の形式（例: 2026.06.14（日））に統一・フォーマットされて設定されます。
+                </p>
+              </div>
             </div>
             <div className="space-y-2">
               <label className="text-xs font-black uppercase opacity-60">開始時間 (例: 13:00)</label>
